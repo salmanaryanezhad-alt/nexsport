@@ -16,7 +16,7 @@ import {
 import { Stepper } from "@/components/planner/Stepper";
 import { ScheduleView } from "@/components/planner/ScheduleView";
 
-const STORAGE_KEY = "nexsport_wizard_state_v3";
+const STORAGE_KEY = "nexsport_wizard_state_v4";
 
 const FORMAT_OPTIONS: { key: CompetitionFormat; title: string; desc: string }[] = [
   { key: "league", title: "لیگ", desc: "هر تیم یک‌بار با هر تیم دیگر بازی می‌کند." },
@@ -468,14 +468,19 @@ export default function PlannerPage() {
         <section>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold">نام تیم‌ها</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold">نام تیم‌ها</h1>
+                <span className="rounded-full bg-pitch/10 px-3 py-0.5 text-xs font-bold text-pitch border border-pitch/20">
+                  ظرفیت: {teamCount} تیم
+                </span>
+              </div>
               <p className="text-sm text-ink/60 mt-1">
-                نام‌ها باید یکتا باشند؛ می‌توانید تایپ کنید یا از ورود دسته‌جمعی استفاده کنید.
+                نام‌ها باید یکتا باشند؛ می‌توانید تک‌تک ویرایش کنید یا از ورود دسته‌جمعی استفاده کنید.
               </p>
             </div>
             <button
               onClick={() => setShowBulkModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/40 bg-pitch/5 px-3 py-1.5 text-xs font-bold text-pitch hover:bg-pitch hover:text-chalk transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/40 bg-pitch/5 px-3.5 py-2 text-xs font-bold text-pitch hover:bg-pitch hover:text-chalk transition-colors shadow-sm"
             >
               <span>📋 ورود دسته‌جمعی اسامی</span>
             </button>
@@ -544,32 +549,38 @@ export default function PlannerPage() {
 
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-1">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="text-ink/50">نمونه‌های سریع:</span>
+                  <span className="text-ink/50">درج خودکار نمونه‌ها در کادر:</span>
                   <button
-                    onClick={() => handleApplyBulk(PRESET_IRAN_LEAGUE)}
-                    className="rounded bg-white border border-line px-2.5 py-1 hover:border-pitch text-ink/75"
+                    type="button"
+                    onClick={() => setBulkText(PRESET_IRAN_LEAGUE.join("\n"))}
+                    className="rounded bg-white border border-line px-2.5 py-1 hover:border-pitch text-ink/75 font-medium"
+                    title="درج ۱۶ تیم لیگ برتر در کادر بالا"
                   >
-                    🇮🇷 لیگ برتر ایران (۱۶ تیم)
+                    🇮🇷 لیگ برتر ایران
                   </button>
                   <button
-                    onClick={() => handleApplyBulk(PRESET_EUROPE)}
-                    className="rounded bg-white border border-line px-2.5 py-1 hover:border-pitch text-ink/75"
+                    type="button"
+                    onClick={() => setBulkText(PRESET_EUROPE.join("\n"))}
+                    className="rounded bg-white border border-line px-2.5 py-1 hover:border-pitch text-ink/75 font-medium"
+                    title="درج ۱۶ باشگاه برتر اروپا در کادر بالا"
                   >
-                    ⚽ باشگاه‌های اروپا (۱۶ تیم)
+                    ⚽ باشگاه‌های اروپا
                   </button>
                 </div>
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     className={btnGhost}
                     onClick={() => setShowBulkModal(false)}
                   >
                     انصراف
                   </button>
                   <button
+                    type="button"
                     className={btnPrimary}
                     onClick={() => handleApplyBulk(bulkText.split(/[\n,]+/))}
                   >
-                    ثبت در جدول
+                    ثبت در جدول ({teamCount} تیم)
                   </button>
                 </div>
               </div>
