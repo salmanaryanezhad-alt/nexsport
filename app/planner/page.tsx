@@ -208,15 +208,40 @@ export default function PlannerPage() {
 
   function handleApplyBulk(names: string[]) {
     const valid = names.map((n) => n.trim()).filter((n) => n.length > 0);
-    if (valid.length >= 2) {
-      setTeamCount(valid.length);
-      setTeamNames(valid);
-      setShowBulkModal(false);
-      setBulkText("");
-      setInfoMessage(`✅ ${valid.length} تیم با موفقیت وارد شدند!`);
-      setTimeout(() => setInfoMessage(null), 3000);
+    if (valid.length === 0) {
+      alert("لطفاً حداقل ۱ نام تیم معتبر وارد کنید.");
+      return;
+    }
+
+    const nextNames: string[] = [];
+    // Populate up to teamCount
+    for (let i = 0; i < teamCount; i++) {
+      if (i < valid.length) {
+        nextNames.push(valid[i]);
+      } else {
+        // Keep existing name or default
+        nextNames.push(teamNames[i]?.trim() || `تیم ${i + 1}`);
+      }
+    }
+
+    setTeamNames(nextNames);
+    setShowBulkModal(false);
+    setBulkText("");
+
+    if (valid.length < teamCount) {
+      const remaining = teamCount - valid.length;
+      setInfoMessage(
+        `✅ تعداد اسامی واردشده (${valid.length} تیم) کمتر از ظرفیت مسابقه بود؛ ${valid.length} تیم اول جایگزین شدند و ${remaining} تیم با نام پیش‌فرض باقی ماندند.`
+      );
+      setTimeout(() => setInfoMessage(null), 4500);
+    } else if (valid.length > teamCount) {
+      setInfoMessage(
+        `⚠️ تعداد اسامی واردشده (${valid.length} تیم) بیشتر از تعداد تیم‌های مسابقه (${teamCount} تیم) است؛ تنها ${teamCount} تیم اول لیست به مسابقات وارد شدند.`
+      );
+      setTimeout(() => setInfoMessage(null), 5000);
     } else {
-      alert("لطفاً حداقل ۲ نام تیم معتبر وارد کنید.");
+      setInfoMessage(`✅ تمامی ${teamCount} تیم انتخابی با موفقیت در لیست مسابقات قرار گرفتند!`);
+      setTimeout(() => setInfoMessage(null), 3500);
     }
   }
 
@@ -458,11 +483,16 @@ export default function PlannerPage() {
 
           {/* Bulk Paste Modal / Drawer */}
           {showBulkModal && (
-            <div className="mb-6 rounded-xl border border-pitch/30 bg-pitch/5 p-5 animate-fade-in">
-              <h3 className="font-bold text-sm text-pitch mb-2">
-                چسباندن متن یا لیست اسامی (هر تیم در یک خط)
-              </h3>
-              <p className="text-xs text-ink/60 mb-3">
+            <div className="mb-6 rounded-xl border border-pitch/30 bg-pitch/5 p-5 animate-fade-in space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-pitch/15 pb-2.5">
+                <h3 className="font-bold text-sm text-pitch">
+                  چسباندن متن یا لیست اسامی (هر تیم در یک خط)
+                </h3>
+                <span className="rounded-full bg-pitch/10 px-3 py-0.5 text-xs font-bold text-pitch border border-pitch/20">
+                  🎯 ظرفیت مسابقه: {teamCount} تیم
+                </span>
+              </div>
+              <p className="text-xs text-ink/60">
                 می‌توانید لیست اسامی را از تلگرام، واتس‌اپ یا اکسل کپی کرده و اینجا پیست کنید:
               </p>
               <textarea
@@ -472,7 +502,47 @@ export default function PlannerPage() {
                 placeholder={"پرسپولیس\nاستقلال\nسپاهان\nتراکتور"}
                 className="w-full rounded-md border border-line bg-white p-3 text-sm focus:border-pitch focus:outline-none"
               />
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+
+              {bulkText.trim().length > 0 && (
+                <div className="text-xs">
+                  {bulkText.split(/[\n,]+/).map((s) => s.trim()).filter((s) => s.length > 0)
+                    .length < teamCount && (
+                    <span className="text-gold-dark font-medium">
+                      ℹ️{" "}
+                      {
+                        bulkText
+                          .split(/[\n,]+/)
+                          .map((s) => s.trim())
+                          .filter((s) => s.length > 0).length
+                      }{" "}
+                      تیم شناسایی شد. چون کمتر از {teamCount} تیم است، بقیه خانه‌ها با نام
+                      پیش‌فرض باقی خواهند ماند.
+                    </span>
+                  )}
+                  {bulkText.split(/[\n,]+/).map((s) => s.trim()).filter((s) => s.length > 0)
+                    .length > teamCount && (
+                    <span className="text-brick font-medium">
+                      ⚠️{" "}
+                      {
+                        bulkText
+                          .split(/[\n,]+/)
+                          .map((s) => s.trim())
+                          .filter((s) => s.length > 0).length
+                      }{" "}
+                      تیم شناسایی شد. چون بیشتر از ظرفیت است، تنها {teamCount} تیم اول وارد لیست
+                      خواهند شد.
+                    </span>
+                  )}
+                  {bulkText.split(/[\n,]+/).map((s) => s.trim()).filter((s) => s.length > 0)
+                    .length === teamCount && (
+                    <span className="text-pitch font-bold">
+                      ✓ {teamCount} تیم شناسایی شد (دقیقاً برابر با ظرفیت انتخابی مسابقه).
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-1">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="text-ink/50">نمونه‌های سریع:</span>
                   <button
@@ -499,7 +569,7 @@ export default function PlannerPage() {
                     className={btnPrimary}
                     onClick={() => handleApplyBulk(bulkText.split(/[\n,]+/))}
                   >
-                    ثبت و جایگزینی
+                    ثبت در جدول
                   </button>
                 </div>
               </div>
