@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 import {
   CompetitionFormat,
   ScheduleResult,
@@ -95,6 +96,7 @@ export default function PlannerPage() {
   // Bulk input modal state
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkText, setBulkText] = useState("");
+  const excelInputRef = useRef<HTMLInputElement | null>(null);
 
   // Avoidance helper selector state
   const [avoidTeamA, setAvoidTeamA] = useState("");
@@ -243,6 +245,88 @@ export default function PlannerPage() {
       setInfoMessage(`✅ تمامی ${teamCount} تیم انتخابی با موفقیت در لیست مسابقات قرار گرفتند!`);
       setTimeout(() => setInfoMessage(null), 3500);
     }
+  }
+
+  function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const firstSheetName = wb.SheetNames[0];
+        if (!firstSheetName) {
+          alert("فایل اکسل انتخاب‌شده هیچ برگه (Sheet) معتبری ندارد.");
+          return;
+        }
+        const ws = wb.Sheets[firstSheetName];
+        const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        const names: string[] = [];
+
+        for (const row of data) {
+          if (
+            Array.isArray(row) &&
+            row.length > 0 &&
+            row[0] !== undefined &&
+            row[0] !== null
+          ) {
+            const val = String(row[0]).trim();
+            const isHeader =
+              val === "نام تیم" ||
+              val === "نام" ||
+              val === "تیم" ||
+              val.toLowerCase() === "team" ||
+              val.toLowerCase() === "team name" ||
+              val.toLowerCase() === "teams";
+
+            if (val.length > 0 && !isHeader) {
+              names.push(val);
+            }
+          }
+        }
+
+        if (names.length === 0) {
+          alert(
+            "هیچ نام تیمی در ستون اول (ستون A) فایل اکسل یافت نشد. لطفاً دقت فرمایید اسامی تیم‌ها فقط در ستون اول نوشته شده باشند."
+          );
+          return;
+        }
+
+        setBulkText(names.join("\n"));
+        setShowBulkModal(true);
+        setInfoMessage(
+          `📊 تعداد ${names.length} تیم از ستون اول فایل اکسل با موفقیت استخراج شد.`
+        );
+        setTimeout(() => setInfoMessage(null), 4000);
+
+        if (excelInputRef.current) {
+          excelInputRef.current.value = "";
+        }
+      } catch {
+        alert("خطا در پردازش فایل اکسل. لطفاً از فایل معتبر با پسوند xlsx یا csv استفاده فرمایید.");
+      }
+    };
+    reader.readAsBinaryString(file);
+  }
+
+  function handleDownloadExcelTemplate() {
+    const wb = XLSX.utils.book_new();
+    const rows = [
+      ["اسامی تیم‌ها (فقط در همین ستون A)"],
+      ["تیم پرسپولیس"],
+      ["تیم استقلال"],
+      ["تیم سپاهان"],
+      ["تیم تراکتور"],
+      ["تیم فولاد"],
+      ["تیم گل‌گهر"],
+      ["تیم ملوان"],
+      ["تیم ذوب‌آهن"],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, "اسامی تیم‌ها");
+    XLSX.writeFile(wb, "nexsport-sample-teams.xlsx");
   }
 
   function handleGenerate(isRedraw = false) {
@@ -466,6 +550,15 @@ export default function PlannerPage() {
       {/* STEP 2: TEAM NAMES & BULK IMPORT */}
       {step === 2 && (
         <section>
+          {/* Hidden Excel File Input */}
+          <input
+            type="file"
+            ref={excelInputRef}
+            accept=".xlsx, .xls, .csv"
+            onChange={handleExcelUpload}
+            className="hidden"
+          />
+
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -475,38 +568,85 @@ export default function PlannerPage() {
                 </span>
               </div>
               <p className="text-sm text-ink/60 mt-1">
-                نام‌ها باید یکتا باشند؛ می‌توانید تک‌تک ویرایش کنید یا از ورود دسته‌جمعی استفاده کنید.
+                نام‌ها باید یکتا باشند؛ می‌توانید تایپ کنید، از فایل اکسل بخوانید یا پیست کنید.
               </p>
             </div>
-            <button
-              onClick={() => setShowBulkModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/40 bg-pitch/5 px-3.5 py-2 text-xs font-bold text-pitch hover:bg-pitch hover:text-chalk transition-colors shadow-sm"
-            >
-              <span>📋 ورود دسته‌جمعی اسامی</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => excelInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/40 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors shadow-sm"
+                title="بارگذاری اسامی آماده از فایل اکسل (.xlsx یا .csv)"
+              >
+                <span>📊 بارگذاری از اکسل</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/40 bg-pitch/5 px-3.5 py-2 text-xs font-bold text-pitch hover:bg-pitch hover:text-chalk transition-colors shadow-sm"
+              >
+                <span>📋 ورود متنی / چسباندن</span>
+              </button>
+            </div>
           </div>
 
           {/* Bulk Paste Modal / Drawer */}
           {showBulkModal && (
-            <div className="mb-6 rounded-xl border border-pitch/30 bg-pitch/5 p-5 animate-fade-in space-y-3">
+            <div className="mb-6 rounded-xl border border-pitch/30 bg-pitch/5 p-5 animate-fade-in space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-pitch/15 pb-2.5">
                 <h3 className="font-bold text-sm text-pitch">
-                  چسباندن متن یا لیست اسامی (هر تیم در یک خط)
+                  ورود اسامی تیم‌ها (از طریق فایل اکسل یا چسباندن متن)
                 </h3>
                 <span className="rounded-full bg-pitch/10 px-3 py-0.5 text-xs font-bold text-pitch border border-pitch/20">
                   🎯 ظرفیت مسابقه: {teamCount} تیم
                 </span>
               </div>
-              <p className="text-xs text-ink/60">
-                می‌توانید لیست اسامی را از تلگرام، واتس‌اپ یا اکسل کپی کرده و اینجا پیست کنید:
-              </p>
-              <textarea
-                rows={5}
-                value={bulkText}
-                onChange={(e) => setBulkText(e.target.value)}
-                placeholder={"پرسپولیس\nاستقلال\nسپاهان\nتراکتور"}
-                className="w-full rounded-md border border-line bg-white p-3 text-sm focus:border-pitch focus:outline-none"
-              />
+
+              {/* Excel notice & upload button */}
+              <div className="rounded-lg border border-emerald-300/80 bg-emerald-50/80 p-3.5 text-xs text-emerald-950 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-start gap-2 max-w-md">
+                  <span className="text-base mt-0.5">📊</span>
+                  <div className="leading-5">
+                    <span className="font-extrabold text-emerald-900">
+                      قانون بارگذاری اکسل:
+                    </span>{" "}
+                    اسامی تیم‌ها را صرفاً در{" "}
+                    <strong className="underline decoration-emerald-600 font-bold">
+                      ستون اول (ستون A)
+                    </strong>{" "}
+                    فایل اکسل وارد کنید. سطرهای خالی نادیده گرفته می‌شوند.
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => excelInputRef.current?.click()}
+                    className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 transition-colors shadow-xs"
+                  >
+                    📁 بارگذاری فایل اکسل (.xlsx)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadExcelTemplate}
+                    className="text-xs text-emerald-800 underline hover:text-emerald-950 font-semibold"
+                  >
+                    دانلود قالب نمونه
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-ink/70">
+                  یا اسامی را در کادر زیر پیست / تایپ کنید (هر تیم در یک سطر):
+                </label>
+                <textarea
+                  rows={5}
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  placeholder={"پرسپولیس\nاستقلال\nسپاهان\nتراکتور"}
+                  className="w-full rounded-md border border-line bg-white p-3 text-sm focus:border-pitch focus:outline-none"
+                />
+              </div>
 
               {bulkText.trim().length > 0 && (
                 <div className="text-xs">
