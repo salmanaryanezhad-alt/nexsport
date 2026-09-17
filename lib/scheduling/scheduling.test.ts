@@ -4,7 +4,7 @@ import {
 } from "./index";
 import { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 import { buildGroups } from "./groups";
-import { buildKnockout } from "./knockout";
+import { buildKnockout, computeKnockoutWithScores } from "./knockout";
 
 type TestFn = () => void;
 
@@ -628,6 +628,77 @@ test("گروهی + حذفی: تیم‌های هم‌گروه در دور اول 
       }
     }
   }
+});
+
+/* =========================================================
+   تست‌های قابلیت‌های پیشرفته جدید
+   ========================================================= */
+
+test("گروهی: قانون عدم برخورد (avoidPairs) - دو تیم نباید در یک گروه قرار بگیرند", () => {
+  const teams = ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴", "تیم ۵", "تیم ۶"];
+  const groups = buildGroups({
+    teams,
+    numGroups: 2,
+    seededTeams: [],
+    avoidPairs: [["تیم ۱", "تیم ۲"]],
+  });
+
+  assertEqual(groups.length, 2, "باید ۲ گروه تشکیل شود.");
+  const g1 = groups[0].teams;
+  const g2 = groups[1].teams;
+
+  const bothInG1 = g1.includes("تیم ۱") && g1.includes("تیم ۲");
+  const bothInG2 = g2.includes("تیم ۱") && g2.includes("تیم ۲");
+
+  assert(!bothInG1 && !bothInG2, "تیم‌های قانون عدم برخورد نباید در یک گروه قرار بگیرند.");
+});
+
+test("گروهی: اگر تفکیک avoidPairs غیرممکن باشد باید خطا بدهد", () => {
+  // 3 teams must avoid each other, but only 2 groups exist
+  assertThrows(
+    () =>
+      buildGroups({
+        teams: ["A", "B", "C", "D"],
+        numGroups: 2,
+        seededTeams: [],
+        avoidPairs: [
+          ["A", "B"],
+          ["B", "C"],
+          ["A", "C"],
+        ],
+      }),
+    "امکان‌پذیر نیست"
+  );
+});
+
+test("حذفی: مسابقه رده‌بندی برای مقام سوم (hasThirdPlace)", () => {
+  const knockout = buildKnockout({
+    teams: ["A", "B", "C", "D"],
+    seededTeams: [],
+    hasThirdPlace: true,
+  });
+
+  assert(knockout.thirdPlaceMatch !== null, "مسابقه رده‌بندی باید وجود داشته باشد.");
+  assertEqual(knockout.thirdPlaceMatch?.id, "m-third-place", "شناسه بازی رده‌بندی درست است.");
+});
+
+test("حذفی: صعود با ضربات پنالتی در صورت تساوی در وقت معمول", () => {
+  const knockout = buildKnockout({
+    teams: ["A", "B"],
+    seededTeams: ["A", "B"],
+  });
+
+  const finalMatchId = knockout.rounds[0].matches[0].id;
+  const result = computeKnockoutWithScores(knockout, {
+    [finalMatchId]: {
+      home: 2,
+      away: 2,
+      homePenalty: 5,
+      awayPenalty: 4,
+    },
+  });
+
+  assertEqual(result.champion, "A", "تیم A با پیروزی در پنالتی باید قهرمان شود.");
 });
 
 /* =========================================================

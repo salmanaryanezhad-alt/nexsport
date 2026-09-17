@@ -1,8 +1,9 @@
-import { ScheduleResult, BracketRound } from "./types";
+import { ScheduleResult, BracketRound, BracketMatch } from "./types";
+import { MatchScore } from "./knockout";
 
 export function formatScheduleAsText(
   result: ScheduleResult,
-  scores?: Record<string, { home: number | null; away: number | null }>
+  scores?: Record<string, MatchScore>
 ): string {
   const lines: string[] = [];
 
@@ -14,7 +15,11 @@ export function formatScheduleAsText(
     knockout: "مرحله حذفی",
   };
 
-  lines.push("🏆 برنامه مسابقات NexSport");
+  const title = result.metadata?.title || "برنامه مسابقات NexSport";
+  lines.push(`🏆 ${title}`);
+  if (result.metadata?.venue) {
+    lines.push(`📍 محل برگزاری: ${result.metadata.venue}`);
+  }
   lines.push(`فرمت مسابقه: ${formatTitleMap[result.format] || result.format}`);
   lines.push("━━━━━━━━━━━━━━━━━━━━━━━━━");
 
@@ -62,9 +67,9 @@ export function formatScheduleAsText(
       }
     }
     lines.push("\n🚩 بخش دوم: براکت مرحله حذفی");
-    appendKnockoutText(lines, result.knockout.rounds, scores);
+    appendKnockoutText(lines, result.knockout.rounds, result.knockout.thirdPlaceMatch, scores);
   } else if (result.format === "knockout") {
-    appendKnockoutText(lines, result.knockout.rounds, scores);
+    appendKnockoutText(lines, result.knockout.rounds, result.knockout.thirdPlaceMatch, scores);
   }
 
   lines.push("\n━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -73,10 +78,26 @@ export function formatScheduleAsText(
   return lines.join("\n");
 }
 
+function formatMatchScoreString(sc?: MatchScore | null): string {
+  if (!sc || sc.home === null || sc.away === null) return "";
+  let s = ` (${sc.home} - ${sc.away}`;
+  if (
+    sc.homePenalty !== null &&
+    sc.awayPenalty !== null &&
+    sc.homePenalty !== undefined &&
+    sc.awayPenalty !== undefined
+  ) {
+    s += ` | پنالتی: ${sc.homePenalty} - ${sc.awayPenalty}`;
+  }
+  s += ")";
+  return s;
+}
+
 function appendKnockoutText(
   lines: string[],
   rounds: BracketRound[],
-  scores?: Record<string, { home: number | null; away: number | null }>
+  thirdPlaceMatch?: BracketMatch | null,
+  scores?: Record<string, MatchScore>
 ) {
   for (const round of rounds) {
     lines.push(`\n🥊 ${round.label}:`);
@@ -84,10 +105,7 @@ function appendKnockoutText(
       const home = m.home ?? "نامشخص";
       const away = m.away ?? "نامشخص";
       const sc = scores && scores[m.id] ? scores[m.id] : null;
-      const scoreStr =
-        sc && sc.home !== null && sc.away !== null
-          ? ` (${sc.home} - ${sc.away})`
-          : "";
+      const scoreStr = formatMatchScoreString(sc);
       if (m.autoAdvance) {
         lines.push(`  ⚡ ${m.autoAdvance} (صعود مستقیم با استراحت Bye)`);
       } else {
@@ -95,14 +113,34 @@ function appendKnockoutText(
       }
     }
   }
+
+  if (thirdPlaceMatch) {
+    lines.push("\n🥉 دیدار رده‌بندی (مقام سوم):");
+    const home = thirdPlaceMatch.home ?? "بازنده نیمه‌نهایی ۱";
+    const away = thirdPlaceMatch.away ?? "بازنده نیمه‌نهایی ۲";
+    const sc = scores && scores[thirdPlaceMatch.id] ? scores[thirdPlaceMatch.id] : null;
+    const scoreStr = formatMatchScoreString(sc);
+    lines.push(`  ⚔️ ${home} 🆚 ${away}${scoreStr}`);
+  }
 }
 
 export function exportScheduleToCsv(
   result: ScheduleResult,
-  scores?: Record<string, { home: number | null; away: number | null }>
+  scores?: Record<string, MatchScore>
 ): string {
   const rows: string[][] = [
-    ["مرحله / دور", "گروه", "تیم میزبان", "گل میزبان", "گل میهمان", "تیم میهمان", "توضیحات"],
+    [
+      "مرحله / دور",
+      "گروه",
+      "تیم میزبان",
+      "گل میزبان",
+      "گل میهمان",
+      "تیم میهمان",
+      "پنالتی میزبان",
+      "پنالتی میهمان",
+      "برنده",
+      "توضیحات",
+    ],
   ];
 
   if (result.format === "league" || result.format === "double-league") {
@@ -116,6 +154,9 @@ export function exportScheduleToCsv(
           sc && sc.home !== null ? String(sc.home) : "",
           sc && sc.away !== null ? String(sc.away) : "",
           m.away,
+          "",
+          "",
+          sc?.winner ?? "",
           "",
         ]);
       }
@@ -133,6 +174,9 @@ export function exportScheduleToCsv(
             sc && sc.away !== null ? String(sc.away) : "",
             m.away,
             "",
+            "",
+            sc?.winner ?? "",
+            "",
           ]);
         }
       }
@@ -149,6 +193,9 @@ export function exportScheduleToCsv(
             sc && sc.home !== null ? String(sc.home) : "",
             sc && sc.away !== null ? String(sc.away) : "",
             m.away,
+            "",
+            "",
+            sc?.winner ?? "",
             "مرحله گروهی",
           ]);
         }
@@ -164,9 +211,28 @@ export function exportScheduleToCsv(
           sc && sc.home !== null ? String(sc.home) : "",
           sc && sc.away !== null ? String(sc.away) : "",
           m.away ?? "نامشخص",
+          sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
+          sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
+          sc?.winner ?? (m.autoAdvance ? m.autoAdvance : ""),
           m.autoAdvance ? "صعود مستقیم Bye" : "",
         ]);
       }
+    }
+    if (result.knockout.thirdPlaceMatch) {
+      const m = result.knockout.thirdPlaceMatch;
+      const sc = scores && scores[m.id] ? scores[m.id] : null;
+      rows.push([
+        "رده‌بندی (مقام سوم)",
+        "حذفی",
+        m.home ?? "بازنده نیمه‌نهایی ۱",
+        sc && sc.home !== null ? String(sc.home) : "",
+        sc && sc.away !== null ? String(sc.away) : "",
+        m.away ?? "بازنده نیمه‌نهایی ۲",
+        sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
+        sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
+        sc?.winner ?? "",
+        "مقام سوم و چهارم",
+      ]);
     }
   } else if (result.format === "knockout") {
     for (const round of result.knockout.rounds) {
@@ -179,9 +245,28 @@ export function exportScheduleToCsv(
           sc && sc.home !== null ? String(sc.home) : "",
           sc && sc.away !== null ? String(sc.away) : "",
           m.away ?? "نامشخص",
+          sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
+          sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
+          sc?.winner ?? (m.autoAdvance ? m.autoAdvance : ""),
           m.autoAdvance ? "صعود مستقیم Bye" : "",
         ]);
       }
+    }
+    if (result.knockout.thirdPlaceMatch) {
+      const m = result.knockout.thirdPlaceMatch;
+      const sc = scores && scores[m.id] ? scores[m.id] : null;
+      rows.push([
+        "رده‌بندی (مقام سوم)",
+        "-",
+        m.home ?? "بازنده نیمه‌نهایی ۱",
+        sc && sc.home !== null ? String(sc.home) : "",
+        sc && sc.away !== null ? String(sc.away) : "",
+        m.away ?? "بازنده نیمه‌نهایی ۲",
+        sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
+        sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
+        sc?.winner ?? "",
+        "مقام سوم و چهارم",
+      ]);
     }
   }
 

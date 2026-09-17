@@ -1,4 +1,9 @@
-import { BracketMatch, BracketRound, KnockoutResult, ScheduleValidationError } from "./types";
+import {
+  BracketMatch,
+  BracketRound,
+  KnockoutResult,
+  ScheduleValidationError,
+} from "./types";
 import { shuffle } from "./shuffle";
 
 const BYE = null;
@@ -9,11 +14,6 @@ export function nextPowerOfTwo(n: number): number {
   return p;
 }
 
-/**
- * Classic tournament seeding order, e.g. for size 8: [1,8,4,5,2,7,3,6].
- * Keeps seed 1 and seed 2 on opposite halves of the bracket, and seeds
- * 1-4 apart from each other for as long as possible.
- */
 export function seedOrder(size: number): number[] {
   let order = [1, 2];
   while (order.length < size) {
@@ -39,13 +39,60 @@ export const roundLabel = (roundsFromFinal: number): string => {
 export interface MatchScore {
   home: number | null;
   away: number | null;
+  homePenalty?: number | null;
+  awayPenalty?: number | null;
   winner?: string | null;
+}
+
+function resolveWinner(
+  home: string | null,
+  away: string | null,
+  sc?: MatchScore,
+  autoAdvance?: string | null
+): string | null {
+  if (sc) {
+    if (sc.winner) return sc.winner;
+    if (
+      sc.home !== null &&
+      sc.away !== null &&
+      sc.home !== undefined &&
+      sc.away !== undefined &&
+      !isNaN(Number(sc.home)) &&
+      !isNaN(Number(sc.away))
+    ) {
+      const h = Number(sc.home);
+      const a = Number(sc.away);
+      if (h > a) return home;
+      if (a > h) return away;
+
+      // Draw: check penalties
+      if (
+        sc.homePenalty !== null &&
+        sc.homePenalty !== undefined &&
+        sc.awayPenalty !== null &&
+        sc.awayPenalty !== undefined &&
+        !isNaN(Number(sc.homePenalty)) &&
+        !isNaN(Number(sc.awayPenalty))
+      ) {
+        const hp = Number(sc.homePenalty);
+        const ap = Number(sc.awayPenalty);
+        if (hp > ap) return home;
+        if (ap > hp) return away;
+      }
+    }
+  }
+  return autoAdvance ?? null;
 }
 
 export function computeKnockoutWithScores(
   knockout: KnockoutResult,
   scores: Record<string, MatchScore>
-): { knockout: KnockoutResult; champion: string | null } {
+): {
+  knockout: KnockoutResult;
+  champion: string | null;
+  runnerUp: string | null;
+  thirdPlace: string | null;
+} {
   const rounds: BracketRound[] = knockout.rounds.map((round) => ({
     round: round.round,
     label: round.label,
@@ -74,51 +121,86 @@ export function computeKnockoutWithScores(
       if (sc) {
         match.homeScore = sc.home;
         match.awayScore = sc.away;
-        if (sc.winner) {
-          match.winner = sc.winner;
-        } else if (
-          sc.home !== null &&
-          sc.away !== null &&
-          !isNaN(Number(sc.home)) &&
-          !isNaN(Number(sc.away))
-        ) {
-          if (Number(sc.home) > Number(sc.away)) {
-            match.winner = match.home;
-          } else if (Number(sc.away) > Number(sc.home)) {
-            match.winner = match.away;
-          } else {
-            match.winner = null;
-          }
-        } else {
-          match.winner = match.autoAdvance ?? null;
-        }
-      } else {
-        match.winner = match.autoAdvance ?? null;
+        match.homePenalty = sc.homePenalty;
+        match.awayPenalty = sc.awayPenalty;
       }
+      match.winner = resolveWinner(match.home, match.away, sc, match.autoAdvance);
     }
   }
 
+  // Champion and Runner Up from final
   const finalRound = rounds[rounds.length - 1];
   const finalMatch = finalRound?.matches[0];
   const champion = finalMatch?.winner ?? null;
+  const runnerUp =
+    champion && finalMatch?.home && finalMatch?.away
+      ? champion === finalMatch.home
+        ? finalMatch.away
+        : finalMatch.home
+      : null;
+
+  // Third Place Match
+  let thirdPlaceMatch: BracketMatch | null = null;
+  let thirdPlace: string | null = null;
+
+  if (knockout.thirdPlaceMatch && rounds.length >= 2) {
+    const semiRound = rounds[rounds.length - 2];
+    const sf1 = semiRound.matches[0];
+    const sf2 = semiRound.matches[1];
+
+    const loser1 =
+      sf1?.winner && sf1.home && sf1.away
+        ? sf1.winner === sf1.home
+          ? sf1.away
+          : sf1.home
+        : null;
+
+    const loser2 =
+      sf2?.winner && sf2.home && sf2.away
+        ? sf2.winner === sf2.home
+          ? sf2.away
+          : sf2.home
+        : null;
+
+    const sc = scores[knockout.thirdPlaceMatch.id];
+
+    thirdPlaceMatch = {
+      ...knockout.thirdPlaceMatch,
+      home: loser1,
+      away: loser2,
+      homeScore: sc?.home ?? null,
+      awayScore: sc?.away ?? null,
+      homePenalty: sc?.homePenalty ?? null,
+      awayPenalty: sc?.awayPenalty ?? null,
+      winner: resolveWinner(loser1, loser2, sc, null),
+    };
+
+    thirdPlace = thirdPlaceMatch.winner ?? null;
+  }
 
   return {
     knockout: {
       bracketSize: knockout.bracketSize,
       byes: knockout.byes,
       rounds,
+      thirdPlaceMatch,
     },
     champion,
+    runnerUp,
+    thirdPlace,
   };
 }
 
-/**
- * Constructs a single-elimination bracket from an explicit list of slot teams
- * (length must be a power of 2 >= 2).
- */
+export interface BuildKnockoutParams {
+  teams: string[];
+  seededTeams: string[];
+  hasThirdPlace?: boolean;
+}
+
 export function buildKnockoutFromSlots(
   slotTeams: (string | null)[],
-  byesCount?: number
+  byesCount?: number,
+  hasThirdPlace = false
 ): KnockoutResult {
   const bracketSize = slotTeams.length;
   if (bracketSize < 2 || (bracketSize & (bracketSize - 1)) !== 0) {
@@ -169,20 +251,26 @@ export function buildKnockoutFromSlots(
     previousMatches = matches;
   }
 
-  return { bracketSize, byes, rounds };
+  let thirdPlaceMatch: BracketMatch | null = null;
+  if (hasThirdPlace && bracketSize >= 4) {
+    thirdPlaceMatch = {
+      id: "m-third-place",
+      round: totalRounds,
+      slot: 1,
+      home: null,
+      away: null,
+      autoAdvance: null,
+    };
+  }
+
+  return { bracketSize, byes, rounds, thirdPlaceMatch };
 }
 
-export interface BuildKnockoutParams {
-  teams: string[];
-  seededTeams: string[];
-}
-
-/**
- * Builds a single-elimination bracket. Teams beyond the ordered
- * `seededTeams` list fill the remaining seed slots in their given order.
- * Byes are awarded to the top seeds.
- */
-export function buildKnockout({ teams, seededTeams }: BuildKnockoutParams): KnockoutResult {
+export function buildKnockout({
+  teams,
+  seededTeams,
+  hasThirdPlace = false,
+}: BuildKnockoutParams): KnockoutResult {
   if (teams.length < 2) {
     throw new ScheduleValidationError("برای تولید براکت حذفی حداقل به ۲ تیم نیاز است.");
   }
@@ -204,22 +292,17 @@ export function buildKnockout({ teams, seededTeams }: BuildKnockoutParams): Knoc
   const order = seedOrder(bracketSize);
   const slotTeams: (string | typeof BYE)[] = order.map((seed) => seedToTeam.get(seed) ?? BYE);
 
-  return buildKnockoutFromSlots(slotTeams, byes);
+  return buildKnockoutFromSlots(slotTeams, byes, hasThirdPlace);
 }
 
-/**
- * Builds a crossover knockout bracket from group stage qualifiers.
- * For 2 qualifiers per group:
- * Guarantees that the 1st and 2nd place from the SAME group are placed
- * in opposite halves of the bracket (they cannot meet before the Final),
- * and round 1 pairs 1st of one group against 2nd of another group.
- */
 export function buildGroupsKnockout({
   groupNames,
   qualifiersPerGroup,
+  hasThirdPlace = false,
 }: {
   groupNames: string[];
   qualifiersPerGroup: number;
+  hasThirdPlace?: boolean;
 }): KnockoutResult {
   const totalQualifiers = groupNames.length * qualifiersPerGroup;
   if (totalQualifiers < 2) {
@@ -272,7 +355,6 @@ export function buildGroupsKnockout({
       }
     }
   } else {
-    // 3 or more qualifiers per group
     const teamList: string[] = [];
     for (let pos = 1; pos <= qualifiersPerGroup; pos++) {
       const posLabel = pos === 1 ? "قهرمان" : pos === 2 ? "نایب‌قهرمان" : `تیم ${pos}`;
@@ -296,5 +378,5 @@ export function buildGroupsKnockout({
     slotTeams.push(matches[i].away);
   }
 
-  return buildKnockoutFromSlots(slotTeams, byes);
+  return buildKnockoutFromSlots(slotTeams, byes, hasThirdPlace);
 }

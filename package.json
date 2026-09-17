@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx lib/scheduling/scheduling.test.ts"
+    "test": "npx tsx lib/scheduling/scheduling.test.ts"
   },
   "dependencies": {
     "next": "14.2.15",

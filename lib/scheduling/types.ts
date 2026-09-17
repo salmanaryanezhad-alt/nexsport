@@ -9,10 +9,12 @@ export interface Match {
   id?: string;
   home: string;
   away: string;
-  /** BYE matches are generated internally for odd team counts and filtered before display */
   isBye?: boolean;
   homeScore?: number | null;
   awayScore?: number | null;
+  date?: string;
+  time?: string;
+  venue?: string;
 }
 
 export interface RoundRobinRound {
@@ -32,13 +34,17 @@ export interface BracketMatch {
   slot: number;
   home: string | null;
   away: string | null;
-  /** true when one side is a BYE and the other auto-advances */
   autoAdvance?: string | null;
   homeScore?: number | null;
   awayScore?: number | null;
+  homePenalty?: number | null;
+  awayPenalty?: number | null;
   winner?: string | null;
   sourceMatchHomeId?: string;
   sourceMatchAwayId?: string;
+  date?: string;
+  time?: string;
+  venue?: string;
 }
 
 export interface BracketRound {
@@ -51,11 +57,13 @@ export interface KnockoutResult {
   bracketSize: number;
   byes: number;
   rounds: BracketRound[];
+  thirdPlaceMatch?: BracketMatch | null;
 }
 
 export interface LeagueScheduleInput {
   format: "league" | "double-league";
   teams: string[];
+  metadata?: TournamentMetadata;
 }
 
 export interface GroupsScheduleInput {
@@ -64,12 +72,24 @@ export interface GroupsScheduleInput {
   numGroups: number;
   seededTeams: string[];
   qualifiersPerGroup: number;
+  avoidPairs?: [string, string][];
+  hasThirdPlace?: boolean;
+  metadata?: TournamentMetadata;
 }
 
 export interface KnockoutScheduleInput {
   format: "knockout";
   teams: string[];
   seededTeams: string[];
+  hasThirdPlace?: boolean;
+  metadata?: TournamentMetadata;
+}
+
+export interface TournamentMetadata {
+  title?: string;
+  venue?: string;
+  startDate?: string;
+  matchIntervalDays?: number;
 }
 
 export type ScheduleInput =
@@ -81,23 +101,28 @@ export type ScheduleResult =
   | {
       format: "league";
       rounds: RoundRobinRound[];
+      metadata?: TournamentMetadata;
     }
   | {
       format: "double-league";
       rounds: RoundRobinRound[];
+      metadata?: TournamentMetadata;
     }
   | {
       format: "groups";
       groups: GroupResult[];
+      metadata?: TournamentMetadata;
     }
   | {
       format: "groups-knockout";
       groups: GroupResult[];
       knockout: KnockoutResult;
+      metadata?: TournamentMetadata;
     }
   | {
       format: "knockout";
       knockout: KnockoutResult;
+      metadata?: TournamentMetadata;
     };
 
 export class ScheduleValidationError extends Error {}

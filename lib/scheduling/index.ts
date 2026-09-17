@@ -35,18 +35,27 @@ export function generateSchedule(input: ScheduleInput): ScheduleResult {
 
   switch (input.format) {
     case "league":
-      return { format: "league", rounds: generateSingleRoundRobin(input.teams) };
+      return {
+        format: "league",
+        rounds: generateSingleRoundRobin(input.teams),
+        metadata: input.metadata,
+      };
 
     case "double-league":
-      return { format: "double-league", rounds: generateDoubleRoundRobin(input.teams) };
+      return {
+        format: "double-league",
+        rounds: generateDoubleRoundRobin(input.teams),
+        metadata: input.metadata,
+      };
 
     case "groups": {
       const groups = buildGroups({
         teams: input.teams,
         numGroups: input.numGroups,
         seededTeams: input.seededTeams,
+        avoidPairs: input.avoidPairs,
       });
-      return { format: "groups", groups };
+      return { format: "groups", groups, metadata: input.metadata };
     }
 
     case "groups-knockout": {
@@ -54,19 +63,30 @@ export function generateSchedule(input: ScheduleInput): ScheduleResult {
         teams: input.teams,
         numGroups: input.numGroups,
         seededTeams: input.seededTeams,
+        avoidPairs: input.avoidPairs,
       });
 
       const knockout = buildGroupsKnockout({
         groupNames: groups.map((g) => g.name),
         qualifiersPerGroup: input.qualifiersPerGroup,
+        hasThirdPlace: input.hasThirdPlace,
       });
 
-      return { format: "groups-knockout", groups, knockout };
+      return {
+        format: "groups-knockout",
+        groups,
+        knockout,
+        metadata: input.metadata,
+      };
     }
 
     case "knockout": {
-      const knockout = buildKnockout({ teams: input.teams, seededTeams: input.seededTeams });
-      return { format: "knockout", knockout };
+      const knockout = buildKnockout({
+        teams: input.teams,
+        seededTeams: input.seededTeams,
+        hasThirdPlace: input.hasThirdPlace,
+      });
+      return { format: "knockout", knockout, metadata: input.metadata };
     }
 
     default: {

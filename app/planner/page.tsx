@@ -8,6 +8,7 @@ import {
   ScheduleValidationError,
   generateSchedule,
   MatchScore,
+  TournamentMetadata,
   formatScheduleAsText,
   exportScheduleToCsv,
   downloadCsvFile,
@@ -15,7 +16,7 @@ import {
 import { Stepper } from "@/components/planner/Stepper";
 import { ScheduleView } from "@/components/planner/ScheduleView";
 
-const STORAGE_KEY = "nexsport_wizard_state_v2";
+const STORAGE_KEY = "nexsport_wizard_state_v3";
 
 const FORMAT_OPTIONS: { key: CompetitionFormat; title: string; desc: string }[] = [
   { key: "league", title: "لیگ", desc: "هر تیم یک‌بار با هر تیم دیگر بازی می‌کند." },
@@ -27,12 +28,48 @@ const FORMAT_OPTIONS: { key: CompetitionFormat; title: string; desc: string }[] 
 
 const STEP_LABELS = ["نوع مسابقه", "تعداد تیم‌ها", "نام تیم‌ها", "تنظیمات", "نتیجه"];
 
+const PRESET_IRAN_LEAGUE = [
+  "پرسپولیس",
+  "استقلال",
+  "سپاهان",
+  "تراکتور",
+  "فولاد خوزستان",
+  "گل‌گهر سیرجان",
+  "ملوان بندرانزلی",
+  "ذوب‌آهن",
+  "مس رفسنجان",
+  "نساجی مازندران",
+  "آلومینیوم اراک",
+  "شمس‌آذر قزوین",
+  "استقلال خوزستان",
+  "خیبر خرم‌آباد",
+  "چادرملو اردکان",
+  "هوادار تهران",
+];
+
+const PRESET_EUROPE = [
+  "رئال مادرید",
+  "بارسلونا",
+  "منچسترسیتی",
+  "آرسنال",
+  "بایرن مونیخ",
+  "لیورپول",
+  "اینتر میلان",
+  "پاری‌سن‌ژرمن",
+  "یوونتوس",
+  "اتلتیکو مادرید",
+  "دورتموند",
+  "میلان",
+  "چلسی",
+  "بایر لورکوزن",
+  "منچستر یونایتد",
+  "اسپورتینگ",
+];
+
 const btnPrimary =
   "inline-flex items-center justify-center rounded-md bg-pitch px-4 py-2.5 text-sm font-semibold text-chalk transition-colors hover:bg-pitch-light disabled:cursor-not-allowed disabled:opacity-40";
 const btnGhost =
   "inline-flex items-center justify-center rounded-md border border-line px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-line/40";
-const btnGold =
-  "inline-flex items-center justify-center rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-gold-light";
 
 export default function PlannerPage() {
   const [step, setStep] = useState(0);
@@ -42,12 +79,26 @@ export default function PlannerPage() {
   const [numGroups, setNumGroups] = useState(2);
   const [qualifiersPerGroup, setQualifiersPerGroup] = useState(2);
   const [seededTeams, setSeededTeams] = useState<string[]>([]);
+  const [avoidPairs, setAvoidPairs] = useState<[string, string][]>([]);
+  const [hasThirdPlace, setHasThirdPlace] = useState(false);
+  const [metadata, setMetadata] = useState<TournamentMetadata>({
+    title: "",
+    venue: "",
+  });
   const [result, setResult] = useState<ScheduleResult | null>(null);
   const [scores, setScores] = useState<Record<string, MatchScore>>({});
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Bulk input modal state
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+
+  // Avoidance helper selector state
+  const [avoidTeamA, setAvoidTeamA] = useState("");
+  const [avoidTeamB, setAvoidTeamB] = useState("");
 
   // Restore from LocalStorage on mount
   useEffect(() => {
@@ -63,6 +114,10 @@ export default function PlannerPage() {
         if (typeof parsed.qualifiersPerGroup === "number")
           setQualifiersPerGroup(parsed.qualifiersPerGroup);
         if (Array.isArray(parsed.seededTeams)) setSeededTeams(parsed.seededTeams);
+        if (Array.isArray(parsed.avoidPairs)) setAvoidPairs(parsed.avoidPairs);
+        if (typeof parsed.hasThirdPlace === "boolean")
+          setHasThirdPlace(parsed.hasThirdPlace);
+        if (parsed.metadata) setMetadata(parsed.metadata);
         if (parsed.result) setResult(parsed.result);
         if (parsed.scores) setScores(parsed.scores);
       }
@@ -87,6 +142,9 @@ export default function PlannerPage() {
           numGroups,
           qualifiersPerGroup,
           seededTeams,
+          avoidPairs,
+          hasThirdPlace,
+          metadata,
           result,
           scores,
         })
@@ -103,12 +161,16 @@ export default function PlannerPage() {
     numGroups,
     qualifiersPerGroup,
     seededTeams,
+    avoidPairs,
+    hasThirdPlace,
+    metadata,
     result,
     scores,
   ]);
 
   const needsGroupRules = format === "groups" || format === "groups-knockout";
   const needsSeedRules = format === "knockout" || needsGroupRules;
+  const supportsThirdPlace = format === "knockout" || format === "groups-knockout";
 
   const namesReady =
     teamNames.length === teamCount && teamNames.every((t) => t.trim().length > 0);
@@ -127,11 +189,48 @@ export default function PlannerPage() {
     );
   }
 
+  function handleAddAvoidPair() {
+    if (!avoidTeamA || !avoidTeamB || avoidTeamA === avoidTeamB) return;
+    const exists = avoidPairs.some(
+      ([a, b]) =>
+        (a === avoidTeamA && b === avoidTeamB) || (a === avoidTeamB && b === avoidTeamA)
+    );
+    if (!exists) {
+      setAvoidPairs([...avoidPairs, [avoidTeamA, avoidTeamB]]);
+    }
+    setAvoidTeamA("");
+    setAvoidTeamB("");
+  }
+
+  function handleRemoveAvoidPair(index: number) {
+    setAvoidPairs(avoidPairs.filter((_, i) => i !== index));
+  }
+
+  function handleApplyBulk(names: string[]) {
+    const valid = names.map((n) => n.trim()).filter((n) => n.length > 0);
+    if (valid.length >= 2) {
+      setTeamCount(valid.length);
+      setTeamNames(valid);
+      setShowBulkModal(false);
+      setBulkText("");
+      setInfoMessage(`✅ ${valid.length} تیم با موفقیت وارد شدند!`);
+      setTimeout(() => setInfoMessage(null), 3000);
+    } else {
+      alert("لطفاً حداقل ۲ نام تیم معتبر وارد کنید.");
+    }
+  }
+
   function handleGenerate(isRedraw = false) {
     setError(null);
     try {
       if (!format) throw new ScheduleValidationError("نوع مسابقه انتخاب نشده است.");
       let r: ScheduleResult;
+
+      const trimmedMetadata: TournamentMetadata = {
+        title: metadata.title?.trim() || undefined,
+        venue: metadata.venue?.trim() || undefined,
+      };
+
       if (format === "groups" || format === "groups-knockout") {
         r = generateSchedule({
           format,
@@ -139,16 +238,29 @@ export default function PlannerPage() {
           numGroups,
           seededTeams,
           qualifiersPerGroup,
+          avoidPairs,
+          hasThirdPlace,
+          metadata: trimmedMetadata,
         });
       } else if (format === "knockout") {
-        r = generateSchedule({ format, teams: teamNames, seededTeams });
+        r = generateSchedule({
+          format,
+          teams: teamNames,
+          seededTeams,
+          hasThirdPlace,
+          metadata: trimmedMetadata,
+        });
       } else {
-        r = generateSchedule({ format, teams: teamNames });
+        r = generateSchedule({
+          format,
+          teams: teamNames,
+          metadata: trimmedMetadata,
+        });
       }
 
       setResult(r);
       if (isRedraw) {
-        setScores({}); // Reset scores for fresh draw
+        setScores({});
         setInfoMessage("🎲 قرعه‌کشی مجدد با موفقیت انجام شد!");
         setTimeout(() => setInfoMessage(null), 3500);
       }
@@ -176,6 +288,9 @@ export default function PlannerPage() {
       setNumGroups(2);
       setQualifiersPerGroup(2);
       setSeededTeams([]);
+      setAvoidPairs([]);
+      setHasThirdPlace(false);
+      setMetadata({ title: "", venue: "" });
       setResult(null);
       setScores({});
       setError(null);
@@ -183,10 +298,24 @@ export default function PlannerPage() {
     }
   }
 
+  function handleResetScores() {
+    if (
+      window.confirm(
+        "آیا مطمئن هستید؟ تمامی گل‌ها و نتایج ثبت‌شده پاک می‌شوند اما جدول بازی‌ها حفظ خواهد شد."
+      )
+    ) {
+      setScores({});
+      setInfoMessage("🧹 تمامی نتایج بازی‌ها بازنشانی شدند.");
+      setTimeout(() => setInfoMessage(null), 3000);
+    }
+  }
+
   function handleScoreChange(
     matchId: string,
     home: number | null,
     away: number | null,
+    homePenalty?: number | null,
+    awayPenalty?: number | null,
     winner?: string | null
   ) {
     setScores((prev) => {
@@ -194,6 +323,10 @@ export default function PlannerPage() {
       next[matchId] = {
         home,
         away,
+        homePenalty:
+          homePenalty !== undefined ? homePenalty : prev[matchId]?.homePenalty,
+        awayPenalty:
+          awayPenalty !== undefined ? awayPenalty : prev[matchId]?.awayPenalty,
         winner: winner !== undefined ? winner : prev[matchId]?.winner,
       };
       return next;
@@ -305,13 +438,74 @@ export default function PlannerPage() {
         </section>
       )}
 
-      {/* STEP 2: TEAM NAMES */}
+      {/* STEP 2: TEAM NAMES & BULK IMPORT */}
       {step === 2 && (
         <section>
-          <h1 className="text-2xl font-bold mb-2">نام تیم‌ها</h1>
-          <p className="text-sm text-ink/60 mb-6">
-            نام‌ها باید یکتا باشند؛ می‌توانید نام پیش‌فرض را ویرایش کنید.
-          </p>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold">نام تیم‌ها</h1>
+              <p className="text-sm text-ink/60 mt-1">
+                نام‌ها باید یکتا باشند؛ می‌توانید تایپ کنید یا از ورود دسته‌جمعی استفاده کنید.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowBulkModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/40 bg-pitch/5 px-3 py-1.5 text-xs font-bold text-pitch hover:bg-pitch hover:text-chalk transition-colors"
+            >
+              <span>📋 ورود دسته‌جمعی اسامی</span>
+            </button>
+          </div>
+
+          {/* Bulk Paste Modal / Drawer */}
+          {showBulkModal && (
+            <div className="mb-6 rounded-xl border border-pitch/30 bg-pitch/5 p-5 animate-fade-in">
+              <h3 className="font-bold text-sm text-pitch mb-2">
+                چسباندن متن یا لیست اسامی (هر تیم در یک خط)
+              </h3>
+              <p className="text-xs text-ink/60 mb-3">
+                می‌توانید لیست اسامی را از تلگرام، واتس‌اپ یا اکسل کپی کرده و اینجا پیست کنید:
+              </p>
+              <textarea
+                rows={5}
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder={"پرسپولیس\nاستقلال\nسپاهان\nتراکتور"}
+                className="w-full rounded-md border border-line bg-white p-3 text-sm focus:border-pitch focus:outline-none"
+              />
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-ink/50">نمونه‌های سریع:</span>
+                  <button
+                    onClick={() => handleApplyBulk(PRESET_IRAN_LEAGUE)}
+                    className="rounded bg-white border border-line px-2.5 py-1 hover:border-pitch text-ink/75"
+                  >
+                    🇮🇷 لیگ برتر ایران (۱۶ تیم)
+                  </button>
+                  <button
+                    onClick={() => handleApplyBulk(PRESET_EUROPE)}
+                    className="rounded bg-white border border-line px-2.5 py-1 hover:border-pitch text-ink/75"
+                  >
+                    ⚽ باشگاه‌های اروپا (۱۶ تیم)
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className={btnGhost}
+                    onClick={() => setShowBulkModal(false)}
+                  >
+                    انصراف
+                  </button>
+                  <button
+                    className={btnPrimary}
+                    onClick={() => handleApplyBulk(bulkText.split(/[\n,]+/))}
+                  >
+                    ثبت و جایگزینی
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-3 sm:grid-cols-2">
             {Array.from({ length: teamCount }).map((_, i) => (
               <input
@@ -327,6 +521,7 @@ export default function PlannerPage() {
               />
             ))}
           </div>
+
           <div className="mt-10 flex gap-3">
             <button className={btnGhost} onClick={() => setStep(1)}>
               مرحله قبل
@@ -342,52 +537,187 @@ export default function PlannerPage() {
         </section>
       )}
 
-      {/* STEP 3: SETTINGS / SEEDING */}
+      {/* STEP 3: SETTINGS, SEEDING, METADATA & AVOIDANCE */}
       {step === 3 && format && (
-        <section>
-          <h1 className="text-2xl font-bold mb-2">تنظیمات (اختیاری)</h1>
-          <p className="text-sm text-ink/60 mb-6">
-            اگر چیزی انتخاب نکنید، قرعه‌کشی کاملاً تصادفی انجام می‌شود.
-          </p>
+        <section className="space-y-8">
+          <div>
+            <h1 className="text-2xl font-bold mb-2">تنظیمات و قوانین مسابقه</h1>
+            <p className="text-sm text-ink/60">
+              این بخش کاملاً اختیاری است؛ در صورت عدم انتخاب، همه‌چیز استاندارد و عادلانه اجرا می‌شود.
+            </p>
+          </div>
 
-          {needsGroupRules && (
-            <div className="mb-8 grid gap-6 sm:grid-cols-2">
+          {/* Tournament Title & Venue Info */}
+          <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-4">
+            <h3 className="font-bold text-sm text-pitch">اطلاعات تورنمنت (جهت سربرگ رسمی و چاپ)</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className="text-sm font-medium">تعداد گروه‌ها</span>
+                <span className="text-xs font-semibold text-ink/70">نام مسابقه یا جام</span>
                 <input
-                  type="number"
-                  min={1}
-                  max={teamCount}
-                  value={numGroups}
-                  onChange={(e) => setNumGroups(Math.max(1, Number(e.target.value) || 1))}
-                  className="mt-1.5 w-full rounded-md border border-line px-4 py-2"
+                  type="text"
+                  value={metadata.title ?? ""}
+                  onChange={(e) => setMetadata({ ...metadata, title: e.target.value })}
+                  placeholder="مثال: مسابقات جام رمضان یا لیگ فوتسال"
+                  className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
                 />
               </label>
-              {format === "groups-knockout" && (
+              <label className="block">
+                <span className="text-xs font-semibold text-ink/70">محل برگزاری / سالن / زمین</span>
+                <input
+                  type="text"
+                  value={metadata.venue ?? ""}
+                  onChange={(e) => setMetadata({ ...metadata, venue: e.target.value })}
+                  placeholder="مثال: سالن ورزشی چمران - زمین شماره ۱"
+                  className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Group Rules */}
+          {needsGroupRules && (
+            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-4">
+              <h3 className="font-bold text-sm text-pitch">تنظیمات گروه‌بندی</h3>
+              <div className="grid gap-6 sm:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-medium">تعداد صعودکننده از هر گروه</span>
+                  <span className="text-xs font-semibold text-ink/70">تعداد گروه‌ها</span>
                   <input
                     type="number"
                     min={1}
-                    value={qualifiersPerGroup}
+                    max={teamCount}
+                    value={numGroups}
                     onChange={(e) =>
-                      setQualifiersPerGroup(Math.max(1, Number(e.target.value) || 1))
+                      setNumGroups(Math.max(1, Number(e.target.value) || 1))
                     }
-                    className="mt-1.5 w-full rounded-md border border-line px-4 py-2"
+                    className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
                   />
                 </label>
+                {format === "groups-knockout" && (
+                  <label className="block">
+                    <span className="text-xs font-semibold text-ink/70">
+                      تعداد صعودکننده از هر گروه
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={qualifiersPerGroup}
+                      onChange={(e) =>
+                        setQualifiersPerGroup(Math.max(1, Number(e.target.value) || 1))
+                      }
+                      className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Avoidance Rule (Section 12 of spec) */}
+          {needsGroupRules && numGroups > 1 && (
+            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-sm text-pitch">
+                  قانون عدم برخورد در یک گروه (Avoidance Rule)
+                </h3>
+                <span className="text-[11px] text-ink/50">اختیاری</span>
+              </div>
+              <p className="text-xs text-ink/60">
+                اگر دو تیم از یک باشگاه یا یک شهر هستند و نباید در یک گروه قرار بگیرند، جفت آن‌ها را
+                انتخاب کنید:
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={avoidTeamA}
+                  onChange={(e) => setAvoidTeamA(e.target.value)}
+                  className="rounded-md border border-line bg-white px-3 py-1.5 text-xs"
+                >
+                  <option value="">انتخاب تیم اول...</option>
+                  {teamNames.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs text-ink/40">↮</span>
+                <select
+                  value={avoidTeamB}
+                  onChange={(e) => setAvoidTeamB(e.target.value)}
+                  className="rounded-md border border-line bg-white px-3 py-1.5 text-xs"
+                >
+                  <option value="">انتخاب تیم دوم...</option>
+                  {teamNames
+                    .filter((t) => t !== avoidTeamA)
+                    .map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                </select>
+                <button
+                  onClick={handleAddAvoidPair}
+                  disabled={!avoidTeamA || !avoidTeamB || avoidTeamA === avoidTeamB}
+                  className="rounded-md bg-pitch/10 px-3 py-1.5 text-xs font-bold text-pitch hover:bg-pitch hover:text-chalk disabled:opacity-40"
+                >
+                  + افزودن قانون عدم هم‌گروهی
+                </button>
+              </div>
+
+              {avoidPairs.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {avoidPairs.map(([a, b], idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1 text-xs text-ink"
+                    >
+                      <span className="font-semibold text-pitch">{a}</span>
+                      <span className="text-ink/40">↮</span>
+                      <span className="font-semibold text-pitch">{b}</span>
+                      <button
+                        onClick={() => handleRemoveAvoidPair(idx)}
+                        className="mr-1 text-brick hover:font-bold"
+                        title="حذف این قانون"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
           )}
 
+          {/* Third Place Playoff Option */}
+          {supportsThirdPlace && (
+            <div className="rounded-xl border border-line bg-chalk/40 p-5">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hasThirdPlace}
+                  onChange={(e) => setHasThirdPlace(e.target.checked)}
+                  className="h-4 w-4 rounded border-line text-pitch focus:ring-pitch"
+                />
+                <div>
+                  <span className="text-sm font-bold text-pitch">
+                    برگزاری مسابقه رده‌بندی برای مقام سوم (Third Place Playoff)
+                  </span>
+                  <p className="text-xs text-ink/60 mt-0.5">
+                    بازنده‌های دو نیمه‌نهایی برای کسب مدال برنز و جایگاه سوم با یکدیگر رقابت خواهند کرد.
+                  </p>
+                </div>
+              </label>
+            </div>
+          )}
+
+          {/* Seeded Teams Selection */}
           {needsSeedRules && (
-            <div>
-              <p className="text-sm font-medium mb-1">
+            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-3">
+              <p className="text-sm font-bold text-pitch">
                 تیم‌های شاخص / سرگروه {needsGroupRules ? `(حداکثر ${numGroups} تیم)` : ""}
               </p>
-              <p className="text-xs text-ink/50 mb-3">
-                به ترتیبی که کلیک می‌کنید، اولویت سیدبندی تعیین می‌شود. برای حذف یک تیم از
-                لیست دوباره روی آن کلیک کنید.
+              <p className="text-xs text-ink/60">
+                به ترتیبی که کلیک می‌کنید، اولویت سیدبندی تعیین می‌شود. برای لغو دوباره روی نام تیم
+                کلیک کنید.
               </p>
               <div className="flex flex-wrap gap-2">
                 {teamNames.map((team) => {
@@ -400,11 +730,11 @@ export default function PlannerPage() {
                       className={
                         "rounded-full border px-3.5 py-1.5 text-sm transition-colors " +
                         (selected
-                          ? "border-gold bg-gold/20 text-ink"
-                          : "border-line text-ink/70 hover:border-pitch/40")
+                          ? "border-gold bg-gold/20 text-ink font-bold"
+                          : "border-line bg-white text-ink/70 hover:border-pitch/40")
                       }
                     >
-                      {selected && <span className="ml-1.5 font-semibold">{idx + 1}</span>}
+                      {selected && <span className="ml-1.5 font-bold">{idx + 1}</span>}
                       {team}
                     </button>
                   );
@@ -413,36 +743,34 @@ export default function PlannerPage() {
             </div>
           )}
 
-          {!needsGroupRules && !needsSeedRules && (
-            <p className="text-sm text-ink/60">این فرمت تنظیمات اضافی ندارد.</p>
-          )}
-
           {error && (
-            <p className="mt-6 rounded-md border border-brick/30 bg-brick/5 px-4 py-3 text-sm text-brick">
+            <p className="rounded-md border border-brick/30 bg-brick/5 px-4 py-3 text-sm text-brick">
               {error}
             </p>
           )}
 
-          <div className="mt-10 flex gap-3">
+          <div className="flex gap-3 pt-2">
             <button className={btnGhost} onClick={() => setStep(2)}>
               مرحله قبل
             </button>
             <button className={btnPrimary} onClick={() => handleGenerate(false)}>
-              تولید برنامه
+              تولید برنامه مسابقات
             </button>
           </div>
         </section>
       )}
 
-      {/* STEP 4: RESULTS */}
+      {/* STEP 4: RESULTS VIEW */}
       {step === 4 && result && (
         <section>
           {/* Action Toolbar */}
           <div className="no-print mb-8 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-white/70 p-4 shadow-sm">
             <div>
-              <h1 className="text-xl font-bold text-pitch">برنامه مسابقات NexSport</h1>
+              <h1 className="text-xl font-bold text-pitch">
+                {result.metadata?.title || "برنامه مسابقات NexSport"}
+              </h1>
               <p className="text-xs text-ink/60 mt-0.5">
-                می‌توانید نتایج را ثبت کنید، متن برنامه را کپی کنید یا فایل اکسل بگیرید.
+                ثبت نتایج، ضربات پنالتی، چاپ رسمی، خروجی اکسل یا اشتراک در پیام‌رسان‌ها.
               </p>
             </div>
 
@@ -450,7 +778,7 @@ export default function PlannerPage() {
               <button
                 className={btnGhost}
                 onClick={() => handleGenerate(true)}
-                title="تولید قرعه‌کشی جدید و متفاوت با همین تیم‌ها و تنظیمات"
+                title="تولید قرعه‌کشی جدید با همین تیم‌ها و تنظیمات"
               >
                 🎲 قرعه‌کشی مجدد
               </button>
@@ -474,7 +802,7 @@ export default function PlannerPage() {
               <button
                 className={btnGhost}
                 onClick={() => setStep(3)}
-                title="تغییر گروه‌ها، تعداد صعودکننده‌ها یا سرگروه‌ها"
+                title="تغییر گروه‌ها، سرگروه‌ها یا تنظیمات"
               >
                 ⚙️ ویرایش تنظیمات
               </button>
@@ -489,6 +817,7 @@ export default function PlannerPage() {
             result={result}
             scores={scores}
             onScoreChange={handleScoreChange}
+            onResetScores={handleResetScores}
             teams={teamNames}
             qualifiersPerGroup={qualifiersPerGroup}
           />

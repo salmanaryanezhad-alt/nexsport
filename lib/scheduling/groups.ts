@@ -17,9 +17,15 @@ export interface BuildGroupsParams {
   teams: string[];
   numGroups: number;
   seededTeams: string[];
+  avoidPairs?: [string, string][];
 }
 
-export function buildGroups({ teams, numGroups, seededTeams }: BuildGroupsParams): GroupResult[] {
+export function buildGroups({
+  teams,
+  numGroups,
+  seededTeams,
+  avoidPairs = [],
+}: BuildGroupsParams): GroupResult[] {
   if (numGroups < 1) {
     throw new ScheduleValidationError("تعداد گروه‌ها باید حداقل ۱ باشد.");
   }
@@ -38,29 +44,92 @@ export function buildGroups({ teams, numGroups, seededTeams }: BuildGroupsParams
     throw new ScheduleValidationError(`تیم شاخص «${unknownSeed}» در لیست تیم‌ها یافت نشد.`);
   }
 
-  const buckets: { id: number; teams: string[] }[] = Array.from({ length: numGroups }, (_, id) => ({
-    id,
-    teams: [],
-  }));
-
-  // Seeded teams: one per group, in the order the organizer specified.
-  seededTeams.forEach((team, i) => {
-    buckets[i].teams.push(team);
-  });
-
-  // Remaining teams are shuffled, then dealt into the smallest groups first
-  // so group sizes never differ by more than one. Sorting by size (not id)
-  // is intentional here; the final .sort((a,b) => a.id - b.id) below restores
-  // the stable A/B/C group order for display.
-  const remaining = shuffle(teams.filter((t) => !seededTeams.includes(t)));
-  for (const team of remaining) {
-    buckets.sort((a, b) => a.teams.length - b.teams.length);
-    buckets[0].teams.push(team);
+  // Validate avoidance pairs
+  for (const [a, b] of avoidPairs) {
+    if (!teams.includes(a) || !teams.includes(b)) {
+      throw new ScheduleValidationError(
+        `تیم «${!teams.includes(a) ? a : b}» در لیست تیم‌ها برای قانون عدم برخورد یافت نشد.`
+      );
+    }
   }
 
-  const ordered = buckets.sort((a, b) => a.id - b.id).map((b) => b.teams);
+  // Build adjacency map for avoidance
+  const avoidMap = new Map<string, Set<string>>();
+  for (const [a, b] of avoidPairs) {
+    if (!avoidMap.has(a)) avoidMap.set(a, new Set());
+    if (!avoidMap.has(b)) avoidMap.set(b, new Set());
+    avoidMap.get(a)!.add(b);
+    avoidMap.get(b)!.add(a);
+  }
 
-  return ordered.map((groupTeams, i) => {
+  const minSize = Math.floor(teams.length / numGroups);
+  const extra = teams.length % numGroups;
+
+  // Each bucket has an allowed max capacity so group sizes differ by at most 1
+  const capacities = Array.from({ length: numGroups }, (_, i) =>
+    i < extra ? minSize + 1 : minSize
+  );
+
+  const remaining = shuffle(teams.filter((t) => !seededTeams.includes(t)));
+
+  // Try to find a valid assignment that respects avoidance constraints
+  let success = false;
+  let finalBuckets: string[][] = [];
+
+  // Attempt up to 50 randomized search passes
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const buckets: string[][] = Array.from({ length: numGroups }, () => []);
+
+    // Place seeded teams
+    seededTeams.forEach((team, i) => {
+      buckets[i].push(team);
+    });
+
+    const unassigned = attempt === 0 ? remaining : shuffle([...remaining]);
+
+    // Backtracking solver for remaining teams
+    function backtrack(idx: number): boolean {
+      if (idx === unassigned.length) {
+        return true;
+      }
+      const current = unassigned[idx];
+      const avoided = avoidMap.get(current);
+
+      // Try buckets ordered by least filled
+      const bucketOrder = Array.from({ length: numGroups }, (_, i) => i).sort(
+        (a, b) => buckets[a].length - buckets[b].length
+      );
+
+      for (const bIdx of bucketOrder) {
+        if (buckets[bIdx].length >= capacities[bIdx]) continue;
+
+        // Check avoidance conflict
+        if (avoided && buckets[bIdx].some((member) => avoided.has(member))) {
+          continue;
+        }
+
+        buckets[bIdx].push(current);
+        if (backtrack(idx + 1)) return true;
+        buckets[bIdx].pop();
+      }
+
+      return false;
+    }
+
+    if (backtrack(0)) {
+      finalBuckets = buckets;
+      success = true;
+      break;
+    }
+  }
+
+  if (!success) {
+    throw new ScheduleValidationError(
+      "قوانین انتخاب‌شده با ساختار این مسابقه سازگار نیستند: تفکیک تیم‌های مشخص‌شده در این تعداد گروه امکان‌پذیر نیست."
+    );
+  }
+
+  return finalBuckets.map((groupTeams, i) => {
     const gName = `گروه ${groupLabel(i)}`;
     const rounds = groupTeams.length >= 2 ? generateSingleRoundRobin(groupTeams) : [];
     const prefixedRounds = rounds.map((r) => ({

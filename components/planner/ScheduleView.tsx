@@ -8,6 +8,7 @@ import {
   MatchScore,
   calculateStandings,
   computeKnockoutWithScores,
+  TournamentMetadata,
 } from "@/lib/scheduling";
 
 interface ScheduleViewProps {
@@ -17,8 +18,11 @@ interface ScheduleViewProps {
     matchId: string,
     home: number | null,
     away: number | null,
+    homePenalty?: number | null,
+    awayPenalty?: number | null,
     winner?: string | null
   ) => void;
+  onResetScores?: () => void;
   teams: string[];
   qualifiersPerGroup?: number;
 }
@@ -27,6 +31,7 @@ export function ScheduleView({
   result,
   scores,
   onScoreChange,
+  onResetScores,
   teams,
   qualifiersPerGroup = 2,
 }: ScheduleViewProps) {
@@ -39,33 +44,67 @@ export function ScheduleView({
     result.format === "groups" ||
     result.format === "groups-knockout";
 
+  const meta = result.metadata;
+
   return (
     <div id="print-area" className="space-y-6">
+      {/* Official Header for Print & Web */}
+      {(meta?.title || meta?.venue) && (
+        <div className="rounded-xl border border-line bg-chalk/80 p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              {meta.title && <h2 className="text-xl font-black text-pitch">{meta.title}</h2>}
+              {meta.venue && (
+                <p className="text-xs text-ink/70 mt-1 flex items-center gap-1.5 font-medium">
+                  <span>📍 محل برگزاری:</span>
+                  <span className="text-ink font-semibold">{meta.venue}</span>
+                </p>
+              )}
+            </div>
+            <div className="text-left text-xs text-ink/50">
+              <span>سامانه مسابقات ورزشی NexSport</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab bar (matches vs standings) */}
       {hasStandings && (
-        <div className="no-print flex border-b border-line">
-          <button
-            onClick={() => setActiveTab("matches")}
-            className={
-              "px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors " +
-              (activeTab === "matches"
-                ? "border-pitch text-pitch"
-                : "border-transparent text-ink/60 hover:text-ink")
-            }
-          >
-            ⚽ برنامه و نتایج مسابقات
-          </button>
-          <button
-            onClick={() => setActiveTab("standings")}
-            className={
-              "px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 " +
-              (activeTab === "standings"
-                ? "border-pitch text-pitch"
-                : "border-transparent text-ink/60 hover:text-ink")
-            }
-          >
-            📊 جدول رده‌بندی و امتیازات
-          </button>
+        <div className="no-print flex items-center justify-between border-b border-line">
+          <div className="flex">
+            <button
+              onClick={() => setActiveTab("matches")}
+              className={
+                "px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors " +
+                (activeTab === "matches"
+                  ? "border-pitch text-pitch"
+                  : "border-transparent text-ink/60 hover:text-ink")
+              }
+            >
+              ⚽ برنامه و نتایج مسابقات
+            </button>
+            <button
+              onClick={() => setActiveTab("standings")}
+              className={
+                "px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 " +
+                (activeTab === "standings"
+                  ? "border-pitch text-pitch"
+                  : "border-transparent text-ink/60 hover:text-ink")
+              }
+            >
+              📊 جدول رده‌بندی و امتیازات
+            </button>
+          </div>
+
+          {onResetScores && Object.keys(scores).length > 0 && (
+            <button
+              onClick={onResetScores}
+              className="text-xs text-brick hover:underline font-semibold px-2 py-1"
+              title="پاک کردن گل‌ها و نتایج ثبت‌شده بدون تغییر در قرعه‌کشی مسابقات"
+            >
+              🧹 پاک کردن نتایج بازی‌ها
+            </button>
+          )}
         </div>
       )}
 
@@ -77,6 +116,7 @@ export function ScheduleView({
               rounds={result.rounds}
               scores={scores}
               onScoreChange={onScoreChange}
+              metadata={meta}
             />
           )}
 
@@ -87,6 +127,7 @@ export function ScheduleView({
               onScoreChange={onScoreChange}
               selectedGroupIndex={selectedGroupIndex}
               onSelectGroup={setSelectedGroupIndex}
+              metadata={meta}
             />
           )}
 
@@ -100,6 +141,7 @@ export function ScheduleView({
                   onScoreChange={onScoreChange}
                   selectedGroupIndex={selectedGroupIndex}
                   onSelectGroup={setSelectedGroupIndex}
+                  metadata={meta}
                 />
               </div>
 
@@ -107,7 +149,8 @@ export function ScheduleView({
                 <div className="border-t border-line pt-8 mb-6">
                   <h2 className="text-lg font-bold text-pitch">مرحله دوم: براکت حذفی صعودکننده‌ها</h2>
                   <p className="text-xs text-ink/60 mt-1">
-                    نتایج را در هر مسابقه وارد کنید تا برنده به طور خودکار به دور بعد صعود کند.
+                    نتایج را در هر مسابقه وارد کنید تا برنده به طور خودکار به دور بعد صعود کند. در صورت
+                    تساوی، فیلد ضربات پنالتی نمایش داده می‌شود.
                   </p>
                 </div>
                 <InteractiveBracket
@@ -124,7 +167,8 @@ export function ScheduleView({
               <div className="mb-6">
                 <h2 className="text-lg font-bold text-pitch">براکت حذفی مسابقات</h2>
                 <p className="text-xs text-ink/60 mt-1">
-                  نتایج هر مسابقه را ثبت کنید تا تیم‌های برنده مستقیماً به مراحل نیمه‌نهایی و فینال راه پیدا کنند.
+                  نتایج هر مسابقه را ثبت کنید تا تیم‌های برنده مستقیماً به مراحل بعدی و فینال راه پیدا
+                  کنند. در صورت تساوی، فیلد ضربات پنالتی فعال می‌شود.
                 </p>
               </div>
               <InteractiveBracket
@@ -189,6 +233,7 @@ function RoundsTable({
   title,
   scores,
   onScoreChange,
+  metadata,
 }: {
   rounds: RoundRobinRound[];
   title?: string;
@@ -197,8 +242,11 @@ function RoundsTable({
     matchId: string,
     home: number | null,
     away: number | null,
+    homePenalty?: number | null,
+    awayPenalty?: number | null,
     winner?: string | null
   ) => void;
+  metadata?: TournamentMetadata;
 }) {
   return (
     <div className="space-y-6">
@@ -240,7 +288,10 @@ function RoundsTable({
                         max="99"
                         value={sc.home !== null && sc.home !== undefined ? sc.home : ""}
                         onChange={(e) => {
-                          const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
+                          const val =
+                            e.target.value === ""
+                              ? null
+                              : Math.max(0, parseInt(e.target.value) || 0);
                           onScoreChange(matchId, val, sc.away ?? null);
                         }}
                         placeholder="-"
@@ -253,7 +304,10 @@ function RoundsTable({
                         max="99"
                         value={sc.away !== null && sc.away !== undefined ? sc.away : ""}
                         onChange={(e) => {
-                          const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
+                          const val =
+                            e.target.value === ""
+                              ? null
+                              : Math.max(0, parseInt(e.target.value) || 0);
                           onScoreChange(matchId, sc.home ?? null, val);
                         }}
                         placeholder="-"
@@ -291,6 +345,7 @@ function GroupsMatchesView({
   onScoreChange,
   selectedGroupIndex,
   onSelectGroup,
+  metadata,
 }: {
   groups: GroupResult[];
   scores: Record<string, MatchScore>;
@@ -298,10 +353,13 @@ function GroupsMatchesView({
     matchId: string,
     home: number | null,
     away: number | null,
+    homePenalty?: number | null,
+    awayPenalty?: number | null,
     winner?: string | null
   ) => void;
   selectedGroupIndex: number | "all";
   onSelectGroup: (idx: number | "all") => void;
+  metadata?: TournamentMetadata;
 }) {
   const filteredGroups =
     selectedGroupIndex === "all" ? groups : [groups[selectedGroupIndex]];
@@ -349,6 +407,7 @@ function GroupsMatchesView({
               rounds={g.rounds}
               scores={scores}
               onScoreChange={onScoreChange}
+              metadata={metadata}
             />
           </div>
         ))}
@@ -461,7 +520,7 @@ function StandingsTable({
 }
 
 /* =========================================================
-   INTERACTIVE KNOCKOUT BRACKET WITH ADVANCEMENT
+   INTERACTIVE KNOCKOUT BRACKET WITH PENALTIES & 3RD PLACE
    ========================================================= */
 
 function InteractiveBracket({
@@ -475,167 +534,343 @@ function InteractiveBracket({
     matchId: string,
     home: number | null,
     away: number | null,
+    homePenalty?: number | null,
+    awayPenalty?: number | null,
     winner?: string | null
   ) => void;
 }) {
-  const { knockout, champion } = useMemo(
+  const { knockout, champion, runnerUp, thirdPlace } = useMemo(
     () => computeKnockoutWithScores(originalKnockout, scores),
     [originalKnockout, scores]
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Celebration Podium */}
       {champion && (
-        <div className="rounded-lg border-2 border-gold bg-gold/15 p-4 text-center shadow-md animate-fade-in">
-          <p className="text-xs uppercase tracking-wider text-gold-dark font-bold">
-            🏆 تبریک به قهرمان مسابقات
+        <div className="rounded-xl border-2 border-gold bg-gradient-to-r from-gold/15 via-gold/25 to-gold/15 p-6 shadow-md text-center animate-fade-in">
+          <p className="text-xs uppercase tracking-widest text-gold-dark font-extrabold mb-1">
+            🏆 سکوی قهرمانی مسابقات
           </p>
-          <p className="mt-1 text-2xl font-black text-ink">{champion}</p>
+          <div className="flex flex-wrap items-center justify-center gap-6 mt-4">
+            {runnerUp && (
+              <div className="flex flex-col items-center">
+                <span className="text-2xl">🥈</span>
+                <span className="text-xs font-semibold text-ink/60 mt-1">نایب‌قهرمان</span>
+                <span className="font-bold text-sm text-ink">{runnerUp}</span>
+              </div>
+            )}
+            <div className="flex flex-col items-center px-6 py-2 rounded-xl bg-white/70 border border-gold/40 shadow-sm">
+              <span className="text-4xl">👑</span>
+              <span className="text-xs font-extrabold text-gold-dark mt-1">قهرمان تورنمنت</span>
+              <span className="text-2xl font-black text-pitch mt-0.5">{champion}</span>
+            </div>
+            {thirdPlace && (
+              <div className="flex flex-col items-center">
+                <span className="text-2xl">🥉</span>
+                <span className="text-xs font-semibold text-ink/60 mt-1">مقام سوم</span>
+                <span className="font-bold text-sm text-ink">{thirdPlace}</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {knockout.byes > 0 && (
         <p className="text-xs text-ink/60">
-          💡 به دلیل تعداد تیم‌ها، {knockout.byes} تیم برتر دارای استراحت (Bye) در دور اول هستند و مستقیماً صعود می‌کنند.
+          💡 به دلیل تعداد تیم‌ها، {knockout.byes} تیم برتر دارای استراحت (Bye) در دور اول هستند و
+          مستقیماً صعود می‌کنند.
         </p>
       )}
 
-      {/* Bracket Columns */}
+      {/* Main Bracket Columns */}
       <div className="flex gap-6 overflow-x-auto pb-4 pt-2">
         {knockout.rounds.map((round: any, roundIdx: number) => {
           const isFinal = roundIdx === knockout.rounds.length - 1;
           return (
             <div
               key={round.round}
-              className="flex min-w-[260px] max-w-[280px] flex-col justify-around gap-6"
+              className="flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6"
             >
               <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3">
                 <p className="text-xs font-bold text-pitch">{round.label}</p>
               </div>
 
               <div className="flex flex-col justify-around gap-8 flex-1">
-                {round.matches.map((m: any) => {
-                  const sc = scores[m.id] || {
-                    home: m.homeScore ?? null,
-                    away: m.awayScore ?? null,
-                    winner: m.winner ?? null,
-                  };
-                  const isAuto = Boolean(m.autoAdvance);
-                  const isHomeWinner = m.winner && m.home && m.winner === m.home;
-                  const isAwayWinner = m.winner && m.away && m.winner === m.away;
-
-                  return (
-                    <div
-                      key={m.id}
-                      className={
-                        "rounded-lg border shadow-sm transition-all overflow-hidden " +
-                        (isFinal
-                          ? "border-gold/80 bg-white"
-                          : "border-line bg-white/90")
-                      }
-                    >
-                      {/* Match Header */}
-                      <div className="flex items-center justify-between border-b border-line/60 bg-chalk/60 px-3 py-1 text-[11px] text-ink/50">
-                        <span>بازی {m.slot + 1}</span>
-                        {isAuto && (
-                          <span className="text-gold-dark font-semibold">استراحت Bye</span>
-                        )}
-                        {m.winner && !isAuto && (
-                          <span className="text-pitch font-bold flex items-center gap-1">
-                            ✓ صعود: {m.winner}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Home Team */}
-                      <div
-                        className={
-                          "flex items-center justify-between px-3 py-2 border-b border-line/40 transition-colors " +
-                          (isHomeWinner ? "bg-pitch/10 font-bold text-pitch" : "")
-                        }
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (m.home && m.away && !isAuto) {
-                              onScoreChange(m.id, sc.home, sc.away, m.home);
-                            }
-                          }}
-                          disabled={!m.home || !m.away || isAuto}
-                          title={m.home && !isAuto ? "انتخاب به عنوان برنده" : undefined}
-                          className="flex items-center gap-1.5 text-right flex-1 truncate text-xs hover:text-pitch disabled:hover:text-inherit"
-                        >
-                          {isHomeWinner && <span className="text-gold">👑</span>}
-                          <span className="truncate">{m.home ?? "نامشخص (TBD)"}</span>
-                        </button>
-
-                        {!isAuto && m.home && m.away && (
-                          <input
-                            type="number"
-                            min="0"
-                            max="99"
-                            value={sc.home !== null && sc.home !== undefined ? sc.home : ""}
-                            onChange={(e) => {
-                              const val =
-                                e.target.value === ""
-                                  ? null
-                                  : Math.max(0, parseInt(e.target.value) || 0);
-                              onScoreChange(m.id, val, sc.away ?? null, undefined);
-                            }}
-                            placeholder="-"
-                            className="w-9 h-7 rounded border border-line bg-white text-center font-bold text-xs focus:border-gold focus:outline-none"
-                          />
-                        )}
-                      </div>
-
-                      {/* Away Team */}
-                      <div
-                        className={
-                          "flex items-center justify-between px-3 py-2 transition-colors " +
-                          (isAwayWinner ? "bg-pitch/10 font-bold text-pitch" : "")
-                        }
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (m.home && m.away && !isAuto) {
-                              onScoreChange(m.id, sc.home, sc.away, m.away);
-                            }
-                          }}
-                          disabled={!m.home || !m.away || isAuto}
-                          title={m.away && !isAuto ? "انتخاب به عنوان برنده" : undefined}
-                          className="flex items-center gap-1.5 text-right flex-1 truncate text-xs hover:text-pitch disabled:hover:text-inherit"
-                        >
-                          {isAwayWinner && <span className="text-gold">👑</span>}
-                          <span className="truncate">{m.away ?? "نامشخص (TBD)"}</span>
-                        </button>
-
-                        {!isAuto && m.home && m.away && (
-                          <input
-                            type="number"
-                            min="0"
-                            max="99"
-                            value={sc.away !== null && sc.away !== undefined ? sc.away : ""}
-                            onChange={(e) => {
-                              const val =
-                                e.target.value === ""
-                                  ? null
-                                  : Math.max(0, parseInt(e.target.value) || 0);
-                              onScoreChange(m.id, sc.home ?? null, val, undefined);
-                            }}
-                            placeholder="-"
-                            className="w-9 h-7 rounded border border-line bg-white text-center font-bold text-xs focus:border-gold focus:outline-none"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                {round.matches.map((m: any) => (
+                  <MatchBracketCard
+                    key={m.id}
+                    match={m}
+                    scores={scores}
+                    isFinal={isFinal}
+                    onScoreChange={onScoreChange}
+                  />
+                ))}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Third Place Match (if configured) */}
+      {knockout.thirdPlaceMatch && (
+        <div className="border-t border-line pt-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="font-bold text-sm text-pitch flex items-center gap-1.5">
+              <span>🥉 مسابقه رده‌بندی</span>
+              <span className="text-xs text-ink/50 font-normal">(تعیین مقام سوم و چهارم)</span>
+            </h3>
+            {thirdPlace && (
+              <span className="text-xs font-bold text-pitch bg-pitch/10 px-2 py-0.5 rounded">
+                برنده مقام سوم: {thirdPlace}
+              </span>
+            )}
+          </div>
+          <div className="max-w-sm">
+            <MatchBracketCard
+              match={knockout.thirdPlaceMatch}
+              scores={scores}
+              isFinal={false}
+              onScoreChange={onScoreChange}
+              label="دیدار رده‌بندی"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MatchBracketCard({
+  match: m,
+  scores,
+  isFinal,
+  onScoreChange,
+  label,
+}: {
+  match: any;
+  scores: Record<string, MatchScore>;
+  isFinal: boolean;
+  onScoreChange: (
+    matchId: string,
+    home: number | null,
+    away: number | null,
+    homePenalty?: number | null,
+    awayPenalty?: number | null,
+    winner?: string | null
+  ) => void;
+  label?: string;
+}) {
+  const sc = scores[m.id] || {
+    home: m.homeScore ?? null,
+    away: m.awayScore ?? null,
+    homePenalty: m.homePenalty ?? null,
+    awayPenalty: m.awayPenalty ?? null,
+    winner: m.winner ?? null,
+  };
+  const isAuto = Boolean(m.autoAdvance);
+  const isHomeWinner = m.winner && m.home && m.winner === m.home;
+  const isAwayWinner = m.winner && m.away && m.winner === m.away;
+  const isTied =
+    sc.home !== null &&
+    sc.away !== null &&
+    sc.home === sc.away &&
+    m.home &&
+    m.away &&
+    !isAuto;
+
+  return (
+    <div
+      className={
+        "rounded-lg border shadow-sm transition-all overflow-hidden " +
+        (isFinal ? "border-gold/80 bg-white" : "border-line bg-white/90")
+      }
+    >
+      {/* Match Header */}
+      <div className="flex items-center justify-between border-b border-line/60 bg-chalk/60 px-3 py-1 text-[11px] text-ink/50">
+        <span>{label || `بازی ${m.slot + 1}`}</span>
+        {isAuto && <span className="text-gold-dark font-semibold">استراحت Bye</span>}
+        {m.winner && !isAuto && (
+          <span className="text-pitch font-bold flex items-center gap-1">
+            ✓ برنده: {m.winner}
+          </span>
+        )}
+      </div>
+
+      {/* Home Team */}
+      <div
+        className={
+          "flex items-center justify-between px-3 py-2 border-b border-line/40 transition-colors " +
+          (isHomeWinner ? "bg-pitch/10 font-bold text-pitch" : "")
+        }
+      >
+        <button
+          type="button"
+          onClick={() => {
+            if (m.home && m.away && !isAuto) {
+              onScoreChange(
+                m.id,
+                sc.home,
+                sc.away,
+                sc.homePenalty,
+                sc.awayPenalty,
+                m.home
+              );
+            }
+          }}
+          disabled={!m.home || !m.away || isAuto}
+          title={m.home && !isAuto ? "کلیک برای انتخاب دستی به عنوان برنده" : undefined}
+          className="flex items-center gap-1.5 text-right flex-1 truncate text-xs hover:text-pitch disabled:hover:text-inherit"
+        >
+          {isHomeWinner && <span className="text-gold">👑</span>}
+          <span className="truncate">{m.home ?? "نامشخص (TBD)"}</span>
+        </button>
+
+        {!isAuto && m.home && m.away && (
+          <input
+            type="number"
+            min="0"
+            max="99"
+            value={sc.home !== null && sc.home !== undefined ? sc.home : ""}
+            onChange={(e) => {
+              const val =
+                e.target.value === ""
+                  ? null
+                  : Math.max(0, parseInt(e.target.value) || 0);
+              onScoreChange(
+                m.id,
+                val,
+                sc.away ?? null,
+                sc.homePenalty,
+                sc.awayPenalty,
+                undefined
+              );
+            }}
+            placeholder="-"
+            className="w-9 h-7 rounded border border-line bg-white text-center font-bold text-xs focus:border-gold focus:outline-none"
+          />
+        )}
+      </div>
+
+      {/* Away Team */}
+      <div
+        className={
+          "flex items-center justify-between px-3 py-2 transition-colors " +
+          (isAwayWinner ? "bg-pitch/10 font-bold text-pitch" : "")
+        }
+      >
+        <button
+          type="button"
+          onClick={() => {
+            if (m.home && m.away && !isAuto) {
+              onScoreChange(
+                m.id,
+                sc.home,
+                sc.away,
+                sc.homePenalty,
+                sc.awayPenalty,
+                m.away
+              );
+            }
+          }}
+          disabled={!m.home || !m.away || isAuto}
+          title={m.away && !isAuto ? "کلیک برای انتخاب دستی به عنوان برنده" : undefined}
+          className="flex items-center gap-1.5 text-right flex-1 truncate text-xs hover:text-pitch disabled:hover:text-inherit"
+        >
+          {isAwayWinner && <span className="text-gold">👑</span>}
+          <span className="truncate">{m.away ?? "نامشخص (TBD)"}</span>
+        </button>
+
+        {!isAuto && m.home && m.away && (
+          <input
+            type="number"
+            min="0"
+            max="99"
+            value={sc.away !== null && sc.away !== undefined ? sc.away : ""}
+            onChange={(e) => {
+              const val =
+                e.target.value === ""
+                  ? null
+                  : Math.max(0, parseInt(e.target.value) || 0);
+              onScoreChange(
+                m.id,
+                sc.home ?? null,
+                val,
+                sc.homePenalty,
+                sc.awayPenalty,
+                undefined
+              );
+            }}
+            placeholder="-"
+            className="w-9 h-7 rounded border border-line bg-white text-center font-bold text-xs focus:border-gold focus:outline-none"
+          />
+        )}
+      </div>
+
+      {/* Penalty shootout row (shown when regulation is tied) */}
+      {isTied && (
+        <div className="flex items-center justify-between bg-gold/15 px-3 py-1.5 border-t border-gold/30 text-[11px]">
+          <span className="font-semibold text-gold-dark flex items-center gap-1">
+            <span>⚽</span>
+            <span>ضربات پنالتی:</span>
+          </span>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min="0"
+              max="99"
+              value={
+                sc.homePenalty !== null && sc.homePenalty !== undefined
+                  ? sc.homePenalty
+                  : ""
+              }
+              onChange={(e) => {
+                const val =
+                  e.target.value === ""
+                    ? null
+                    : Math.max(0, parseInt(e.target.value) || 0);
+                onScoreChange(
+                  m.id,
+                  sc.home,
+                  sc.away,
+                  val,
+                  sc.awayPenalty ?? null,
+                  undefined
+                );
+              }}
+              placeholder="میزبان"
+              className="w-10 h-6 text-center text-xs font-bold rounded border border-gold/60 bg-white"
+            />
+            <span className="text-gold-dark font-bold">:</span>
+            <input
+              type="number"
+              min="0"
+              max="99"
+              value={
+                sc.awayPenalty !== null && sc.awayPenalty !== undefined
+                  ? sc.awayPenalty
+                  : ""
+              }
+              onChange={(e) => {
+                const val =
+                  e.target.value === ""
+                    ? null
+                    : Math.max(0, parseInt(e.target.value) || 0);
+                onScoreChange(
+                  m.id,
+                  sc.home,
+                  sc.away,
+                  sc.homePenalty ?? null,
+                  val,
+                  undefined
+                );
+              }}
+              placeholder="میهمان"
+              className="w-10 h-6 text-center text-xs font-bold rounded border border-gold/60 bg-white"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
