@@ -1,30 +1,282 @@
-import { ScheduleResult, RoundRobinRound, KnockoutResult, GroupResult } from "@/lib/scheduling";
+"use client";
 
-function RoundsTable({ rounds, title }: { rounds: RoundRobinRound[]; title?: string }) {
+import { useMemo, useState } from "react";
+import {
+  ScheduleResult,
+  RoundRobinRound,
+  GroupResult,
+  MatchScore,
+  calculateStandings,
+  computeKnockoutWithScores,
+} from "@/lib/scheduling";
+
+interface ScheduleViewProps {
+  result: ScheduleResult;
+  scores: Record<string, MatchScore>;
+  onScoreChange: (
+    matchId: string,
+    home: number | null,
+    away: number | null,
+    winner?: string | null
+  ) => void;
+  teams: string[];
+  qualifiersPerGroup?: number;
+}
+
+export function ScheduleView({
+  result,
+  scores,
+  onScoreChange,
+  teams,
+  qualifiersPerGroup = 2,
+}: ScheduleViewProps) {
+  const [activeTab, setActiveTab] = useState<"matches" | "standings">("matches");
+  const [selectedGroupIndex, setSelectedGroupIndex] = useState<number | "all">("all");
+
+  const hasStandings =
+    result.format === "league" ||
+    result.format === "double-league" ||
+    result.format === "groups" ||
+    result.format === "groups-knockout";
+
   return (
-    <div>
-      {title && <h3 className="font-semibold text-pitch mb-3">{title}</h3>}
-      <div className="space-y-5">
+    <div id="print-area" className="space-y-6">
+      {/* Tab bar (matches vs standings) */}
+      {hasStandings && (
+        <div className="no-print flex border-b border-line">
+          <button
+            onClick={() => setActiveTab("matches")}
+            className={
+              "px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors " +
+              (activeTab === "matches"
+                ? "border-pitch text-pitch"
+                : "border-transparent text-ink/60 hover:text-ink")
+            }
+          >
+            ⚽ برنامه و نتایج مسابقات
+          </button>
+          <button
+            onClick={() => setActiveTab("standings")}
+            className={
+              "px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 " +
+              (activeTab === "standings"
+                ? "border-pitch text-pitch"
+                : "border-transparent text-ink/60 hover:text-ink")
+            }
+          >
+            📊 جدول رده‌بندی و امتیازات
+          </button>
+        </div>
+      )}
+
+      {/* MATCHES VIEW */}
+      {activeTab === "matches" && (
+        <div className="space-y-8">
+          {(result.format === "league" || result.format === "double-league") && (
+            <RoundsTable
+              rounds={result.rounds}
+              scores={scores}
+              onScoreChange={onScoreChange}
+            />
+          )}
+
+          {result.format === "groups" && (
+            <GroupsMatchesView
+              groups={result.groups}
+              scores={scores}
+              onScoreChange={onScoreChange}
+              selectedGroupIndex={selectedGroupIndex}
+              onSelectGroup={setSelectedGroupIndex}
+            />
+          )}
+
+          {result.format === "groups-knockout" && (
+            <div className="space-y-12">
+              <div>
+                <h2 className="text-lg font-bold text-pitch mb-4">مرحله اول: مسابقات گروهی</h2>
+                <GroupsMatchesView
+                  groups={result.groups}
+                  scores={scores}
+                  onScoreChange={onScoreChange}
+                  selectedGroupIndex={selectedGroupIndex}
+                  onSelectGroup={setSelectedGroupIndex}
+                />
+              </div>
+
+              <div>
+                <div className="border-t border-line pt-8 mb-6">
+                  <h2 className="text-lg font-bold text-pitch">مرحله دوم: براکت حذفی صعودکننده‌ها</h2>
+                  <p className="text-xs text-ink/60 mt-1">
+                    نتایج را در هر مسابقه وارد کنید تا برنده به طور خودکار به دور بعد صعود کند.
+                  </p>
+                </div>
+                <InteractiveBracket
+                  originalKnockout={result.knockout}
+                  scores={scores}
+                  onScoreChange={onScoreChange}
+                />
+              </div>
+            </div>
+          )}
+
+          {result.format === "knockout" && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-lg font-bold text-pitch">براکت حذفی مسابقات</h2>
+                <p className="text-xs text-ink/60 mt-1">
+                  نتایج هر مسابقه را ثبت کنید تا تیم‌های برنده مستقیماً به مراحل نیمه‌نهایی و فینال راه پیدا کنند.
+                </p>
+              </div>
+              <InteractiveBracket
+                originalKnockout={result.knockout}
+                scores={scores}
+                onScoreChange={onScoreChange}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* STANDINGS VIEW */}
+      {activeTab === "standings" && hasStandings && (
+        <div className="space-y-8">
+          {(result.format === "league" || result.format === "double-league") && (
+            <div>
+              <h2 className="text-lg font-bold text-pitch mb-4">جدول رده‌بندی لیگ</h2>
+              <StandingsTable
+                teams={teams}
+                rounds={result.rounds}
+                scores={scores}
+                qualifiersCount={1}
+                qualifierLabel="قهرمان"
+              />
+            </div>
+          )}
+
+          {(result.format === "groups" || result.format === "groups-knockout") && (
+            <div className="space-y-8">
+              {result.groups.map((g) => (
+                <div key={g.name} className="rounded-lg border border-line p-5 bg-white/40">
+                  <h3 className="font-bold text-pitch text-base mb-3 flex items-center justify-between">
+                    <span>{g.name}</span>
+                    <span className="text-xs font-normal text-ink/50">
+                      {qualifiersPerGroup} تیم برتر صعود می‌کنند
+                    </span>
+                  </h3>
+                  <StandingsTable
+                    teams={g.teams}
+                    rounds={g.rounds}
+                    scores={scores}
+                    qualifiersCount={qualifiersPerGroup}
+                    qualifierLabel="صعود"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   ROUNDS TABLE & MATCH ROWS
+   ========================================================= */
+
+function RoundsTable({
+  rounds,
+  title,
+  scores,
+  onScoreChange,
+}: {
+  rounds: RoundRobinRound[];
+  title?: string;
+  scores: Record<string, MatchScore>;
+  onScoreChange: (
+    matchId: string,
+    home: number | null,
+    away: number | null,
+    winner?: string | null
+  ) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {title && <h3 className="font-bold text-pitch text-base">{title}</h3>}
+      <div className="grid gap-6 sm:grid-cols-2">
         {rounds.map((round) => (
-          <div key={round.round}>
-            <p className="text-xs text-ink/50 mb-1.5">هفته {round.round}</p>
-            <div className="overflow-hidden rounded-md border border-line">
-              <table className="w-full text-sm">
-                <tbody>
-                  {round.matches.map((m, i) => (
-                    <tr key={i} className="border-t border-line first:border-t-0">
-                      <td className="px-4 py-2.5 text-left">{m.home}</td>
-                      <td className="px-3 py-2.5 text-center text-ink/40 w-10">-</td>
-                      <td className="px-4 py-2.5 text-right">{m.away}</td>
-                    </tr>
-                  ))}
-                  {round.matches.length === 0 && (
-                    <tr>
-                      <td className="px-4 py-2.5 text-ink/40 text-sm">استراحت (Bye)</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+          <div key={round.round} className="rounded-lg border border-line bg-white/60 p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between border-b border-line/60 pb-2">
+              <span className="font-semibold text-sm text-pitch">هفته {round.round}</span>
+              <span className="text-xs text-ink/50">{round.matches.length} مسابقه</span>
+            </div>
+            <div className="space-y-2.5">
+              {round.matches.map((m, idx) => {
+                const matchId = m.id ?? `r${round.round}-m${idx + 1}`;
+                const sc = scores[matchId] || { home: null, away: null };
+                const homeWon = sc.home !== null && sc.away !== null && sc.home > sc.away;
+                const awayWon = sc.home !== null && sc.away !== null && sc.away > sc.home;
+
+                return (
+                  <div
+                    key={matchId}
+                    className="flex items-center justify-between rounded-md border border-line/80 bg-chalk/60 px-3 py-2 text-sm"
+                  >
+                    <span
+                      className={
+                        "flex-1 text-right truncate font-medium " +
+                        (homeWon ? "text-pitch font-bold" : "text-ink")
+                      }
+                      title={m.home}
+                    >
+                      {m.home}
+                    </span>
+
+                    {/* Score inputs */}
+                    <div className="mx-2 flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="0"
+                        max="99"
+                        value={sc.home !== null && sc.home !== undefined ? sc.home : ""}
+                        onChange={(e) => {
+                          const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
+                          onScoreChange(matchId, val, sc.away ?? null);
+                        }}
+                        placeholder="-"
+                        className="w-10 rounded border border-line bg-white py-1 text-center font-bold text-sm text-ink focus:border-gold focus:outline-none"
+                      />
+                      <span className="text-ink/40 font-bold">:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="99"
+                        value={sc.away !== null && sc.away !== undefined ? sc.away : ""}
+                        onChange={(e) => {
+                          const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
+                          onScoreChange(matchId, sc.home ?? null, val);
+                        }}
+                        placeholder="-"
+                        className="w-10 rounded border border-line bg-white py-1 text-center font-bold text-sm text-ink focus:border-gold focus:outline-none"
+                      />
+                    </div>
+
+                    <span
+                      className={
+                        "flex-1 text-left truncate font-medium " +
+                        (awayWon ? "text-pitch font-bold" : "text-ink")
+                      }
+                      title={m.away}
+                    >
+                      {m.away}
+                    </span>
+                  </div>
+                );
+              })}
+
+              {round.matches.length === 0 && (
+                <p className="text-center py-2 text-xs text-ink/40">استراحت (Bye)</p>
+              )}
             </div>
           </div>
         ))}
@@ -33,45 +285,71 @@ function RoundsTable({ rounds, title }: { rounds: RoundRobinRound[]; title?: str
   );
 }
 
-function GroupsView({ groups }: { groups: GroupResult[] }) {
+function GroupsMatchesView({
+  groups,
+  scores,
+  onScoreChange,
+  selectedGroupIndex,
+  onSelectGroup,
+}: {
+  groups: GroupResult[];
+  scores: Record<string, MatchScore>;
+  onScoreChange: (
+    matchId: string,
+    home: number | null,
+    away: number | null,
+    winner?: string | null
+  ) => void;
+  selectedGroupIndex: number | "all";
+  onSelectGroup: (idx: number | "all") => void;
+}) {
+  const filteredGroups =
+    selectedGroupIndex === "all" ? groups : [groups[selectedGroupIndex]];
+
   return (
-    <div className="grid gap-8 sm:grid-cols-2">
-      {groups.map((g) => (
-        <div key={g.name}>
-          <h3 className="font-semibold text-pitch mb-1">{g.name}</h3>
-          <p className="text-xs text-ink/50 mb-3">{g.teams.join(" · ")}</p>
-          <RoundsTable rounds={g.rounds} />
+    <div className="space-y-6">
+      {groups.length > 1 && (
+        <div className="no-print flex flex-wrap gap-2">
+          <button
+            onClick={() => onSelectGroup("all")}
+            className={
+              "rounded-full px-3.5 py-1 text-xs font-semibold transition-colors " +
+              (selectedGroupIndex === "all"
+                ? "bg-pitch text-chalk"
+                : "bg-line/40 text-ink/70 hover:bg-line")
+            }
+          >
+            همه گروه‌ها ({groups.length})
+          </button>
+          {groups.map((g, idx) => (
+            <button
+              key={g.name}
+              onClick={() => onSelectGroup(idx)}
+              className={
+                "rounded-full px-3.5 py-1 text-xs font-semibold transition-colors " +
+                (selectedGroupIndex === idx
+                  ? "bg-pitch text-chalk"
+                  : "bg-line/40 text-ink/70 hover:bg-line")
+              }
+            >
+              {g.name}
+            </button>
+          ))}
         </div>
-      ))}
-    </div>
-  );
-}
-
-function bracketSlotLabel(value: string | null): string {
-  if (value === null) return "TBD";
-  if (value === "BYE") return "استراحت (Bye)";
-  return value;
-}
-
-function BracketView({ knockout }: { knockout: KnockoutResult }) {
-  return (
-    <div>
-      {knockout.byes > 0 && (
-        <p className="text-xs text-ink/50 mb-4">
-          چون تعداد تیم‌ها به توان ۲ نمی‌رسید، {knockout.byes} تیم برتر در دور اول استراحت
-          (Bye) دارند و مستقیم به دور بعد صعود می‌کنند.
-        </p>
       )}
-      <div className="flex gap-8 overflow-x-auto pb-2">
-        {knockout.rounds.map((round) => (
-          <div key={round.round} className="flex min-w-[220px] flex-col justify-around gap-6">
-            <p className="text-xs text-ink/50">{round.label}</p>
-            {round.matches.map((m) => (
-              <div key={m.id} className="rounded-md border border-line overflow-hidden text-sm">
-                <div className="px-3 py-2 border-b border-line bg-chalk">{bracketSlotLabel(m.home)}</div>
-                <div className="px-3 py-2">{bracketSlotLabel(m.away)}</div>
-              </div>
-            ))}
+
+      <div className="space-y-8">
+        {filteredGroups.map((g) => (
+          <div key={g.name} className="rounded-lg border border-line bg-chalk/30 p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+              <h3 className="font-bold text-pitch text-base">{g.name}</h3>
+              <span className="text-xs text-ink/60">تیم‌ها: {g.teams.join(" · ")}</span>
+            </div>
+            <RoundsTable
+              rounds={g.rounds}
+              scores={scores}
+              onScoreChange={onScoreChange}
+            />
           </div>
         ))}
       </div>
@@ -79,27 +357,285 @@ function BracketView({ knockout }: { knockout: KnockoutResult }) {
   );
 }
 
-export function ScheduleView({ result }: { result: ScheduleResult }) {
+/* =========================================================
+   STANDINGS TABLE
+   ========================================================= */
+
+function StandingsTable({
+  teams,
+  rounds,
+  scores,
+  qualifiersCount = 1,
+  qualifierLabel = "صعود",
+}: {
+  teams: string[];
+  rounds: RoundRobinRound[];
+  scores: Record<string, MatchScore>;
+  qualifiersCount?: number;
+  qualifierLabel?: string;
+}) {
+  const allMatches = useMemo(() => rounds.flatMap((r) => r.matches), [rounds]);
+  const standings = useMemo(
+    () => calculateStandings(teams, allMatches, scores),
+    [teams, allMatches, scores]
+  );
+
   return (
-    <div id="print-area">
-      {(result.format === "league" || result.format === "double-league") && (
-        <RoundsTable rounds={result.rounds} />
-      )}
-      {result.format === "groups" && <GroupsView groups={result.groups} />}
-      {result.format === "groups-knockout" && (
-        <div className="space-y-10">
-          <GroupsView groups={result.groups} />
-          <div>
-            <h3 className="font-semibold text-pitch mb-3">مرحله حذفی</h3>
-            <p className="text-xs text-ink/50 mb-4">
-              جای تیم‌های صعودکننده تا پایان مرحله گروهی مشخص نیست؛ این براکت با عنوان
-              جایگاه هر گروه ساخته شده و بعداً می‌توانید نام تیم‌های واقعی را جایگزین کنید.
-            </p>
-            <BracketView knockout={result.knockout} />
-          </div>
+    <div className="overflow-x-auto rounded-lg border border-line bg-white shadow-sm">
+      <table className="w-full text-center text-sm">
+        <thead>
+          <tr className="border-b border-line bg-chalk/80 text-xs font-bold text-ink/70">
+            <th className="py-2.5 px-3 text-center w-12">رتبه</th>
+            <th className="py-2.5 px-4 text-right">تیم</th>
+            <th className="py-2.5 px-2.5 w-12" title="تعداد بازی">بازی</th>
+            <th className="py-2.5 px-2.5 w-12 text-pitch" title="برد">برد</th>
+            <th className="py-2.5 px-2.5 w-12 text-ink/60" title="مساوی">مساوی</th>
+            <th className="py-2.5 px-2.5 w-12 text-brick" title="باخت">باخت</th>
+            <th className="py-2.5 px-2.5 w-14" title="گل زده">زده</th>
+            <th className="py-2.5 px-2.5 w-14" title="گل خورده">خورده</th>
+            <th className="py-2.5 px-2.5 w-14 font-semibold" title="تفاضل گل">تفاضل</th>
+            <th className="py-2.5 px-3 w-16 bg-pitch/5 font-extrabold text-pitch" title="امتیاز">امتیاز</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line/60">
+          {standings.map((s, idx) => {
+            const isQualifying = idx < qualifiersCount;
+            return (
+              <tr
+                key={s.team}
+                className={
+                  "transition-colors " +
+                  (isQualifying ? "bg-gold/5 font-medium" : "hover:bg-chalk/30")
+                }
+              >
+                <td className="py-2.5 px-3">
+                  <span
+                    className={
+                      "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold " +
+                      (idx === 0
+                        ? "bg-gold text-ink"
+                        : isQualifying
+                        ? "bg-pitch/15 text-pitch"
+                        : "text-ink/50")
+                    }
+                  >
+                    {idx + 1}
+                  </span>
+                </td>
+                <td className="py-2.5 px-4 text-right">
+                  <span className="font-semibold text-ink">{s.team}</span>
+                  {isQualifying && (
+                    <span className="mr-2 rounded bg-gold/20 px-1.5 py-0.5 text-[10px] font-bold text-gold-dark">
+                      {idx === 0 && qualifiersCount === 1 ? "قهرمان" : qualifierLabel}
+                    </span>
+                  )}
+                </td>
+                <td className="py-2.5 px-2.5 text-ink/80">{s.played}</td>
+                <td className="py-2.5 px-2.5 font-semibold text-pitch">{s.won}</td>
+                <td className="py-2.5 px-2.5 text-ink/60">{s.drawn}</td>
+                <td className="py-2.5 px-2.5 text-brick">{s.lost}</td>
+                <td className="py-2.5 px-2.5 text-ink/80">{s.goalsFor}</td>
+                <td className="py-2.5 px-2.5 text-ink/80">{s.goalsAgainst}</td>
+                <td
+                  className={
+                    "py-2.5 px-2.5 font-bold " +
+                    (s.goalDifference > 0
+                      ? "text-pitch"
+                      : s.goalDifference < 0
+                      ? "text-brick"
+                      : "text-ink/50")
+                  }
+                >
+                  {s.goalDifference > 0 ? `+${s.goalDifference}` : s.goalDifference}
+                </td>
+                <td className="py-2.5 px-3 bg-pitch/5 font-extrabold text-pitch text-base">
+                  {s.points}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* =========================================================
+   INTERACTIVE KNOCKOUT BRACKET WITH ADVANCEMENT
+   ========================================================= */
+
+function InteractiveBracket({
+  originalKnockout,
+  scores,
+  onScoreChange,
+}: {
+  originalKnockout: ScheduleResult extends { knockout: infer K } ? K : any;
+  scores: Record<string, MatchScore>;
+  onScoreChange: (
+    matchId: string,
+    home: number | null,
+    away: number | null,
+    winner?: string | null
+  ) => void;
+}) {
+  const { knockout, champion } = useMemo(
+    () => computeKnockoutWithScores(originalKnockout, scores),
+    [originalKnockout, scores]
+  );
+
+  return (
+    <div className="space-y-6">
+      {champion && (
+        <div className="rounded-lg border-2 border-gold bg-gold/15 p-4 text-center shadow-md animate-fade-in">
+          <p className="text-xs uppercase tracking-wider text-gold-dark font-bold">
+            🏆 تبریک به قهرمان مسابقات
+          </p>
+          <p className="mt-1 text-2xl font-black text-ink">{champion}</p>
         </div>
       )}
-      {result.format === "knockout" && <BracketView knockout={result.knockout} />}
+
+      {knockout.byes > 0 && (
+        <p className="text-xs text-ink/60">
+          💡 به دلیل تعداد تیم‌ها، {knockout.byes} تیم برتر دارای استراحت (Bye) در دور اول هستند و مستقیماً صعود می‌کنند.
+        </p>
+      )}
+
+      {/* Bracket Columns */}
+      <div className="flex gap-6 overflow-x-auto pb-4 pt-2">
+        {knockout.rounds.map((round: any, roundIdx: number) => {
+          const isFinal = roundIdx === knockout.rounds.length - 1;
+          return (
+            <div
+              key={round.round}
+              className="flex min-w-[260px] max-w-[280px] flex-col justify-around gap-6"
+            >
+              <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3">
+                <p className="text-xs font-bold text-pitch">{round.label}</p>
+              </div>
+
+              <div className="flex flex-col justify-around gap-8 flex-1">
+                {round.matches.map((m: any) => {
+                  const sc = scores[m.id] || {
+                    home: m.homeScore ?? null,
+                    away: m.awayScore ?? null,
+                    winner: m.winner ?? null,
+                  };
+                  const isAuto = Boolean(m.autoAdvance);
+                  const isHomeWinner = m.winner && m.home && m.winner === m.home;
+                  const isAwayWinner = m.winner && m.away && m.winner === m.away;
+
+                  return (
+                    <div
+                      key={m.id}
+                      className={
+                        "rounded-lg border shadow-sm transition-all overflow-hidden " +
+                        (isFinal
+                          ? "border-gold/80 bg-white"
+                          : "border-line bg-white/90")
+                      }
+                    >
+                      {/* Match Header */}
+                      <div className="flex items-center justify-between border-b border-line/60 bg-chalk/60 px-3 py-1 text-[11px] text-ink/50">
+                        <span>بازی {m.slot + 1}</span>
+                        {isAuto && (
+                          <span className="text-gold-dark font-semibold">استراحت Bye</span>
+                        )}
+                        {m.winner && !isAuto && (
+                          <span className="text-pitch font-bold flex items-center gap-1">
+                            ✓ صعود: {m.winner}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Home Team */}
+                      <div
+                        className={
+                          "flex items-center justify-between px-3 py-2 border-b border-line/40 transition-colors " +
+                          (isHomeWinner ? "bg-pitch/10 font-bold text-pitch" : "")
+                        }
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (m.home && m.away && !isAuto) {
+                              onScoreChange(m.id, sc.home, sc.away, m.home);
+                            }
+                          }}
+                          disabled={!m.home || !m.away || isAuto}
+                          title={m.home && !isAuto ? "انتخاب به عنوان برنده" : undefined}
+                          className="flex items-center gap-1.5 text-right flex-1 truncate text-xs hover:text-pitch disabled:hover:text-inherit"
+                        >
+                          {isHomeWinner && <span className="text-gold">👑</span>}
+                          <span className="truncate">{m.home ?? "نامشخص (TBD)"}</span>
+                        </button>
+
+                        {!isAuto && m.home && m.away && (
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            value={sc.home !== null && sc.home !== undefined ? sc.home : ""}
+                            onChange={(e) => {
+                              const val =
+                                e.target.value === ""
+                                  ? null
+                                  : Math.max(0, parseInt(e.target.value) || 0);
+                              onScoreChange(m.id, val, sc.away ?? null, undefined);
+                            }}
+                            placeholder="-"
+                            className="w-9 h-7 rounded border border-line bg-white text-center font-bold text-xs focus:border-gold focus:outline-none"
+                          />
+                        )}
+                      </div>
+
+                      {/* Away Team */}
+                      <div
+                        className={
+                          "flex items-center justify-between px-3 py-2 transition-colors " +
+                          (isAwayWinner ? "bg-pitch/10 font-bold text-pitch" : "")
+                        }
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (m.home && m.away && !isAuto) {
+                              onScoreChange(m.id, sc.home, sc.away, m.away);
+                            }
+                          }}
+                          disabled={!m.home || !m.away || isAuto}
+                          title={m.away && !isAuto ? "انتخاب به عنوان برنده" : undefined}
+                          className="flex items-center gap-1.5 text-right flex-1 truncate text-xs hover:text-pitch disabled:hover:text-inherit"
+                        >
+                          {isAwayWinner && <span className="text-gold">👑</span>}
+                          <span className="truncate">{m.away ?? "نامشخص (TBD)"}</span>
+                        </button>
+
+                        {!isAuto && m.home && m.away && (
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            value={sc.away !== null && sc.away !== undefined ? sc.away : ""}
+                            onChange={(e) => {
+                              const val =
+                                e.target.value === ""
+                                  ? null
+                                  : Math.max(0, parseInt(e.target.value) || 0);
+                              onScoreChange(m.id, sc.home ?? null, val, undefined);
+                            }}
+                            placeholder="-"
+                            className="w-9 h-7 rounded border border-line bg-white text-center font-bold text-xs focus:border-gold focus:outline-none"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

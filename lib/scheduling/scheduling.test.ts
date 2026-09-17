@@ -518,7 +518,9 @@ test("generateSchedule: لیگ به‌درستی از API اصلی عبور می
   });
 
   assertEqual(result.format, "league", "فرمت خروجی باید league باشد.");
-  assertEqual(result.rounds.length, 3, "لیگ 4 تیمی باید 3 دور داشته باشد.");
+  if (result.format === "league") {
+    assertEqual(result.rounds.length, 3, "لیگ 4 تیمی باید 3 دور داشته باشد.");
+  }
 });
 
 test("generateSchedule: رفت‌وبرگشت به‌درستی از API اصلی عبور می‌کند", () => {
@@ -532,12 +534,13 @@ test("generateSchedule: رفت‌وبرگشت به‌درستی از API اصل�
     "double-league",
     "فرمت خروجی باید double-league باشد."
   );
-
-  assertEqual(
-    result.rounds.length,
-    6,
-    "رفت‌وبرگشت 4 تیمی باید 6 دور داشته باشد."
-  );
+  if (result.format === "double-league") {
+    assertEqual(
+      result.rounds.length,
+      6,
+      "رفت‌وبرگشت 4 تیمی باید 6 دور داشته باشد."
+    );
+  }
 });
 
 test("generateSchedule: گروهی خروجی معتبر می‌دهد", () => {
@@ -550,7 +553,9 @@ test("generateSchedule: گروهی خروجی معتبر می‌دهد", () => {
   });
 
   assertEqual(result.format, "groups", "فرمت خروجی باید groups باشد.");
-  assertEqual(result.groups.length, 2, "باید 2 گروه ساخته شود.");
+  if (result.format === "groups") {
+    assertEqual(result.groups.length, 2, "باید 2 گروه ساخته شود.");
+  }
 });
 
 test("generateSchedule: حذفی خروجی معتبر می‌دهد", () => {
@@ -561,8 +566,10 @@ test("generateSchedule: حذفی خروجی معتبر می‌دهد", () => {
   });
 
   assertEqual(result.format, "knockout", "فرمت خروجی باید knockout باشد.");
-  assertEqual(result.knockout.bracketSize, 8, "براکت باید 8 جایگاه داشته باشد.");
-  assertEqual(result.knockout.byes, 3, "باید 3 BYE وجود داشته باشد.");
+  if (result.format === "knockout") {
+    assertEqual(result.knockout.bracketSize, 8, "براکت باید 8 جایگاه داشته باشد.");
+    assertEqual(result.knockout.byes, 3, "باید 3 BYE وجود داشته باشد.");
+  }
 });
 
 /* =========================================================
@@ -583,18 +590,44 @@ test("گروهی + حذفی: تعداد جایگاه‌های حذفی براب�
     "groups-knockout",
     "فرمت خروجی باید groups-knockout باشد."
   );
+  if (result.format === "groups-knockout") {
+    assertEqual(
+      result.knockout.bracketSize,
+      4,
+      "2 گروه × 2 صعودکننده باید براکت 4 تیمی بسازد."
+    );
 
-  assertEqual(
-    result.knockout.bracketSize,
-    4,
-    "2 گروه × 2 صعودکننده باید براکت 4 تیمی بسازد."
-  );
+    assertEqual(
+      result.knockout.byes,
+      0,
+      "4 صعودکننده نباید BYE داشته باشند."
+    );
+  }
+});
 
-  assertEqual(
-    result.knockout.byes,
-    0,
-    "4 صعودکننده نباید BYE داشته باشند."
-  );
+test("گروهی + حذفی: تیم‌های هم‌گروه در دور اول حذفی مقابل یکدیگر قرار نمی‌گیرند", () => {
+  const result = generateSchedule({
+    format: "groups-knockout",
+    teams: ["A", "B", "C", "D", "E", "F", "G", "H"],
+    numGroups: 2,
+    seededTeams: ["A", "B"],
+    qualifiersPerGroup: 2,
+  });
+
+  if (result.format === "groups-knockout") {
+    const round1 = result.knockout.rounds[0].matches;
+    for (const match of round1) {
+      if (match.home && match.away) {
+        // extract group name (e.g. "گروه A")
+        const groupHome = match.home.match(/گروه [A-Z]+/)?.[0];
+        const groupAway = match.away.match(/گروه [A-Z]+/)?.[0];
+        assert(
+          groupHome !== groupAway,
+          `تیم‌های هم‌گروه (${match.home} و ${match.away}) نباید در دور اول حذفی به مصاف هم بروند.`
+        );
+      }
+    }
+  }
 });
 
 /* =========================================================

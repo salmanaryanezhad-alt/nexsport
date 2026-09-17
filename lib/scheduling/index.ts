@@ -1,6 +1,6 @@
 import { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 import { buildGroups } from "./groups";
-import { buildKnockout } from "./knockout";
+import { buildKnockout, buildGroupsKnockout } from "./knockout";
 import {
   ScheduleInput,
   ScheduleResult,
@@ -8,6 +8,16 @@ import {
 } from "./types";
 
 export * from "./types";
+export {
+  buildKnockout,
+  buildGroupsKnockout,
+  computeKnockoutWithScores,
+  type MatchScore,
+} from "./knockout";
+export { buildGroups } from "./groups";
+export { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
+export { calculateStandings, type TeamStanding } from "./standings";
+export { formatScheduleAsText, exportScheduleToCsv, downloadCsvFile } from "./export";
 
 function assertUniqueNonEmptyTeams(teams: string[]) {
   const trimmed = teams.map((t) => t.trim());
@@ -45,15 +55,12 @@ export function generateSchedule(input: ScheduleInput): ScheduleResult {
         numGroups: input.numGroups,
         seededTeams: input.seededTeams,
       });
-      // The knockout stage is seeded with placeholders, since the actual
-      // qualifying teams are only known once the group stage is played.
-      const placeholders: string[] = [];
-      groups.forEach((g) => {
-        for (let pos = 1; pos <= input.qualifiersPerGroup; pos++) {
-          placeholders.push(`${pos === 1 ? "قهرمان" : pos === 2 ? "نایب‌قهرمان" : `تیم ${pos}`} ${g.name}`);
-        }
+
+      const knockout = buildGroupsKnockout({
+        groupNames: groups.map((g) => g.name),
+        qualifiersPerGroup: input.qualifiersPerGroup,
       });
-      const knockout = buildKnockout({ teams: placeholders, seededTeams: [] });
+
       return { format: "groups-knockout", groups, knockout };
     }
 

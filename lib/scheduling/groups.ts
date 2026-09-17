@@ -60,9 +60,21 @@ export function buildGroups({ teams, numGroups, seededTeams }: BuildGroupsParams
 
   const ordered = buckets.sort((a, b) => a.id - b.id).map((b) => b.teams);
 
-  return ordered.map((groupTeams, i) => ({
-    name: `گروه ${groupLabel(i)}`,
-    teams: groupTeams,
-    rounds: groupTeams.length >= 2 ? generateSingleRoundRobin(groupTeams) : [],
-  }));
+  return ordered.map((groupTeams, i) => {
+    const gName = `گروه ${groupLabel(i)}`;
+    const rounds = groupTeams.length >= 2 ? generateSingleRoundRobin(groupTeams) : [];
+    const prefixedRounds = rounds.map((r) => ({
+      ...r,
+      matches: r.matches.map((m) => ({
+        ...m,
+        id: `g${i + 1}-${m.id ?? "m"}`,
+      })),
+    }));
+
+    return {
+      name: gName,
+      teams: groupTeams,
+      rounds: prefixedRounds,
+    };
+  });
 }

@@ -6,10 +6,13 @@ export type CompetitionFormat =
   | "knockout";
 
 export interface Match {
+  id?: string;
   home: string;
   away: string;
   /** BYE matches are generated internally for odd team counts and filtered before display */
   isBye?: boolean;
+  homeScore?: number | null;
+  awayScore?: number | null;
 }
 
 export interface RoundRobinRound {
@@ -31,6 +34,11 @@ export interface BracketMatch {
   away: string | null;
   /** true when one side is a BYE and the other auto-advances */
   autoAdvance?: string | null;
+  homeScore?: number | null;
+  awayScore?: number | null;
+  winner?: string | null;
+  sourceMatchHomeId?: string;
+  sourceMatchAwayId?: string;
 }
 
 export interface BracketRound {

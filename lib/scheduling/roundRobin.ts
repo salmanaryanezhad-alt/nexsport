@@ -44,7 +44,13 @@ export function generateSingleRoundRobin(teamsInput: string[]): RoundRobinRound[
       // Alternate home/away by round + position so no single team is
       // permanently stuck at home or away.
       const swap = (r + i) % 2 === 1;
-      matches.push(swap ? { home: b, away: a } : { home: a, away: b });
+      const home = swap ? b : a;
+      const away = swap ? a : b;
+      matches.push({
+        id: `r${r + 1}-m${matches.length + 1}`,
+        home,
+        away,
+      });
     }
 
     rounds.push({ round: r + 1, matches });
@@ -67,7 +73,11 @@ export function generateDoubleRoundRobin(teamsInput: string[]): RoundRobinRound[
 
   const secondLeg: RoundRobinRound[] = firstLeg.map((round) => ({
     round: round.round + roundsCount,
-    matches: round.matches.map((m) => ({ home: m.away, away: m.home })),
+    matches: round.matches.map((m, i) => ({
+      id: `r${round.round + roundsCount}-m${i + 1}`,
+      home: m.away,
+      away: m.home,
+    })),
   }));
 
   return [...firstLeg, ...secondLeg];
