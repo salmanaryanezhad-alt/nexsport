@@ -106,8 +106,8 @@ export default function HomePage() {
     "@graph": [
       {
         "@type": "WebSite",
-        "@id": "https://nexsport.app/#website",
-        url: "https://nexsport.app",
+        "@id": "https://nexsport-ten.vercel.app/#website",
+        url: "https://nexsport-ten.vercel.app",
         name: "NexSport",
         description: "سامانه آنلاین و رایگان قرعه‌کشی و برنامه‌ریزی مسابقات ورزشی",
         inLanguage: "fa-IR",

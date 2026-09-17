@@ -8,7 +8,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://nexsport.app"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nexsport-ten.vercel.app"),
   title: {
     default: "NexSport | برنامه‌ریز و قرعه‌کشی آنلاین مسابقات ورزشی",
     template: "%s | NexSport",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     title: "NexSport | برنامه‌ریز و قرعه‌کشی آنلاین مسابقات ورزشی",
     description:
       "تولید خودکار و استاندارد برنامه مسابقات لیگ، گروهی و حذفی بدون بازی تکراری، با ثبت نتایج زنده، رده‌بندی و خروجی اکسل و PDF.",
-    url: "https://nexsport.app",
+    url: "https://nexsport-ten.vercel.app",
     siteName: "NexSport",
     locale: "fa_IR",
     type: "website",
@@ -74,7 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fa" dir="rtl">
       <head>
-        <link rel="canonical" href="https://nexsport.app" />
+        <link rel="canonical" href="https://nexsport-ten.vercel.app" />
       </head>
       <body className="min-h-screen font-sans antialiased bg-chalk text-ink selection:bg-gold selection:text-ink">
         {children}
