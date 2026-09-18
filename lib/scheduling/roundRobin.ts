@@ -33,7 +33,7 @@ export function generateSingleRoundRobin(teamsInput: string[]): RoundRobinRound[
 
   for (let r = 0; r < totalRounds; r++) {
     const current = [fixed, ...rotating];
-    const matches: Match[] = [];
+    const rawMatches: Match[] = [];
 
     for (let i = 0; i < half; i++) {
       const a = current[i];
@@ -46,14 +46,19 @@ export function generateSingleRoundRobin(teamsInput: string[]): RoundRobinRound[
       const swap = (r + i) % 2 === 1;
       const home = swap ? b : a;
       const away = swap ? a : b;
-      matches.push({
-        id: `r${r + 1}-m${matches.length + 1}`,
+      rawMatches.push({
         home,
         away,
       });
     }
 
-    rounds.push({ round: r + 1, matches });
+    // Shuffle match order within each round so no team always plays the first match
+    const randomizedMatches = shuffle(rawMatches).map((m, mIdx) => ({
+      ...m,
+      id: `r${r + 1}-m${mIdx + 1}`,
+    }));
+
+    rounds.push({ round: r + 1, matches: randomizedMatches });
 
     // rotate: last element of rotating moves to the front
     rotating = [rotating[rotating.length - 1], ...rotating.slice(0, -1)];
@@ -71,14 +76,20 @@ export function generateDoubleRoundRobin(teamsInput: string[]): RoundRobinRound[
   const firstLeg = generateSingleRoundRobin(teamsInput);
   const roundsCount = firstLeg.length;
 
-  const secondLeg: RoundRobinRound[] = firstLeg.map((round) => ({
-    round: round.round + roundsCount,
-    matches: round.matches.map((m, i) => ({
-      id: `r${round.round + roundsCount}-m${i + 1}`,
+  const secondLeg: RoundRobinRound[] = firstLeg.map((round) => {
+    const reversed = round.matches.map((m) => ({
       home: m.away,
       away: m.home,
-    })),
-  }));
+    }));
+    const randomized = shuffle(reversed).map((m, i) => ({
+      ...m,
+      id: `r${round.round + roundsCount}-m${i + 1}`,
+    }));
+    return {
+      round: round.round + roundsCount,
+      matches: randomized,
+    };
+  });
 
   return [...firstLeg, ...secondLeg];
 }

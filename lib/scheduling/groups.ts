@@ -93,9 +93,12 @@ export function buildGroups({
   for (let attempt = 0; attempt < 50; attempt++) {
     const buckets: string[][] = Array.from({ length: numGroups }, () => []);
 
-    // Place seeded teams
+    // Randomly assign each seeded team to a distinct group bucket
+    const seedBucketIndices = shuffle(
+      Array.from({ length: numGroups }, (_, i) => i)
+    );
     seededTeams.forEach((team, i) => {
-      buckets[i].push(team);
+      buckets[seedBucketIndices[i]].push(team);
     });
 
     const unassigned = attempt === 0 ? remaining : shuffle([...remaining]);

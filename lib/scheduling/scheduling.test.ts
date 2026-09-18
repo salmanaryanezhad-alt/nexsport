@@ -727,6 +727,49 @@ test("تعداد گروه‌ها: پیش‌فرض بر اساس حداکثر ۴ 
   assertEqual(calculateDefaultNumGroups(32), 8, "32 تیم باید 8 گروه باشد");
 });
 
+test("گروه‌بندی: شماره گروه سرگروه‌ها تصادفی است و همیشه به ترتیب ثابت نیست", () => {
+  const teams = ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴", "تیم ۵", "تیم ۶", "تیم ۷", "تیم ۸"];
+  const seededTeams = ["تیم ۱", "تیم ۲"];
+
+  const seed1Groups = new Set<string>();
+  for (let i = 0; i < 25; i++) {
+    const groups = buildGroups({
+      teams,
+      numGroups: 2,
+      seededTeams,
+    });
+    const gForSeed1 = groups.find((g) => g.teams.includes("تیم ۱"))?.name;
+    if (gForSeed1) seed1Groups.add(gForSeed1);
+  }
+
+  // سرگروه اول نباید همیشه در گروه A باشد و باید در طول چند قرعه‌کشی در هر دو گروه قرار بگیرد
+  assert(
+    seed1Groups.size > 1,
+    "سرگروه اول باید در اجراهای مختلف در گروه‌های متفاوتی قرار گیرد."
+  );
+});
+
+test("لیگ: بازی اول هر دور متعلق به یک تیم ثابت نیست", () => {
+  const teams = ["A", "B", "C", "D", "E", "F", "G", "H"];
+  const rounds = generateSingleRoundRobin(teams);
+
+  // استخراج تیم‌های مسابقه اول هر دور
+  const firstMatchTeams = new Set<string>();
+  for (const r of rounds) {
+    if (r.matches.length > 0) {
+      firstMatchTeams.add(r.matches[0].home);
+      firstMatchTeams.add(r.matches[0].away);
+    }
+  }
+
+  // در یک لیگ ۷ هفته‌ای نباید یک تیم خاص در بازی اول تمام هفته‌ها حضور داشته باشد
+  // و باید تنوع بالایی از تیم‌ها در بازی اول هفتگی حضور داشته باشند (حداقل ۴ تیم مختلف)
+  assert(
+    firstMatchTeams.size >= 4,
+    `تیم‌های حاضر در بازی اول هفته‌ها باید متنوع باشند (تعداد شناسایی‌شده: ${firstMatchTeams.size})`
+  );
+});
+
 /* =========================================================
    نتیجه نهایی
    ========================================================= */
