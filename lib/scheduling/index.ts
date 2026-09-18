@@ -14,7 +14,7 @@ export {
   computeKnockoutWithScores,
   type MatchScore,
 } from "./knockout";
-export { buildGroups } from "./groups";
+export { buildGroups, calculateDefaultNumGroups } from "./groups";
 export { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 export { calculateStandings, type TeamStanding } from "./standings";
 export { formatScheduleAsText, exportScheduleToCsv, downloadCsvFile } from "./export";

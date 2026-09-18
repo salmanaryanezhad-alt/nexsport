@@ -13,6 +13,19 @@ function groupLabel(index: number): string {
   return label;
 }
 
+/**
+ * Calculates the default number of groups such that each group has at most 4 teams:
+ * - Up to 4 teams -> 1 group
+ * - Up to 8 teams -> 2 groups
+ * - Up to 12 teams -> 3 groups
+ * - Up to 16 teams -> 4 groups
+ * - And so on (ceil(teamCount / 4))
+ */
+export function calculateDefaultNumGroups(teamCount: number): number {
+  if (teamCount <= 0) return 1;
+  return Math.max(1, Math.ceil(teamCount / 4));
+}
+
 export interface BuildGroupsParams {
   teams: string[];
   numGroups: number;

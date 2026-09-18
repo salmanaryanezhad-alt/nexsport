@@ -3,7 +3,7 @@ import {
   ScheduleValidationError,
 } from "./index";
 import { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
-import { buildGroups } from "./groups";
+import { buildGroups, calculateDefaultNumGroups } from "./groups";
 import { buildKnockout, computeKnockoutWithScores } from "./knockout";
 
 type TestFn = () => void;
@@ -699,6 +699,32 @@ test("حذفی: صعود با ضربات پنالتی در صورت تساوی �
   });
 
   assertEqual(result.champion, "A", "تیم A با پیروزی در پنالتی باید قهرمان شود.");
+});
+
+test("تعداد گروه‌ها: پیش‌فرض بر اساس حداکثر ۴ تیم در هر گروه (calculateDefaultNumGroups)", () => {
+  // تا ۴ تیم: ۱ گروه
+  assertEqual(calculateDefaultNumGroups(2), 1, "2 تیم باید 1 گروه باشد");
+  assertEqual(calculateDefaultNumGroups(3), 1, "3 تیم باید 1 گروه باشد");
+  assertEqual(calculateDefaultNumGroups(4), 1, "4 تیم باید 1 گروه باشد");
+
+  // تا ۸ تیم: ۲ گروه
+  assertEqual(calculateDefaultNumGroups(5), 2, "5 تیم باید 2 گروه باشد");
+  assertEqual(calculateDefaultNumGroups(6), 2, "6 تیم باید 2 گروه باشد");
+  assertEqual(calculateDefaultNumGroups(7), 2, "7 تیم باید 2 گروه باشد");
+  assertEqual(calculateDefaultNumGroups(8), 2, "8 تیم باید 2 گروه باشد");
+
+  // تا ۱۲ تیم: ۳ گروه
+  assertEqual(calculateDefaultNumGroups(9), 3, "9 تیم باید 3 گروه باشد");
+  assertEqual(calculateDefaultNumGroups(12), 3, "12 تیم باید 3 گروه باشد");
+
+  // تا ۱۶ تیم: ۴ گروه
+  assertEqual(calculateDefaultNumGroups(13), 4, "13 تیم باید 4 گروه باشد");
+  assertEqual(calculateDefaultNumGroups(16), 4, "16 تیم باید 4 گروه باشد");
+
+  // مقادیر بالاتر
+  assertEqual(calculateDefaultNumGroups(20), 5, "20 تیم باید 5 گروه باشد");
+  assertEqual(calculateDefaultNumGroups(24), 6, "24 تیم باید 6 گروه باشد");
+  assertEqual(calculateDefaultNumGroups(32), 8, "32 تیم باید 8 گروه باشد");
 });
 
 /* =========================================================

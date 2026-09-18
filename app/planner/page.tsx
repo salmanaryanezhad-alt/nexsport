@@ -14,6 +14,7 @@ import {
   formatScheduleAsText,
   exportScheduleToCsv,
   downloadCsvFile,
+  calculateDefaultNumGroups,
 } from "@/lib/scheduling";
 import { Stepper } from "@/components/planner/Stepper";
 import { ScheduleView } from "@/components/planner/ScheduleView";
@@ -145,6 +146,7 @@ function PlannerWizard() {
         setResult(null);
         setScores({});
         setError(null);
+        setNumGroups(calculateDefaultNumGroups(teamCount));
         const matchedTitle = FORMAT_OPTIONS.find((f) => f.key === formatQuery)?.title;
         setInfoMessage(`🎯 فرمت «${matchedTitle}» انتخاب شد. لطفاً تعداد تیم‌ها را مشخص کنید.`);
         setTimeout(() => setInfoMessage(null), 4500);
@@ -202,6 +204,12 @@ function PlannerWizard() {
 
   const namesReady =
     teamNames.length === teamCount && teamNames.every((t) => t.trim().length > 0);
+
+  function handleTeamCountChange(count: number) {
+    const validCount = Math.max(2, count);
+    setTeamCount(validCount);
+    setNumGroups(calculateDefaultNumGroups(validCount));
+  }
 
   function ensureNames() {
     setTeamNames((prev) => {
@@ -439,7 +447,7 @@ function PlannerWizard() {
       setFormat(null);
       setTeamCount(8);
       setTeamNames([]);
-      setNumGroups(2);
+      setNumGroups(calculateDefaultNumGroups(8));
       setQualifiersPerGroup(2);
       setSeededTeams([]);
       setAvoidPairs([]);
@@ -585,7 +593,7 @@ function PlannerWizard() {
               min={2}
               max={128}
               value={teamCount}
-              onChange={(e) => setTeamCount(Math.max(2, Number(e.target.value) || 2))}
+              onChange={(e) => handleTeamCountChange(Number(e.target.value) || 2)}
               className="w-40 rounded-md border border-line px-4 py-2.5 text-lg font-bold text-center"
             />
             <span className="text-sm text-ink/60 font-medium">تیم</span>
@@ -886,8 +894,18 @@ function PlannerWizard() {
             <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-4">
               <h3 className="font-bold text-sm text-pitch">تنظیمات گروه‌بندی</h3>
               <div className="grid gap-6 sm:grid-cols-2">
-                <label className="block">
-                  <span className="text-xs font-semibold text-ink/70">تعداد گروه‌ها</span>
+                <div className="block">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-semibold text-ink/70">تعداد گروه‌ها</span>
+                    <button
+                      type="button"
+                      onClick={() => setNumGroups(calculateDefaultNumGroups(teamCount))}
+                      className="text-[11px] text-pitch hover:underline font-bold"
+                      title="تنظیم خودکار بر اساس حداکثر ۴ تیم در هر گروه"
+                    >
+                      پیش‌فرض ({calculateDefaultNumGroups(teamCount)} گروه)
+                    </button>
+                  </div>
                   <input
                     type="number"
                     min={1}
@@ -896,9 +914,14 @@ function PlannerWizard() {
                     onChange={(e) =>
                       setNumGroups(Math.max(1, Number(e.target.value) || 1))
                     }
-                    className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
                   />
-                </label>
+                  <p className="text-[11px] text-ink/50 mt-1">
+                    با {teamCount} تیم در {numGroups} گروه، هر گروه شامل{" "}
+                    {Math.floor(teamCount / Math.max(1, numGroups))} تا{" "}
+                    {Math.ceil(teamCount / Math.max(1, numGroups))} تیم خواهد بود (حداکثر ۴ تیم در حالت استاندارد).
+                  </p>
+                </div>
                 {format === "groups-knockout" && (
                   <label className="block">
                     <span className="text-xs font-semibold text-ink/70">
