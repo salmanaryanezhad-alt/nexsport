@@ -96,6 +96,8 @@ export default function PlannerPage() {
   // Bulk input modal state
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkText, setBulkText] = useState("");
+  const [excelHasHeader, setExcelHasHeader] = useState(true);
+  const [rawExcelRows, setRawExcelRows] = useState<string[]>([]);
   const excelInputRef = useRef<HTMLInputElement | null>(null);
 
   // Avoidance helper selector state
@@ -247,6 +249,20 @@ export default function PlannerPage() {
     }
   }
 
+  function handleToggleExcelHeader(checked: boolean) {
+    setExcelHasHeader(checked);
+    if (rawExcelRows.length > 0) {
+      const names = checked ? rawExcelRows.slice(1) : rawExcelRows;
+      setBulkText(names.join("\n"));
+      setInfoMessage(
+        checked
+          ? "ℹ️ سطر اول فایل اکسل به عنوان عنوان نادیده گرفته شد."
+          : "ℹ️ سطر اول فایل اکسل نیز به عنوان نام تیم در لیست قرار گرفت."
+      );
+      setTimeout(() => setInfoMessage(null), 3500);
+    }
+  }
+
   function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -263,7 +279,7 @@ export default function PlannerPage() {
         }
         const ws = wb.Sheets[firstSheetName];
         const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
-        const names: string[] = [];
+        const extracted: string[] = [];
 
         for (const row of data) {
           if (
@@ -273,31 +289,36 @@ export default function PlannerPage() {
             row[0] !== null
           ) {
             const val = String(row[0]).trim();
-            const isHeader =
-              val === "نام تیم" ||
-              val === "نام" ||
-              val === "تیم" ||
-              val.toLowerCase() === "team" ||
-              val.toLowerCase() === "team name" ||
-              val.toLowerCase() === "teams";
-
-            if (val.length > 0 && !isHeader) {
-              names.push(val);
+            if (val.length > 0) {
+              extracted.push(val);
             }
           }
         }
 
-        if (names.length === 0) {
+        if (extracted.length === 0) {
           alert(
             "هیچ نام تیمی در ستون اول (ستون A) فایل اکسل یافت نشد. لطفاً دقت فرمایید اسامی تیم‌ها فقط در ستون اول نوشته شده باشند."
           );
           return;
         }
 
-        setBulkText(names.join("\n"));
+        setRawExcelRows(extracted);
+        const names = excelHasHeader ? extracted.slice(1) : extracted;
+
+        if (excelHasHeader && extracted.length === 1) {
+          alert(
+            "فایل اکسل تنها شامل ۱ سطر بود که با توجه به تیک «فایل اکسل عنوان دارد»، به عنوان عنوان شناسایی شد. تیک برداشته شد تا همین سطر به عنوان نام تیم خوانده شود."
+          );
+          setExcelHasHeader(false);
+          setBulkText(extracted.join("\n"));
+        } else {
+          setBulkText(names.join("\n"));
+        }
+
         setShowBulkModal(true);
+        const count = excelHasHeader && extracted.length > 1 ? extracted.length - 1 : extracted.length;
         setInfoMessage(
-          `📊 تعداد ${names.length} تیم از ستون اول فایل اکسل با موفقیت استخراج شد.`
+          `📊 فایل اکسل با موفقیت خوانده شد (${count} نام تیم استخراج گردید).`
         );
         setTimeout(() => setInfoMessage(null), 4000);
 
@@ -314,7 +335,7 @@ export default function PlannerPage() {
   function handleDownloadExcelTemplate() {
     const wb = XLSX.utils.book_new();
     const rows = [
-      ["اسامی تیم‌ها (فقط در همین ستون A)"],
+      ["نام تیم (سطر عنوان)"],
       ["تیم پرسپولیس"],
       ["تیم استقلال"],
       ["تیم سپاهان"],
@@ -574,7 +595,10 @@ export default function PlannerPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => excelInputRef.current?.click()}
+                onClick={() => {
+                  setShowBulkModal(true);
+                  excelInputRef.current?.click();
+                }}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/40 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors shadow-sm"
                 title="بارگذاری اسامی آماده از فایل اکسل (.xlsx یا .csv)"
               >
@@ -602,36 +626,58 @@ export default function PlannerPage() {
                 </span>
               </div>
 
-              {/* Excel notice & upload button */}
-              <div className="rounded-lg border border-emerald-300/80 bg-emerald-50/80 p-3.5 text-xs text-emerald-950 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-start gap-2 max-w-md">
-                  <span className="text-base mt-0.5">📊</span>
-                  <div className="leading-5">
-                    <span className="font-extrabold text-emerald-900">
-                      قانون بارگذاری اکسل:
-                    </span>{" "}
-                    اسامی تیم‌ها را صرفاً در{" "}
-                    <strong className="underline decoration-emerald-600 font-bold">
-                      ستون اول (ستون A)
-                    </strong>{" "}
-                    فایل اکسل وارد کنید. سطرهای خالی نادیده گرفته می‌شوند.
+              {/* Excel notice & upload button & Header checkbox */}
+              <div className="rounded-lg border border-emerald-300/80 bg-emerald-50/80 p-3.5 text-xs text-emerald-950 space-y-3 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-start gap-2 max-w-md">
+                    <span className="text-base mt-0.5">📊</span>
+                    <div className="leading-5">
+                      <span className="font-extrabold text-emerald-900">
+                        قانون بارگذاری اکسل:
+                      </span>{" "}
+                      اسامی تیم‌ها را صرفاً در{" "}
+                      <strong className="underline decoration-emerald-600 font-bold">
+                        ستون اول (ستون A)
+                      </strong>{" "}
+                      فایل اکسل وارد کنید. سطرهای خالی نادیده گرفته می‌شوند.
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => excelInputRef.current?.click()}
+                      className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 transition-colors shadow-xs"
+                    >
+                      📁 بارگذاری فایل اکسل (.xlsx)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadExcelTemplate}
+                      className="text-xs text-emerald-800 underline hover:text-emerald-950 font-semibold"
+                    >
+                      دانلود قالب نمونه
+                    </button>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => excelInputRef.current?.click()}
-                    className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 transition-colors shadow-xs"
-                  >
-                    📁 بارگذاری فایل اکسل (.xlsx)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDownloadExcelTemplate}
-                    className="text-xs text-emerald-800 underline hover:text-emerald-950 font-semibold"
-                  >
-                    دانلود قالب نمونه
-                  </button>
+
+                {/* Checkbox: Does Excel have a header row? */}
+                <div className="pt-2 border-t border-emerald-200/80 flex flex-wrap items-center justify-between gap-2">
+                  <label className="inline-flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={excelHasHeader}
+                      onChange={(e) => handleToggleExcelHeader(e.target.checked)}
+                      className="h-4 w-4 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span className="font-bold text-emerald-900">
+                      فایل اکسل عنوان دارد؟ (ردیف اول به عنوان سرستون خوانده نشود)
+                    </span>
+                  </label>
+                  <span className="rounded bg-emerald-200/60 px-2 py-0.5 text-[11px] font-semibold text-emerald-900">
+                    {excelHasHeader
+                      ? "✓ ردیف اول عنوان است و نادیده گرفته می‌شود (پیش‌فرض)"
+                      : "⚠️ ردیف اول نیز به عنوان نام تیم خوانده می‌شود"}
+                  </span>
                 </div>
               </div>
 
