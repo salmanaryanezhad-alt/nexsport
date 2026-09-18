@@ -171,6 +171,17 @@ const PRESET_EUROPE = [
   "اسپورتینگ",
 ];
 
+const COMMON_TEAM_PRESETS = [
+  { count: 4, label: "۴ تیم", note: "نیمه‌نهایی / ۴ جانبه" },
+  { count: 8, label: "۸ تیم", note: "استاندارد کلاسیک" },
+  { count: 12, label: "۱۲ تیم", note: "۳ گروه ۴ تیمی" },
+  { count: 16, label: "۱۶ تیم", note: "یک‌هشتم / ۴ گروه" },
+  { count: 24, label: "۲۴ تیم", note: "جام ملت‌ها" },
+  { count: 32, label: "۳۲ تیم", note: "جام جهانی فوتبال" },
+  { count: 48, label: "۴۸ تیم", note: "تورنمنت‌های بزرگ" },
+  { count: 64, label: "۶۴ تیم", note: "جام‌های کشوری" },
+];
+
 const btnPrimary =
   "inline-flex items-center justify-center rounded-md bg-pitch px-4 py-2.5 text-sm font-semibold text-chalk transition-colors hover:bg-pitch-light disabled:cursor-not-allowed disabled:opacity-40";
 const btnGhost =
@@ -184,6 +195,7 @@ function PlannerWizard() {
   const [format, setFormat] = useState<CompetitionFormat | null>(null);
   const [formatCategory, setFormatCategory] = useState<"all" | "tournament" | "league">("all");
   const [teamCount, setTeamCount] = useState(8);
+  const [teamCountInput, setTeamCountInput] = useState("8");
   const [teamNames, setTeamNames] = useState<string[]>([]);
   const [numGroups, setNumGroups] = useState(2);
   const [qualifiersPerGroup, setQualifiersPerGroup] = useState(2);
@@ -228,7 +240,10 @@ function PlannerWizard() {
         const parsed = JSON.parse(saved);
         if (typeof parsed.step === "number") setStep(parsed.step);
         if (parsed.format) setFormat(parsed.format);
-        if (typeof parsed.teamCount === "number") setTeamCount(parsed.teamCount);
+        if (typeof parsed.teamCount === "number") {
+          setTeamCount(parsed.teamCount);
+          setTeamCountInput(String(parsed.teamCount));
+        }
         if (Array.isArray(parsed.teamNames)) setTeamNames(parsed.teamNames);
         if (typeof parsed.numGroups === "number") setNumGroups(parsed.numGroups);
         if (typeof parsed.qualifiersPerGroup === "number")
@@ -309,9 +324,32 @@ function PlannerWizard() {
     teamNames.length === teamCount && teamNames.every((t) => t.trim().length > 0);
 
   function handleTeamCountChange(count: number) {
-    const validCount = Math.max(2, count);
+    const validCount = Math.min(128, Math.max(2, count));
     setTeamCount(validCount);
+    setTeamCountInput(String(validCount));
     setNumGroups(calculateDefaultNumGroups(validCount));
+  }
+
+  function handleTypingTeamCount(val: string) {
+    // Keep user's raw keystrokes (digits only), allowing empty string while deleting
+    const digits = val.replace(/[^0-9]/g, "");
+    setTeamCountInput(digits);
+    if (digits.length > 0) {
+      const parsed = parseInt(digits, 10);
+      if (parsed >= 2 && parsed <= 128) {
+        setTeamCount(parsed);
+        setNumGroups(calculateDefaultNumGroups(parsed));
+      }
+    }
+  }
+
+  function handleBlurTeamCount() {
+    let parsed = parseInt(teamCountInput, 10);
+    if (isNaN(parsed) || parsed < 2) parsed = 2;
+    if (parsed > 128) parsed = 128;
+    setTeamCount(parsed);
+    setTeamCountInput(String(parsed));
+    setNumGroups(calculateDefaultNumGroups(parsed));
   }
 
   function ensureNames() {
@@ -549,6 +587,7 @@ function PlannerWizard() {
       setStep(0);
       setFormat(null);
       setTeamCount(8);
+      setTeamCountInput("8");
       setTeamNames([]);
       setNumGroups(calculateDefaultNumGroups(8));
       setQualifiersPerGroup(2);
@@ -830,34 +869,158 @@ function PlannerWizard() {
 
       {/* STEP 1: TEAM COUNT */}
       {step === 1 && (
-        <section>
-          <div className="mb-6">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <h1 className="text-2xl font-bold">تعداد تیم‌ها</h1>
+        <section className="animate-fade-in space-y-8">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <h1 className="text-2xl sm:text-3xl font-black text-ink">تعداد تیم‌های مسابقه</h1>
               {format && (
-                <span className="rounded-full bg-pitch/10 px-3 py-1 text-xs font-bold text-pitch border border-pitch/20">
+                <span className="rounded-full bg-pitch/10 px-3.5 py-1 text-xs font-bold text-pitch border border-pitch/20">
                   فرمت انتخابی: {FORMAT_OPTIONS.find((f) => f.key === format)?.title}
                 </span>
               )}
             </div>
-            <p className="text-sm text-ink/60">
-              چند تیم در این دوره از مسابقات حضور دارند؟ (حداقل ۲ تیم)
+            <p className="text-xs sm:text-sm text-ink/65 leading-relaxed">
+              می‌توانید عدد دلخواه خود را مستقیماً در کادر تایپ کنید، از دکمه‌های بزرگ + و − استفاده کنید، یا با یک کلیک از دکمه‌های آماده زیر انتخاب فرمایید:
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              min={2}
-              max={128}
-              value={teamCount}
-              onChange={(e) => handleTeamCountChange(Number(e.target.value) || 2)}
-              className="w-40 rounded-md border border-line px-4 py-2.5 text-lg font-bold text-center"
-            />
-            <span className="text-sm text-ink/60 font-medium">تیم</span>
+          {/* Stepper Controls & Direct Input */}
+          <div className="rounded-2xl border border-line/80 bg-white p-5 sm:p-6 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+              <div>
+                <span className="text-xs sm:text-sm font-bold text-ink/80 block mb-1">
+                  تعداد تیم‌های حاضر در مسابقات:
+                </span>
+                <span className="text-xs text-ink/50">
+                  حداقل ۲ و حداکثر ۱۲۸ تیم مجاز است (می‌توانید مستقیماً عدد بنویسید).
+                </span>
+              </div>
+
+              {/* Big Touch-Friendly Input & Controls */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleTeamCountChange(teamCount - 1)}
+                  disabled={teamCount <= 2}
+                  className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl border-2 border-line bg-chalk/50 text-2xl font-black text-ink hover:border-pitch hover:bg-pitch/5 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs"
+                  title="کاهش یک تیم"
+                  aria-label="کاهش یک تیم"
+                >
+                  −
+                </button>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={teamCountInput}
+                    onChange={(e) => handleTypingTeamCount(e.target.value)}
+                    onBlur={handleBlurTeamCount}
+                    className="h-12 w-28 sm:h-14 sm:w-36 rounded-2xl border-2 border-pitch bg-white text-center text-2xl sm:text-3xl font-black text-pitch focus:outline-none focus:ring-4 focus:ring-pitch/15 shadow-inner transition-all"
+                    placeholder="مثلاً ۳۲"
+                  />
+                  <span className="absolute -bottom-5 left-0 right-0 text-center text-[10px] text-ink/40 font-semibold select-none">
+                    تایپ مستقیم عددی
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleTeamCountChange(teamCount + 1)}
+                  disabled={teamCount >= 128}
+                  className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl border-2 border-line bg-chalk/50 text-2xl font-black text-ink hover:border-pitch hover:bg-pitch/5 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs"
+                  title="افزایش یک تیم"
+                  aria-label="افزایش یک تیم"
+                >
+                  +
+                </button>
+
+                <span className="text-base sm:text-lg font-bold text-ink/70 mr-1">تیم</span>
+              </div>
+            </div>
+
+            {/* Quick Selection Presets */}
+            <div className="border-t border-line/60 pt-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-ink/80 flex items-center gap-1.5">
+                  <span>⚡</span>
+                  <span>انتخاب سریع و فوری تعداد تیم‌های رایج (بدون نیاز به کلیک‌های متوالی):</span>
+                </span>
+                <span className="text-[11px] text-ink/40 hidden sm:inline">
+                  با یک ضربه فوری اعمال می‌شود
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {COMMON_TEAM_PRESETS.map((p) => {
+                  const isCurrent = teamCount === p.count;
+                  return (
+                    <button
+                      key={p.count}
+                      type="button"
+                      onClick={() => handleTeamCountChange(p.count)}
+                      className={`flex flex-col items-start p-3 rounded-xl border text-right transition-all cursor-pointer ${
+                        isCurrent
+                          ? "border-pitch bg-pitch text-chalk shadow-md scale-[1.02] ring-2 ring-gold/40"
+                          : "border-line/80 bg-chalk/30 hover:border-pitch/50 hover:bg-white text-ink"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-sm font-black">{p.label}</span>
+                        {isCurrent && (
+                          <span className="text-xs font-bold text-gold">✓ انتخاب شد</span>
+                        )}
+                      </div>
+                      <span className={`text-[10px] mt-0.5 ${isCurrent ? "text-chalk/80" : "text-ink/50"}`}>
+                        {p.note}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          <div className="mt-10 flex gap-3">
+          {/* Contextual Tournament Overview Box */}
+          <div className="rounded-2xl border border-pitch/20 bg-pitch/5 p-4 sm:p-5 text-xs text-ink/80 space-y-1.5 shadow-2xs">
+            <div className="font-bold text-pitch flex items-center gap-2">
+              <span>📋</span>
+              <span className="text-sm">ساختار مسابقات شما با {teamCount} تیم:</span>
+            </div>
+            {format === "groups-knockout" && (
+              <p className="leading-6 pr-6">
+                با <strong>{teamCount} تیم</strong>، مسابقات به صورت استاندارد در <strong>{numGroups} گروه</strong> ({Math.floor(teamCount / Math.max(1, numGroups))} تا {Math.ceil(teamCount / Math.max(1, numGroups))} تیم در هر گروه) آغاز می‌شود و سپس تیم‌های اول و دوم وارد جدول حذفی ضربدری خواهند شد.
+              </p>
+            )}
+            {format === "knockout" && (
+              <p className="leading-6 pr-6">
+                {Math.log2(teamCount) % 1 === 0 ? (
+                  <>تعداد {teamCount} تیم دقیقاً توان ۲ است؛ بنابراین مسابقات بدون استراحت و در <strong>{Math.log2(teamCount)} مرحله کامل</strong> برگزار خواهد شد.</>
+                ) : (
+                  <>
+                    با توجه به اینکه {teamCount} توان ۲ نیست، جدول براکت {Math.pow(2, Math.ceil(Math.log2(teamCount)))} تیمی تشکیل شده و به <strong>{Math.pow(2, Math.ceil(Math.log2(teamCount))) - teamCount} تیم برتر</strong> استراحت مستقیم دور اول (Bye) داده می‌شود.
+                  </>
+                )}
+              </p>
+            )}
+            {format === "league" && (
+              <p className="leading-6 pr-6">
+                هر تیم با تمام {teamCount - 1} رقیب خود یک مسابقه می‌دهد؛ مجموعاً <strong>{teamCount % 2 === 0 ? teamCount - 1 : teamCount} هفته مسابقاتی</strong> و <strong>{(teamCount * (teamCount - 1)) / 2} بازی عادلانه</strong> بدون مسابقه تکراری برگزار می‌شود.
+              </p>
+            )}
+            {format === "double-league" && (
+              <p className="leading-6 pr-6">
+                هر دو تیم یک‌بار در زمین خود و یک‌بار در زمین حریف بازی می‌کنند؛ مجموعاً <strong>{2 * (teamCount % 2 === 0 ? teamCount - 1 : teamCount)} هفته مسابقاتی</strong> و <strong>{teamCount * (teamCount - 1)} بازی رفت‌وبرگشت</strong> برگزار خواهد شد.
+              </p>
+            )}
+            {format === "groups" && (
+              <p className="leading-6 pr-6">
+                تیم‌ها به <strong>{numGroups} گروه</strong> متوازن ({Math.floor(teamCount / Math.max(1, numGroups))} تا {Math.ceil(teamCount / Math.max(1, numGroups))} تیم در هر گروه) تقسیم شده و درون هر گروه جدول امتیازات اختصاصی محاسبه می‌شود.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-8 flex gap-3">
             <button className={btnGhost} onClick={() => setStep(0)}>
               مرحله قبل (تغییر فرمت)
             </button>
