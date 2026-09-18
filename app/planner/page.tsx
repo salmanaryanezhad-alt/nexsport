@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import * as XLSX from "xlsx";
 import {
@@ -72,7 +73,10 @@ const btnPrimary =
 const btnGhost =
   "inline-flex items-center justify-center rounded-md border border-line px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-line/40";
 
-export default function PlannerPage() {
+function PlannerWizard() {
+  const searchParams = useSearchParams();
+  const formatQuery = searchParams.get("format") as CompetitionFormat | null;
+
   const [step, setStep] = useState(0);
   const [format, setFormat] = useState<CompetitionFormat | null>(null);
   const [teamCount, setTeamCount] = useState(8);
@@ -104,8 +108,16 @@ export default function PlannerPage() {
   const [avoidTeamA, setAvoidTeamA] = useState("");
   const [avoidTeamB, setAvoidTeamB] = useState("");
 
-  // Restore from LocalStorage on mount
+  // Restore from LocalStorage on mount & check for ?format= query param
   useEffect(() => {
+    const validFormats: CompetitionFormat[] = [
+      "league",
+      "double-league",
+      "groups",
+      "groups-knockout",
+      "knockout",
+    ];
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -125,12 +137,24 @@ export default function PlannerPage() {
         if (parsed.result) setResult(parsed.result);
         if (parsed.scores) setScores(parsed.scores);
       }
+
+      // If user selected a format on the homepage (e.g. /planner?format=knockout), jump directly to that format!
+      if (formatQuery && validFormats.includes(formatQuery)) {
+        setFormat(formatQuery);
+        setStep(1);
+        setResult(null);
+        setScores({});
+        setError(null);
+        const matchedTitle = FORMAT_OPTIONS.find((f) => f.key === formatQuery)?.title;
+        setInfoMessage(`🎯 فرمت «${matchedTitle}» انتخاب شد. لطفاً تعداد تیم‌ها را مشخص کنید.`);
+        setTimeout(() => setInfoMessage(null), 4500);
+      }
     } catch {
       // Ignore parse error
     } finally {
       setIsLoaded(true);
     }
-  }, []);
+  }, [formatQuery]);
 
   // Save to LocalStorage whenever state changes
   useEffect(() => {
@@ -541,19 +565,35 @@ export default function PlannerPage() {
       {/* STEP 1: TEAM COUNT */}
       {step === 1 && (
         <section>
-          <h1 className="text-2xl font-bold mb-2">تعداد تیم‌ها</h1>
-          <p className="text-sm text-ink/60 mb-6">حداقل ۲ تیم لازم است.</p>
-          <input
-            type="number"
-            min={2}
-            max={128}
-            value={teamCount}
-            onChange={(e) => setTeamCount(Math.max(2, Number(e.target.value) || 2))}
-            className="w-40 rounded-md border border-line px-4 py-2.5 text-lg"
-          />
+          <div className="mb-6">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <h1 className="text-2xl font-bold">تعداد تیم‌ها</h1>
+              {format && (
+                <span className="rounded-full bg-pitch/10 px-3 py-1 text-xs font-bold text-pitch border border-pitch/20">
+                  فرمت انتخابی: {FORMAT_OPTIONS.find((f) => f.key === format)?.title}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-ink/60">
+              چند تیم در این دوره از مسابقات حضور دارند؟ (حداقل ۲ تیم)
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min={2}
+              max={128}
+              value={teamCount}
+              onChange={(e) => setTeamCount(Math.max(2, Number(e.target.value) || 2))}
+              className="w-40 rounded-md border border-line px-4 py-2.5 text-lg font-bold text-center"
+            />
+            <span className="text-sm text-ink/60 font-medium">تیم</span>
+          </div>
+
           <div className="mt-10 flex gap-3">
             <button className={btnGhost} onClick={() => setStep(0)}>
-              مرحله قبل
+              مرحله قبل (تغییر فرمت)
             </button>
             <button
               className={btnPrimary}
@@ -562,7 +602,7 @@ export default function PlannerPage() {
                 setStep(2);
               }}
             >
-              مرحله بعد
+              مرحله بعد (اسامی تیم‌ها)
             </button>
           </div>
         </section>
@@ -1091,5 +1131,19 @@ export default function PlannerPage() {
         </section>
       )}
     </main>
+  );
+}
+
+export default function PlannerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-4xl px-6 py-24 text-center text-ink/60 font-medium">
+          در حال بارگذاری برنامه‌ریز مسابقات...
+        </div>
+      }
+    >
+      <PlannerWizard />
+    </Suspense>
   );
 }

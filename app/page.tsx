@@ -351,7 +351,7 @@ export default function HomePage() {
                 </div>
 
                 <Link
-                  href="/planner"
+                  href={`/planner?format=${f.id}`}
                   className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-pitch bg-pitch/5 py-2.5 text-xs font-bold text-pitch hover:bg-pitch hover:text-chalk transition-colors"
                 >
                   ساخت مسابقه با این فرمت ←
@@ -544,10 +544,31 @@ export default function HomePage() {
             <div className="md:col-span-3 space-y-2">
               <h4 className="text-xs font-bold uppercase tracking-wider text-pitch">فرمت‌های مسابقه</h4>
               <ul className="space-y-1.5 text-xs text-ink/75">
-                <li>لیگ تک‌دور و رفت‌وبرگشت</li>
-                <li>مرحله گروهی با سیدبندی اختیاری</li>
-                <li>گروهی + براکت حذفی</li>
-                <li>براکت تک‌حذفی با سیستم Bye</li>
+                <li>
+                  <Link href="/planner?format=league" className="hover:text-pitch transition-colors">
+                    لیگ دوره‌ای (تک‌دور)
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/planner?format=double-league" className="hover:text-pitch transition-colors">
+                    لیگ رفت و برگشت
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/planner?format=groups" className="hover:text-pitch transition-colors">
+                    مرحله گروهی
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/planner?format=groups-knockout" className="hover:text-pitch transition-colors">
+                    گروهی + براکت حذفی
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/planner?format=knockout" className="hover:text-pitch transition-colors">
+                    براکت تک‌حذفی
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>
