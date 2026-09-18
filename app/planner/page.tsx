@@ -21,12 +21,114 @@ import { ScheduleView } from "@/components/planner/ScheduleView";
 
 const STORAGE_KEY = "nexsport_wizard_state_v4";
 
-const FORMAT_OPTIONS: { key: CompetitionFormat; title: string; desc: string }[] = [
-  { key: "league", title: "لیگ", desc: "هر تیم یک‌بار با هر تیم دیگر بازی می‌کند." },
-  { key: "double-league", title: "لیگ رفت و برگشت", desc: "هر تیم دو بار، یک‌بار در خانه و یک‌بار خارج از خانه." },
-  { key: "groups", title: "مرحله گروهی", desc: "تقسیم تیم‌ها به چند گروه، با سیدبندی اختیاری." },
-  { key: "groups-knockout", title: "گروهی + حذفی", desc: "مرحله گروهی و سپس براکت حذفی برای صعودکننده‌ها." },
-  { key: "knockout", title: "حذفی", desc: "براکت تک‌حذفی با پشتیبانی از Bye." },
+interface FormatCardInfo {
+  key: CompetitionFormat;
+  title: string;
+  subtitle: string;
+  category: "tournament" | "league";
+  icon: string;
+  tag: string;
+  badgeBg: string;
+  badgeBorder: string;
+  badgeText: string;
+  desc: string;
+  idealFor: string;
+  features: string[];
+  recommended?: boolean;
+}
+
+const FORMAT_OPTIONS: FormatCardInfo[] = [
+  {
+    key: "groups-knockout",
+    title: "مرحله گروهی + براکت حذفی",
+    subtitle: "World Cup & Champions League Style",
+    category: "tournament",
+    icon: "🏆",
+    tag: "فرمت محبوب رسمی",
+    badgeBg: "bg-gold/15",
+    badgeBorder: "border-gold/40",
+    badgeText: "text-gold-dark",
+    desc: "مسابقات با مرحله گروهی آغاز شده و تیم‌های برتر در یک براکت حذفی هیجان‌انگیز (سیستم ضربدری) تا رسیدن به فینال رقابت می‌کنند.",
+    idealFor: "جام رمضان، تورنمنت‌های چندجانبه، کاپ‌های رسمی مدارس و باشگاه‌ها",
+    features: [
+      "عدم برخورد هم‌گروهی‌ها در دور اول حذفی",
+      "پشتیبانی از سیدبندی سرگروه‌ها و قانون عدم برخورد",
+      "امکان فعال‌سازی مسابقه رده‌بندی برای مقام سوم",
+    ],
+    recommended: true,
+  },
+  {
+    key: "knockout",
+    title: "براکت تک‌حذفی (جام حذفی)",
+    subtitle: "Single Elimination Bracket",
+    category: "tournament",
+    icon: "🥊",
+    tag: "سریع‌ترین و پرهیجان‌ترین",
+    badgeBg: "bg-brick/10",
+    badgeBorder: "border-brick/30",
+    badgeText: "text-brick",
+    desc: "بازنده در هر مسابقه مستقیماً حذف شده و برنده به مرحله بعد می‌رود. دارای سیستم هوشمند قرعه‌های استراحت (Bye).",
+    idealFor: "مسابقات فشرده ۱ یا ۲ روزه، تورنمنت‌های حذفی سریع و آخر هفته‌ها",
+    features: [
+      "توزیع عادلانه استراحت (Bye) برای هر تعداد دلخواه تیم",
+      "پشتیبانی کامل از وقت اضافه و ضربات پنالتی",
+      "تعیین قهرمان در کوتاه‌ترین زمان ممکن",
+    ],
+  },
+  {
+    key: "league",
+    title: "لیگ دوره‌ای (تک‌دور)",
+    subtitle: "Single Round-Robin",
+    category: "league",
+    icon: "⚽",
+    tag: "عادلانه‌ترین شیوه رقابت",
+    badgeBg: "bg-pitch/10",
+    badgeBorder: "border-pitch/30",
+    badgeText: "text-pitch",
+    desc: "هر تیم دقیقاً یک‌بار با تمام رقبای دیگر مسابقه می‌دهد. مبتنی بر الگوریتم استاندارد جهانی برگر (بدون هیچ بازی تکراری).",
+    idealFor: "لیگ‌های محلی، دوره‌های درون‌باشگاهی و تورنمنت‌های دوره‌ای",
+    features: [
+      "تضمین ریاضی عدم وجود حتی یک مسابقه تکراری",
+      "توازن عادلانه میزبانی و میهمانی برای تمامی تیم‌ها",
+      "جدول امتیازات لحظه‌ای با تفاضل و گل‌های زده",
+    ],
+  },
+  {
+    key: "double-league",
+    title: "لیگ رفت و برگشت",
+    subtitle: "Home & Away Round-Robin",
+    category: "league",
+    icon: "🔄",
+    tag: "استاندارد حرفه‌ای لیگ‌ها",
+    badgeBg: "bg-sky-500/15",
+    badgeBorder: "border-sky-500/30",
+    badgeText: "text-sky-700",
+    desc: "دو دور کامل مسابقه؛ یک بازی در زمین خودی و یک بازی در خانه حریف با تفکیک ساختاریافته نیم‌فصل اول و دوم.",
+    idealFor: "لیگ‌های رسمی فصلی، مدارس فوتبال و مسابقات چندماهه",
+    features: [
+      "تضمین دو مسابقه برای هر دو تیم با جابه‌جایی دقیق میزبان",
+      "سازمان‌دهی منظم بازی‌ها در قالب هفته‌های مسابقاتی",
+      "ثبت زنده نتایج گل‌ها و جدول رده‌بندی لحظه‌ای",
+    ],
+  },
+  {
+    key: "groups",
+    title: "فقط مرحله گروهی",
+    subtitle: "Group Stage Standings",
+    category: "league",
+    icon: "👥",
+    tag: "دسته‌بندی چندگانه",
+    badgeBg: "bg-purple-500/15",
+    badgeBorder: "border-purple-500/30",
+    badgeText: "text-purple-700",
+    desc: "تقسیم متوازن تیم‌ها به چند گروه مستقل و برگزاری مسابقات دوره‌ای مجزا در هر گروه با جداول رده‌بندی تفکیک‌شده.",
+    idealFor: "مسابقات انتخابی، فستیوال‌های چندرده‌ای و جشنواره‌های ورزشی",
+    features: [
+      "سیدبندی سرگروه‌ها برای توزیع متوازن در گروه‌ها",
+      "قانون عدم برخورد تیم‌های هم‌باشگاهی یا همشهری",
+      "جدول رده‌بندی و امتیازات اختصاصی برای هر گروه",
+    ],
+  },
 ];
 
 const STEP_LABELS = ["نوع مسابقه", "تعداد تیم‌ها", "نام تیم‌ها", "تنظیمات", "نتیجه"];
@@ -80,6 +182,7 @@ function PlannerWizard() {
 
   const [step, setStep] = useState(0);
   const [format, setFormat] = useState<CompetitionFormat | null>(null);
+  const [formatCategory, setFormatCategory] = useState<"all" | "tournament" | "league">("all");
   const [teamCount, setTeamCount] = useState(8);
   const [teamNames, setTeamNames] = useState<string[]>([]);
   const [numGroups, setNumGroups] = useState(2);
@@ -513,59 +616,214 @@ function PlannerWizard() {
     downloadCsvFile(csv, `nexsport-${format ?? "schedule"}.csv`);
   }
 
+  const displayedFormats =
+    formatCategory === "all"
+      ? FORMAT_OPTIONS
+      : FORMAT_OPTIONS.filter((f) => f.category === formatCategory);
+
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
+    <main className="mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-12">
       {/* Top Bar */}
-      <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
-        <Link href="/" className="text-sm text-ink/60 hover:text-ink font-medium">
-          ← بازگشت به صفحه اصلی
-        </Link>
+      <div className="no-print mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-line/70 pb-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-ink hover:border-pitch hover:text-pitch transition-colors shadow-2xs"
+          >
+            <span>←</span>
+            <span>صفحه اصلی</span>
+          </Link>
+          <div className="h-4 w-px bg-line/80" />
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-pitch text-gold text-sm shadow-2xs font-bold">
+              ⚽
+            </span>
+            <span className="text-sm font-black text-ink">برنامه‌ریز مسابقات NexSport</span>
+          </div>
+        </div>
+
         <div className="flex items-center gap-3">
           {(step > 0 || result) && (
             <button
               onClick={handleReset}
-              className="text-xs text-brick hover:underline font-semibold"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-brick/30 bg-brick/5 px-3 py-1.5 text-xs font-bold text-brick hover:bg-brick hover:text-white transition-colors"
             >
-              🔄 شروع مسابقه جدید
+              <span>🔄</span>
+              <span>شروع مسابقه جدید</span>
             </button>
           )}
         </div>
       </div>
 
-      <div className="no-print mb-10">
+      <div className="no-print mb-8">
         <Stepper labels={STEP_LABELS} current={step} />
       </div>
 
       {/* Info notification */}
       {infoMessage && (
-        <div className="no-print mb-6 rounded-md border border-pitch/30 bg-pitch/10 px-4 py-3 text-sm font-semibold text-pitch animate-fade-in">
-          {infoMessage}
+        <div className="no-print mb-6 rounded-xl border border-pitch/30 bg-pitch/10 px-4 py-3 text-xs sm:text-sm font-semibold text-pitch animate-fade-in flex items-center gap-2 shadow-xs">
+          <span>ℹ️</span>
+          <span>{infoMessage}</span>
         </div>
       )}
 
       {/* STEP 0: FORMAT SELECTION */}
       {step === 0 && (
-        <section>
-          <h1 className="text-2xl font-bold mb-6">نوع مسابقه را انتخاب کنید</h1>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {FORMAT_OPTIONS.map((opt) => (
+        <section className="animate-fade-in space-y-8">
+          {/* Section Hero */}
+          <div className="text-center max-w-2xl mx-auto space-y-2.5 pt-2">
+            <div className="inline-flex items-center gap-2 rounded-full bg-pitch/10 px-3.5 py-1 text-xs font-bold text-pitch border border-pitch/20">
+              <span className="h-2 w-2 rounded-full bg-pitch animate-pulse" />
+              <span>گام اول از ۵: تعیین شیوه رقابت</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-ink tracking-tight">
+              فرمت برگزاری مسابقات خود را انتخاب کنید
+            </h1>
+            <p className="text-xs sm:text-sm text-ink/70 leading-relaxed">
+              هر فرمت از دقیق‌ترین الگوریتم‌های استاندارد بین‌المللی پیروی می‌کند و جدول بازی‌ها بدون هیچ خطایی ایجاد خواهد شد. روی گزینه مورد نظر کلیک کنید:
+            </p>
+
+            {/* Filter Tabs */}
+            <div className="pt-3 flex flex-wrap items-center justify-center gap-2">
               <button
-                key={opt.key}
-                onClick={() => {
-                  setFormat(opt.key);
-                  setStep(1);
-                }}
-                className={
-                  "rounded-md border p-5 text-right transition-colors " +
-                  (format === opt.key
-                    ? "border-pitch bg-pitch/5"
-                    : "border-line hover:border-pitch/40")
-                }
+                type="button"
+                onClick={() => setFormatCategory("all")}
+                className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
+                  formatCategory === "all"
+                    ? "bg-pitch text-chalk shadow-sm"
+                    : "bg-white border border-line text-ink/70 hover:border-pitch/40"
+                }`}
               >
-                <p className="font-semibold text-pitch">{opt.title}</p>
-                <p className="mt-1.5 text-sm text-ink/60 leading-6">{opt.desc}</p>
+                همه فرمت‌ها ({FORMAT_OPTIONS.length})
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => setFormatCategory("tournament")}
+                className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
+                  formatCategory === "tournament"
+                    ? "bg-pitch text-chalk shadow-sm"
+                    : "bg-white border border-line text-ink/70 hover:border-pitch/40"
+                }`}
+              >
+                🏆 جام‌ها و مسابقات حذفی (۲)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormatCategory("league")}
+                className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
+                  formatCategory === "league"
+                    ? "bg-pitch text-chalk shadow-sm"
+                    : "bg-white border border-line text-ink/70 hover:border-pitch/40"
+                }`}
+              >
+                ⚽ لیگ و دوره‌ای (۳)
+              </button>
+            </div>
+          </div>
+
+          {/* Cards Grid */}
+          <div className="grid gap-6 md:grid-cols-2">
+            {displayedFormats.map((opt) => {
+              const isSelected = format === opt.key;
+              return (
+                <div
+                  key={opt.key}
+                  onClick={() => {
+                    setFormat(opt.key);
+                    setStep(1);
+                  }}
+                  className={
+                    "group relative flex flex-col justify-between rounded-2xl border bg-white p-6 transition-all duration-200 cursor-pointer text-right hover:-translate-y-1 hover:shadow-xl " +
+                    (isSelected
+                      ? "border-pitch ring-2 ring-pitch/20 bg-pitch/5 shadow-md"
+                      : opt.recommended
+                      ? "border-pitch/40 ring-1 ring-pitch/20 shadow-sm hover:border-pitch"
+                      : "border-line/80 shadow-xs hover:border-pitch/50")
+                  }
+                >
+                  {opt.recommended && (
+                    <div className="absolute -top-3 right-6 rounded-full bg-gold px-3 py-0.5 text-[11px] font-black text-ink shadow-sm flex items-center gap-1">
+                      <span>⭐</span>
+                      <span>فرمت پیشنهادی تورنمنت‌ها</span>
+                    </div>
+                  )}
+
+                  <div>
+                    {/* Header Row */}
+                    <div className="flex items-start justify-between gap-3 mb-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pitch/10 text-2xl group-hover:bg-pitch group-hover:text-gold transition-colors shrink-0 shadow-xs">
+                          {opt.icon}
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-black text-pitch group-hover:text-pitch-light transition-colors">
+                            {opt.title}
+                          </h3>
+                          <p className="text-[11px] font-mono text-ink/45 mt-0.5">
+                            {opt.subtitle}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full border shrink-0 ${opt.badgeBg} ${opt.badgeBorder} ${opt.badgeText}`}
+                      >
+                        {opt.tag}
+                      </span>
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-xs text-ink/75 leading-6 mb-4">
+                      {opt.desc}
+                    </p>
+
+                    {/* Ideal For Box */}
+                    <div className="mb-4 rounded-xl bg-chalk/80 border border-line/60 p-2.5 text-[11px] text-ink/70 flex items-start gap-2">
+                      <span className="text-pitch font-bold shrink-0 mt-0.5">📍</span>
+                      <div className="leading-5">
+                        <strong className="text-pitch font-bold">مناسب برای:</strong> {opt.idealFor}
+                      </div>
+                    </div>
+
+                    {/* Features List */}
+                    <ul className="space-y-2 mb-6 border-t border-line/50 pt-3">
+                      {opt.features.map((feat, idx) => (
+                        <li key={idx} className="flex items-center gap-2 text-xs text-ink/80">
+                          <span className="text-pitch font-bold text-xs shrink-0">✓</span>
+                          <span className="text-[11px] sm:text-xs">{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="pt-2 border-t border-line/50">
+                    <div className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-pitch bg-pitch/5 py-2.5 text-xs font-bold text-pitch group-hover:bg-pitch group-hover:text-chalk transition-all shadow-xs">
+                      <span>انتخاب این فرمت و ادامه</span>
+                      <span className="text-gold group-hover:translate-x-1 transition-transform">←</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Quick Decision Guide Banner */}
+          <div className="rounded-2xl border border-pitch/20 bg-gradient-to-r from-pitch/5 via-pitch/10 to-gold/10 p-5 sm:p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1 max-w-2xl">
+                <h4 className="font-bold text-sm text-pitch flex items-center gap-2">
+                  <span>💡</span>
+                  <span>کدام فرمت برای مسابقه شما مناسب‌تر است؟</span>
+                </h4>
+                <p className="text-xs text-ink/75 leading-relaxed">
+                  اگر زمان کافی برای رقابت تمام تیم‌ها با یکدیگر دارید، <strong>لیگ دوره‌ای</strong> عادلانه‌ترین روش است. اما اگر زمان شما محدود است (مثلاً تورنمنت یک‌روزه یا آخر هفته)، <strong>براکت تک‌حذفی</strong> یا <strong>گروهی + حذفی</strong> بیشترین هیجان را به مسابقات شما می‌دهند.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-bold text-pitch shrink-0 bg-white/70 px-3 py-1.5 rounded-xl border border-line/60">
+                <span>⚡ ۱۰۰٪ رایگان و آنی</span>
+              </div>
+            </div>
           </div>
         </section>
       )}
