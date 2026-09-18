@@ -44,7 +44,9 @@ export function generateSchedule(input: ScheduleInput): ScheduleResult {
     case "double-league":
       return {
         format: "double-league",
-        rounds: generateDoubleRoundRobin(input.teams),
+        rounds: generateDoubleRoundRobin(input.teams, {
+          independentSecondLeg: input.independentSecondLeg,
+        }),
         metadata: input.metadata,
       };
 

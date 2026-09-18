@@ -206,6 +206,38 @@ test("رفت‌وبرگشت: هر زوج دقیقاً دو بار و با میز
   }
 });
 
+test("رفت‌وبرگشت سنتی (متقارن / independentSecondLeg: false): هفته‌های دور دوم عیناً قرینه دور اول است", () => {
+  const teams = ["A", "B", "C", "D"];
+  const rounds = generateDoubleRoundRobin(teams, { independentSecondLeg: false });
+  assertEqual(rounds.length, 6, "4 تیم باید 6 دور رفت و برگشت داشته باشند.");
+
+  // دور ۴ باید قرینه دور ۱ با میزبان معکوس باشد
+  const r1Matches = rounds[0].matches;
+  const r4Matches = rounds[3].matches;
+
+  for (let i = 0; i < r1Matches.length; i++) {
+    assertEqual(r4Matches[i].home, r1Matches[i].away, "میزبان دور ۴ باید میهمان دور ۱ باشد");
+    assertEqual(r4Matches[i].away, r1Matches[i].home, "میهمان دور ۴ باید میزبان دور ۱ باشد");
+  }
+});
+
+test("رفت‌وبرگشت نامتقارن اروپایی (independentSecondLeg: true): تمامی جفت‌ها و توازن میزبانی رعایت می‌شود", () => {
+  const teams = ["A", "B", "C", "D", "E", "F"];
+  const rounds = generateDoubleRoundRobin(teams, { independentSecondLeg: true });
+  assertEqual(rounds.length, 10, "6 تیم باید 10 دور داشته باشند.");
+
+  const matches = allMatches(rounds);
+  assertEqual(matches.length, 30, "6 تیم باید 30 بازی داشته باشند.");
+
+  // بررسی عدم تکرار بلافاصله بازی دور آخر در دور اول نیم‌فصل دوم
+  const lastRoundOpponentOfA = rounds[4].matches.find(m => m.home === "A" || m.away === "A");
+  const firstSecondLegOpponentOfA = rounds[5].matches.find(m => m.home === "A" || m.away === "A");
+  const opp1 = lastRoundOpponentOfA?.home === "A" ? lastRoundOpponentOfA?.away : lastRoundOpponentOfA?.home;
+  const opp2 = firstSecondLegOpponentOfA?.home === "A" ? firstSecondLegOpponentOfA?.away : firstSecondLegOpponentOfA?.home;
+
+  assert(opp1 !== opp2, "تیم نباید در دو هفته متوالی (پایان دور رفت و شروع دور برگشت) با یک حریف بازی کند.");
+});
+
 test("رفت‌وبرگشت 5 تیمی: استراحت و تعداد بازی‌ها درست است", () => {
   const teams = ["A", "B", "C", "D", "E"];
   const rounds = generateDoubleRoundRobin(teams);

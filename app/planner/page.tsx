@@ -202,6 +202,7 @@ function PlannerWizard() {
   const [seededTeams, setSeededTeams] = useState<string[]>([]);
   const [avoidPairs, setAvoidPairs] = useState<[string, string][]>([]);
   const [hasThirdPlace, setHasThirdPlace] = useState(false);
+  const [independentSecondLeg, setIndependentSecondLeg] = useState(true);
   const [metadata, setMetadata] = useState<TournamentMetadata>({
     title: "",
     venue: "",
@@ -252,6 +253,8 @@ function PlannerWizard() {
         if (Array.isArray(parsed.avoidPairs)) setAvoidPairs(parsed.avoidPairs);
         if (typeof parsed.hasThirdPlace === "boolean")
           setHasThirdPlace(parsed.hasThirdPlace);
+        if (typeof parsed.independentSecondLeg === "boolean")
+          setIndependentSecondLeg(parsed.independentSecondLeg);
         if (parsed.metadata) setMetadata(parsed.metadata);
         if (parsed.result) setResult(parsed.result);
         if (parsed.scores) setScores(parsed.scores);
@@ -292,6 +295,7 @@ function PlannerWizard() {
           seededTeams,
           avoidPairs,
           hasThirdPlace,
+          independentSecondLeg,
           metadata,
           result,
           scores,
@@ -311,6 +315,7 @@ function PlannerWizard() {
     seededTeams,
     avoidPairs,
     hasThirdPlace,
+    independentSecondLeg,
     metadata,
     result,
     scores,
@@ -553,6 +558,13 @@ function PlannerWizard() {
           hasThirdPlace,
           metadata: trimmedMetadata,
         });
+      } else if (format === "double-league") {
+        r = generateSchedule({
+          format: "double-league",
+          teams: teamNames,
+          independentSecondLeg,
+          metadata: trimmedMetadata,
+        });
       } else {
         r = generateSchedule({
           format,
@@ -594,6 +606,7 @@ function PlannerWizard() {
       setSeededTeams([]);
       setAvoidPairs([]);
       setHasThirdPlace(false);
+      setIndependentSecondLeg(true);
       setMetadata({ title: "", venue: "" });
       setResult(null);
       setScores({});
@@ -1435,6 +1448,80 @@ function PlannerWizard() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Double League Round Style */}
+          {format === "double-league" && (
+            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-pitch">
+                  نحوه زمان‌بندی و تقویم دور برگشت (Double Round-Robin)
+                </h3>
+                <p className="text-xs text-ink/60 mt-1">
+                  شما می‌توانید نحوه ترتیب مسابقات در نیم‌فصل دوم را مطابق استانداردهای روز دنیا یا تقویم کلاسیک انتخاب کنید:
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label
+                  className={`relative flex cursor-pointer flex-col rounded-xl border p-4 transition-all ${
+                    independentSecondLeg
+                      ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20"
+                      : "border-line bg-white/70 hover:border-pitch/40"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="secondLegStyle"
+                        checked={independentSecondLeg}
+                        onChange={() => setIndependentSecondLeg(true)}
+                        className="text-pitch focus:ring-pitch"
+                      />
+                      <span className="font-bold text-sm text-pitch">
+                        تقویم نامتقارن (مدرن اروپایی)
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-pitch/10 text-pitch px-2 py-0.5 rounded-full">
+                      پیش‌فرض لیگ‌های معتبر
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-ink/70 leading-relaxed">
+                    مشابه لیگ برتر انگلیس و لالیگا؛ ترتیب هفته‌های دور برگشت به شکل متوازن چیده می‌شود تا هیجان مسابقات بالا بماند و تیم‌ها بلافاصله در هفته بعد با همان حریف قبلی روبه‌رو نشوند.
+                  </p>
+                </label>
+
+                <label
+                  className={`relative flex cursor-pointer flex-col rounded-xl border p-4 transition-all ${
+                    !independentSecondLeg
+                      ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20"
+                      : "border-line bg-white/70 hover:border-pitch/40"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="secondLegStyle"
+                        checked={!independentSecondLeg}
+                        onChange={() => setIndependentSecondLeg(false)}
+                        className="text-pitch focus:ring-pitch"
+                      />
+                      <span className="font-bold text-sm text-pitch">
+                        تقویم قرینه (کلاسیک و آینه‌ای)
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-ink/10 text-ink/70 px-2 py-0.5 rounded-full">
+                      سنتی
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-ink/70 leading-relaxed">
+                    هفته‌های دور برگشت عیناً به ترتیب دور رفت تکرار می‌شوند (هفته اول دور برگشت تکرار بازی‌های هفته اول دور رفت با جابه‌جایی میزبان و میهمان است).
+                  </p>
+                </label>
+              </div>
             </div>
           )}
 

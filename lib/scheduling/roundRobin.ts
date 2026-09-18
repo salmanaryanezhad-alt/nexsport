@@ -69,25 +69,68 @@ export function generateSingleRoundRobin(teamsInput: string[]): RoundRobinRound[
 
 /**
  * Double round-robin ("رفت و برگشت"): every pair meets twice, once at
- * each team's home. The second leg mirrors the first leg's fixtures
- * with home/away swapped, appended as a second half of the calendar.
+ * each team's home.
+ *
+ * If `options?.independentSecondLeg === false`:
+ *   Mirrored / Traditional calendar where round k + 1 repeats round 1's
+ *   fixtures with inverted home/away.
+ *
+ * If `options?.independentSecondLeg === true` (or omitted, default):
+ *   Asymmetrical calendar (European league style like Premier League/La Liga),
+ *   where the second-leg calendar is an independent draw of rounds, ensuring
+ *   teams don't immediately replay the same opponent back-to-back.
  */
-export function generateDoubleRoundRobin(teamsInput: string[]): RoundRobinRound[] {
+export function generateDoubleRoundRobin(
+  teamsInput: string[],
+  options?: { independentSecondLeg?: boolean }
+): RoundRobinRound[] {
   const firstLeg = generateSingleRoundRobin(teamsInput);
   const roundsCount = firstLeg.length;
+  const independent = options?.independentSecondLeg ?? true;
 
-  const secondLeg: RoundRobinRound[] = firstLeg.map((round) => {
-    const reversed = round.matches.map((m) => ({
+  if (!independent) {
+    // Mirrored / Traditional calendar
+    const secondLeg: RoundRobinRound[] = firstLeg.map((round) => ({
+      round: round.round + roundsCount,
+      matches: round.matches.map((m, i) => ({
+        ...m,
+        id: `r${round.round + roundsCount}-m${i + 1}`,
+        home: m.away,
+        away: m.home,
+      })),
+    }));
+    return [...firstLeg, ...secondLeg];
+  }
+
+  // Independent / Asymmetrical calendar (Top European League style)
+  const invertedRounds = firstLeg.map((round, origIdx) => ({
+    origIdx,
+    matches: round.matches.map((m) => ({
       home: m.away,
       away: m.home,
-    }));
-    const randomized = shuffle(reversed).map((m, i) => ({
+    })),
+  }));
+
+  // Shuffle the sequence of rounds for the second leg
+  let shuffledRounds = shuffle(invertedRounds);
+  if (roundsCount > 1) {
+    for (let attempt = 0; attempt < 25; attempt++) {
+      if (shuffledRounds[0].origIdx !== roundsCount - 1) {
+        break; // Good: doesn't immediately repeat the last round of first leg
+      }
+      shuffledRounds = shuffle(invertedRounds);
+    }
+  }
+
+  const secondLeg: RoundRobinRound[] = shuffledRounds.map((r, idx) => {
+    const roundNumber = roundsCount + idx + 1;
+    const randomizedMatches = shuffle(r.matches).map((m, mIdx) => ({
       ...m,
-      id: `r${round.round + roundsCount}-m${i + 1}`,
+      id: `r${roundNumber}-m${mIdx + 1}`,
     }));
     return {
-      round: round.round + roundsCount,
-      matches: randomized,
+      round: roundNumber,
+      matches: randomizedMatches,
     };
   });
 

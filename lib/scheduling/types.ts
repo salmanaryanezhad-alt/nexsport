@@ -63,6 +63,7 @@ export interface KnockoutResult {
 export interface LeagueScheduleInput {
   format: "league" | "double-league";
   teams: string[];
+  independentSecondLeg?: boolean;
   metadata?: TournamentMetadata;
 }
 
