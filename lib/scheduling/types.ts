@@ -72,6 +72,10 @@ export interface GroupsScheduleInput {
   teams: string[];
   numGroups: number;
   seededTeams: string[];
+  pot2Teams?: string[];
+  pot3Teams?: string[];
+  pot4Teams?: string[];
+  pots?: string[][];
   qualifiersPerGroup: number;
   advanceBestThirds?: boolean;
   avoidPairs?: [string, string][];

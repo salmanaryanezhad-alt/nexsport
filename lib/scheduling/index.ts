@@ -56,6 +56,10 @@ export function generateSchedule(input: ScheduleInput): ScheduleResult {
         teams: input.teams,
         numGroups: input.numGroups,
         seededTeams: input.seededTeams,
+        pot2Teams: input.pot2Teams,
+        pot3Teams: input.pot3Teams,
+        pot4Teams: input.pot4Teams,
+        pots: input.pots,
         avoidPairs: input.avoidPairs,
       });
       return { format: "groups", groups, metadata: input.metadata };
@@ -66,6 +70,10 @@ export function generateSchedule(input: ScheduleInput): ScheduleResult {
         teams: input.teams,
         numGroups: input.numGroups,
         seededTeams: input.seededTeams,
+        pot2Teams: input.pot2Teams,
+        pot3Teams: input.pot3Teams,
+        pot4Teams: input.pot4Teams,
+        pots: input.pots,
         avoidPairs: input.avoidPairs,
       });
 

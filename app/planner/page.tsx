@@ -201,6 +201,10 @@ function PlannerWizard() {
   const [numGroups, setNumGroups] = useState(2);
   const [qualifiersPerGroup, setQualifiersPerGroup] = useState(2);
   const [seededTeams, setSeededTeams] = useState<string[]>([]);
+  const [pot2Teams, setPot2Teams] = useState<string[]>([]);
+  const [pot3Teams, setPot3Teams] = useState<string[]>([]);
+  const [pot4Teams, setPot4Teams] = useState<string[]>([]);
+  const [activePotTab, setActivePotTab] = useState<1 | 2 | 3 | 4>(1);
   const [avoidPairs, setAvoidPairs] = useState<[string, string][]>([]);
   const [hasThirdPlace, setHasThirdPlace] = useState(false);
   const [independentSecondLeg, setIndependentSecondLeg] = useState(true);
@@ -252,6 +256,9 @@ function PlannerWizard() {
         if (typeof parsed.qualifiersPerGroup === "number")
           setQualifiersPerGroup(parsed.qualifiersPerGroup);
         if (Array.isArray(parsed.seededTeams)) setSeededTeams(parsed.seededTeams);
+        if (Array.isArray(parsed.pot2Teams)) setPot2Teams(parsed.pot2Teams);
+        if (Array.isArray(parsed.pot3Teams)) setPot3Teams(parsed.pot3Teams);
+        if (Array.isArray(parsed.pot4Teams)) setPot4Teams(parsed.pot4Teams);
         if (Array.isArray(parsed.avoidPairs)) setAvoidPairs(parsed.avoidPairs);
         if (typeof parsed.hasThirdPlace === "boolean")
           setHasThirdPlace(parsed.hasThirdPlace);
@@ -297,6 +304,9 @@ function PlannerWizard() {
           numGroups,
           qualifiersPerGroup,
           seededTeams,
+          pot2Teams,
+          pot3Teams,
+          pot4Teams,
           avoidPairs,
           hasThirdPlace,
           independentSecondLeg,
@@ -385,6 +395,56 @@ function PlannerWizard() {
     setSeededTeams((prev) =>
       prev.includes(team) ? prev.filter((t) => t !== team) : [...prev, team]
     );
+  }
+
+  function getTeamPot(team: string): 1 | 2 | 3 | 4 | null {
+    if (seededTeams.includes(team)) return 1;
+    if (pot2Teams.includes(team)) return 2;
+    if (pot3Teams.includes(team)) return 3;
+    if (pot4Teams.includes(team)) return 4;
+    return null;
+  }
+
+  function toggleTeamInPot(team: string, potNum: 1 | 2 | 3 | 4) {
+    const currentList =
+      potNum === 1
+        ? seededTeams
+        : potNum === 2
+        ? pot2Teams
+        : potNum === 3
+        ? pot3Teams
+        : pot4Teams;
+
+    const setTarget =
+      potNum === 1
+        ? setSeededTeams
+        : potNum === 2
+        ? setPot2Teams
+        : potNum === 3
+        ? setPot3Teams
+        : setPot4Teams;
+
+    // Deselect if already in this pot
+    if (currentList.includes(team)) {
+      setTarget((prev) => prev.filter((t) => t !== team));
+      return;
+    }
+
+    // Limit check: at most numGroups per pot
+    if (currentList.length >= numGroups) {
+      setError(`حداکثر ${numGroups} تیم (به تعداد گروه‌ها) برای سید ${potNum} قابل انتخاب است.`);
+      setTimeout(() => setError(null), 3500);
+      return;
+    }
+
+    // Remove from other pots
+    setSeededTeams((prev) => prev.filter((t) => t !== team));
+    setPot2Teams((prev) => prev.filter((t) => t !== team));
+    setPot3Teams((prev) => prev.filter((t) => t !== team));
+    setPot4Teams((prev) => prev.filter((t) => t !== team));
+
+    // Add to target pot
+    setTarget((prev) => [...prev, team]);
   }
 
   function handleAddAvoidPair() {
@@ -561,6 +621,9 @@ function PlannerWizard() {
           teams: teamNames,
           numGroups,
           seededTeams,
+          pot2Teams,
+          pot3Teams,
+          pot4Teams,
           qualifiersPerGroup,
           advanceBestThirds,
           avoidPairs,
@@ -621,6 +684,10 @@ function PlannerWizard() {
       setNumGroups(calculateDefaultNumGroups(8));
       setQualifiersPerGroup(2);
       setSeededTeams([]);
+      setPot2Teams([]);
+      setPot3Teams([]);
+      setPot4Teams([]);
+      setActivePotTab(1);
       setAvoidPairs([]);
       setHasThirdPlace(false);
       setIndependentSecondLeg(true);
@@ -1784,15 +1851,14 @@ function PlannerWizard() {
             </div>
           )}
 
-          {/* Seeded Teams Selection */}
-          {needsSeedRules && (
+          {/* Seeded Teams Selection for Knockout Only */}
+          {format === "knockout" && (
             <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-3">
               <p className="text-sm font-bold text-pitch">
-                تیم‌های شاخص / سرگروه {needsGroupRules ? `(حداکثر ${numGroups} تیم)` : ""}
+                تیم‌های شاخص مرحله حذفی (اختیاری)
               </p>
               <p className="text-xs text-ink/60">
-                به ترتیبی که کلیک می‌کنید، اولویت سیدبندی تعیین می‌شود. برای لغو دوباره روی نام تیم
-                کلیک کنید.
+                به ترتیبی که کلیک می‌کنید، اولویت سیدبندی حذفی تعیین می‌شود تا تیم‌های برتر در مراحل اولیه به یکدیگر برخورد نکنند. برای لغو دوباره روی نام تیم کلیک کنید.
               </p>
               <div className="flex flex-wrap gap-2">
                 {teamNames.map((team) => {
@@ -1801,6 +1867,7 @@ function PlannerWizard() {
                   return (
                     <button
                       key={team}
+                      type="button"
                       onClick={() => toggleSeed(team)}
                       className={
                         "rounded-full border px-3.5 py-1.5 text-sm transition-colors " +
@@ -1814,6 +1881,191 @@ function PlannerWizard() {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Multi-Pot Seeding for Group Stages (Pots 1, 2, 3, 4) */}
+          {needsGroupRules && (
+            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-pitch flex items-center gap-1.5">
+                    <span>🎲</span>
+                    <span>سیدبندی گروه‌ها (اختیاری - سیدهای ۱، ۲، ۳ و ۴)</span>
+                  </h3>
+                  <p className="text-xs text-ink/60 mt-0.5">
+                    تعیین سیدها اختیاری است. تیم‌های هر سید در گروه‌های مجزا قرعه‌کشی می‌شوند تا با یکدیگر در یک گروه قرار نگیرند (حداکثر {numGroups} تیم در هر سید).
+                  </p>
+                </div>
+                <span className="text-[11px] font-bold bg-pitch/10 text-pitch px-2.5 py-1 rounded-full">
+                  حداکثر {numGroups} تیم در هر سید
+                </span>
+              </div>
+
+              {/* Pot Navigation Tabs */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                {[
+                  { num: 1 as const, title: "سید ۱ (سرگروه)", count: seededTeams.length, icon: "🌟" },
+                  { num: 2 as const, title: "سید ۲", count: pot2Teams.length, icon: "🥈" },
+                  { num: 3 as const, title: "سید ۳", count: pot3Teams.length, icon: "🥉" },
+                  { num: 4 as const, title: "سید ۴", count: pot4Teams.length, icon: "🏅" },
+                ].map((pot) => {
+                  const isActive = activePotTab === pot.num;
+                  return (
+                    <button
+                      key={pot.num}
+                      type="button"
+                      onClick={() => setActivePotTab(pot.num)}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-right ${
+                        isActive
+                          ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20 font-bold"
+                          : "border-line bg-white/70 hover:bg-white text-ink/70"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span>{pot.icon}</span>
+                        <span className={isActive ? "text-pitch font-bold" : "text-ink"}>{pot.title}</span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-1">
+                        <span
+                          className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                            pot.count > 0 ? "bg-pitch/10 text-pitch" : "bg-ink/5 text-ink/50"
+                          }`}
+                        >
+                          {pot.count} از {numGroups} تیم
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Active Pot Info & Team Selector */}
+              <div className="rounded-xl border border-line bg-white p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/60 pb-2.5">
+                  <div className="text-xs text-ink/80">
+                    {activePotTab === 1 && (
+                      <span>
+                        🌟 <strong>سرگروه‌ها (سید ۱):</strong> در رأس هر یک از {numGroups} گروه قرعه‌کشی می‌شوند (حداکثر {numGroups} تیم).
+                      </span>
+                    )}
+                    {activePotTab === 2 && (
+                      <span>
+                        🥈 <strong>سید دو:</strong> تیم‌های سطح دو؛ هر تیم در یک گروه جداگانه قرعه‌کشی می‌شود و با هم هم‌گروه نمی‌شوند (حداکثر {numGroups} تیم).
+                      </span>
+                    )}
+                    {activePotTab === 3 && (
+                      <span>
+                        🥉 <strong>سید سه:</strong> تیم‌های سطح سه؛ در گروه‌های جداگانه قرعه‌کشی می‌شوند (حداکثر {numGroups} تیم).
+                      </span>
+                    )}
+                    {activePotTab === 4 && (
+                      <span>
+                        🏅 <strong>سید چهار:</strong> تیم‌های سطح چهار؛ در گروه‌های جداگانه قرعه‌کشی می‌شوند (حداکثر {numGroups} تیم).
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Clear Button for current pot */}
+                  {((activePotTab === 1 && seededTeams.length > 0) ||
+                    (activePotTab === 2 && pot2Teams.length > 0) ||
+                    (activePotTab === 3 && pot3Teams.length > 0) ||
+                    (activePotTab === 4 && pot4Teams.length > 0)) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activePotTab === 1) setSeededTeams([]);
+                        if (activePotTab === 2) setPot2Teams([]);
+                        if (activePotTab === 3) setPot3Teams([]);
+                        if (activePotTab === 4) setPot4Teams([]);
+                      }}
+                      className="text-[11px] text-brick hover:underline font-bold"
+                    >
+                      ✕ پاک‌کردن تیم‌های سید {activePotTab}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {teamNames.map((team) => {
+                    const currentPot = getTeamPot(team);
+                    const isInActivePot = currentPot === activePotTab;
+                    const isInOtherPot = currentPot !== null && currentPot !== activePotTab;
+
+                    let buttonClass =
+                      "rounded-full border px-3.5 py-1.5 text-xs transition-all flex items-center gap-1.5 ";
+
+                    if (isInActivePot) {
+                      if (activePotTab === 1) {
+                        buttonClass += "border-gold bg-gold/25 text-ink font-bold shadow-sm";
+                      } else if (activePotTab === 2) {
+                        buttonClass += "border-sky-500 bg-sky-100 text-sky-950 font-bold shadow-sm";
+                      } else if (activePotTab === 3) {
+                        buttonClass += "border-amber-600 bg-amber-100 text-amber-950 font-bold shadow-sm";
+                      } else {
+                        buttonClass += "border-purple-500 bg-purple-100 text-purple-950 font-bold shadow-sm";
+                      }
+                    } else if (isInOtherPot) {
+                      buttonClass += "border-line bg-chalk/60 text-ink/60 hover:border-pitch/40";
+                    } else {
+                      buttonClass += "border-line bg-white text-ink/80 hover:border-pitch/40 hover:bg-chalk/30";
+                    }
+
+                    return (
+                      <button
+                        key={team}
+                        type="button"
+                        onClick={() => toggleTeamInPot(team, activePotTab)}
+                        className={buttonClass}
+                        title={
+                          isInOtherPot
+                            ? `این تیم هم‌اکنون در سید ${currentPot} است. برای انتقال به سید ${activePotTab} کلیک کنید.`
+                            : isInActivePot
+                            ? "برای حذف از این سید کلیک کنید."
+                            : `افزودن به سید ${activePotTab}`
+                        }
+                      >
+                        {isInActivePot && (
+                          <span className="font-bold text-[11px]">✓</span>
+                        )}
+                        <span>{team}</span>
+                        {isInOtherPot && (
+                          <span className="text-[10px] text-ink/50 bg-ink/5 px-1.5 py-0.5 rounded-full">
+                            سید {currentPot}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Pots Summary Bar */}
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-ink/70">
+                <span className="font-bold text-ink/80">خلاصه سیدبندی:</span>
+                <span className="inline-flex items-center gap-1 bg-white border border-line px-2.5 py-1 rounded-lg">
+                  <span>🌟 سید ۱:</span>
+                  <strong className="text-pitch">{seededTeams.length}</strong>
+                </span>
+                <span className="inline-flex items-center gap-1 bg-white border border-line px-2.5 py-1 rounded-lg">
+                  <span>🥈 سید ۲:</span>
+                  <strong className="text-pitch">{pot2Teams.length}</strong>
+                </span>
+                <span className="inline-flex items-center gap-1 bg-white border border-line px-2.5 py-1 rounded-lg">
+                  <span>🥉 سید ۳:</span>
+                  <strong className="text-pitch">{pot3Teams.length}</strong>
+                </span>
+                <span className="inline-flex items-center gap-1 bg-white border border-line px-2.5 py-1 rounded-lg">
+                  <span>🏅 سید ۴:</span>
+                  <strong className="text-pitch">{pot4Teams.length}</strong>
+                </span>
+                <span className="inline-flex items-center gap-1 bg-white border border-line px-2.5 py-1 rounded-lg">
+                  <span>⚪ قرعه آزاد:</span>
+                  <strong className="text-pitch">
+                    {teamCount - (seededTeams.length + pot2Teams.length + pot3Teams.length + pot4Teams.length)}
+                  </strong>
+                </span>
               </div>
             </div>
           )}

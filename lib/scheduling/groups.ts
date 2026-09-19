@@ -29,14 +29,22 @@ export function calculateDefaultNumGroups(teamCount: number): number {
 export interface BuildGroupsParams {
   teams: string[];
   numGroups: number;
-  seededTeams: string[];
+  seededTeams?: string[];
+  pot2Teams?: string[];
+  pot3Teams?: string[];
+  pot4Teams?: string[];
+  pots?: string[][];
   avoidPairs?: [string, string][];
 }
 
 export function buildGroups({
   teams,
   numGroups,
-  seededTeams,
+  seededTeams = [],
+  pot2Teams = [],
+  pot3Teams = [],
+  pot4Teams = [],
+  pots,
   avoidPairs = [],
 }: BuildGroupsParams): GroupResult[] {
   if (numGroups < 1) {
@@ -47,14 +55,42 @@ export function buildGroups({
       "قوانین انتخاب‌شده با ساختار این مسابقه سازگار نیستند: تعداد گروه‌ها نمی‌تواند بیشتر از تعداد تیم‌ها باشد."
     );
   }
-  if (seededTeams.length > numGroups) {
-    throw new ScheduleValidationError(
-      "قوانین انتخاب‌شده با ساختار این مسابقه سازگار نیستند: تعداد تیم‌های شاخص نمی‌تواند بیشتر از تعداد گروه‌ها باشد."
-    );
+
+  // Normalize pots: either explicit pots array or [seededTeams (Pot 1), pot2Teams, pot3Teams, pot4Teams]
+  const normalizedPots: string[][] = pots
+    ? pots
+    : [seededTeams ?? [], pot2Teams ?? [], pot3Teams ?? [], pot4Teams ?? []];
+
+  // Validate that no pot has more teams than numGroups
+  for (let pIdx = 0; pIdx < normalizedPots.length; pIdx++) {
+    const potList = normalizedPots[pIdx];
+    const potNum = pIdx + 1;
+    if (potList.length > numGroups) {
+      const potLabel = potNum === 1 ? "سرگروه‌ها (سید ۱)" : `سید ${potNum}`;
+      throw new ScheduleValidationError(
+        `قوانین انتخاب‌شده با ساختار این مسابقه سازگار نیستند: تعداد تیم‌های ${potLabel} (${potList.length}) نمی‌تواند بیشتر از تعداد گروه‌ها (${numGroups}) باشد.`
+      );
+    }
+
+    for (const t of potList) {
+      if (!teams.includes(t)) {
+        throw new ScheduleValidationError(`تیم شاخص «${t}» در سید ${potNum} در لیست تیم‌ها یافت نشد.`);
+      }
+    }
   }
-  const unknownSeed = seededTeams.find((t) => !teams.includes(t));
-  if (unknownSeed) {
-    throw new ScheduleValidationError(`تیم شاخص «${unknownSeed}» در لیست تیم‌ها یافت نشد.`);
+
+  // Validate that no team appears in multiple pots
+  const potMembership = new Map<string, number>();
+  for (let pIdx = 0; pIdx < normalizedPots.length; pIdx++) {
+    for (const t of normalizedPots[pIdx]) {
+      if (potMembership.has(t)) {
+        const prevPot = potMembership.get(t)! + 1;
+        throw new ScheduleValidationError(
+          `تیم «${t}» نمی‌تواند همزمان در سید ${prevPot} و سید ${pIdx + 1} انتخاب شود.`
+        );
+      }
+      potMembership.set(t, pIdx);
+    }
   }
 
   // Validate avoidance pairs
@@ -83,44 +119,55 @@ export function buildGroups({
     i < extra ? minSize + 1 : minSize
   );
 
-  const remaining = shuffle(teams.filter((t) => !seededTeams.includes(t)));
+  const pot1 = normalizedPots[0] ?? [];
+  const otherPots = normalizedPots.slice(1);
+  const unseededTeams = teams.filter((t) => !potMembership.has(t));
 
-  // Try to find a valid assignment that respects avoidance constraints
+  // Try to find a valid assignment that respects pot constraints, capacities, and avoidance
   let success = false;
   let finalBuckets: string[][] = [];
 
-  // Attempt up to 50 randomized search passes
   for (let attempt = 0; attempt < 50; attempt++) {
     const buckets: string[][] = Array.from({ length: numGroups }, () => []);
 
-    // Randomly assign each seeded team to a distinct group bucket
-    const seedBucketIndices = shuffle(
-      Array.from({ length: numGroups }, (_, i) => i)
-    );
-    seededTeams.forEach((team, i) => {
-      buckets[seedBucketIndices[i]].push(team);
+    // 1. Assign Pot 1 teams to random distinct buckets
+    const pot1Buckets = shuffle(Array.from({ length: numGroups }, (_, i) => i));
+    pot1.forEach((team, i) => {
+      buckets[pot1Buckets[i]].push(team);
     });
 
-    const unassigned = attempt === 0 ? remaining : shuffle([...remaining]);
+    // 2. Prepare remaining teams to be assigned:
+    // Order by pots (Pot 2, then Pot 3, then Pot 4, then unseeded)
+    const teamsToAssign: string[] = [];
+    for (const pot of otherPots) {
+      teamsToAssign.push(...shuffle(pot));
+    }
+    teamsToAssign.push(...shuffle(unseededTeams));
 
-    // Backtracking solver for remaining teams
+    // Backtracking solver
     function backtrack(idx: number): boolean {
-      if (idx === unassigned.length) {
+      if (idx === teamsToAssign.length) {
         return true;
       }
-      const current = unassigned[idx];
+      const current = teamsToAssign[idx];
+      const pIdx = potMembership.get(current); // undefined if unseeded
       const avoided = avoidMap.get(current);
 
-      // Try buckets ordered by least filled
-      const bucketOrder = Array.from({ length: numGroups }, (_, i) => i).sort(
+      // Randomize bucket trial order to ensure varied group draws
+      const bucketOrder = shuffle(Array.from({ length: numGroups }, (_, i) => i)).sort(
         (a, b) => buckets[a].length - buckets[b].length
       );
 
       for (const bIdx of bucketOrder) {
         if (buckets[bIdx].length >= capacities[bIdx]) continue;
 
-        // Check avoidance conflict
-        if (avoided && buckets[bIdx].some((member) => avoided.has(member))) {
+        // Pot constraint: bucket cannot already contain a team from the same pot
+        if (pIdx !== undefined && buckets[bIdx].some((m) => potMembership.get(m) === pIdx)) {
+          continue;
+        }
+
+        // Avoidance conflict
+        if (avoided && buckets[bIdx].some((m) => avoided.has(m))) {
           continue;
         }
 
@@ -141,7 +188,7 @@ export function buildGroups({
 
   if (!success) {
     throw new ScheduleValidationError(
-      "قوانین انتخاب‌شده با ساختار این مسابقه سازگار نیستند: تفکیک تیم‌های مشخص‌شده در این تعداد گروه امکان‌پذیر نیست."
+      "قوانین انتخاب‌شده با ساختار این مسابقه سازگار نیستند: تفکیک تیم‌های مشخص‌شده در سیدها و قوانین عدم برخورد در این تعداد گروه امکان‌پذیر نیست."
     );
   }
 

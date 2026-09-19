@@ -324,6 +324,83 @@ test("سیدبندی گروهی: سیدها در گروه‌های متفاوت 
   );
 });
 
+test("سیدبندی چندگانه: تیم‌های هر سید (سید ۱، ۲، ۳، ۴) در گروه‌های مجزا قرار می‌گیرند", () => {
+  const teams = [
+    "A1", "A2", "A3", "A4",
+    "B1", "B2", "B3", "B4",
+    "C1", "C2", "C3", "C4",
+    "D1", "D2", "D3", "D4",
+  ];
+
+  const groups = buildGroups({
+    teams,
+    numGroups: 4,
+    seededTeams: ["A1", "A2", "A3", "A4"], // Pot 1
+    pot2Teams: ["B1", "B2", "B3", "B4"],   // Pot 2
+    pot3Teams: ["C1", "C2", "C3", "C4"],   // Pot 3
+    pot4Teams: ["D1", "D2", "D3", "D4"],   // Pot 4
+  });
+
+  assertEqual(groups.length, 4, "باید ۴ گروه تشکیل شود.");
+
+  for (const group of groups) {
+    assertEqual(group.teams.length, 4, "هر گروه باید دقیقاً ۴ تیم داشته باشد.");
+
+    const pot1Count = group.teams.filter(t => ["A1", "A2", "A3", "A4"].includes(t)).length;
+    const pot2Count = group.teams.filter(t => ["B1", "B2", "B3", "B4"].includes(t)).length;
+    const pot3Count = group.teams.filter(t => ["C1", "C2", "C3", "C4"].includes(t)).length;
+    const pot4Count = group.teams.filter(t => ["D1", "D2", "D3", "D4"].includes(t)).length;
+
+    assertEqual(pot1Count, 1, `گروه ${group.name} باید دقیقاً یک تیم از سید ۱ داشته باشد.`);
+    assertEqual(pot2Count, 1, `گروه ${group.name} باید دقیقاً یک تیم از سید ۲ داشته باشد.`);
+    assertEqual(pot3Count, 1, `گروه ${group.name} باید دقیقاً یک تیم از سید ۳ داشته باشد.`);
+    assertEqual(pot4Count, 1, `گروه ${group.name} باید دقیقاً یک تیم از سید ۴ داشته باشد.`);
+  }
+});
+
+test("سیدبندی انتخابی با تعداد دلخواه (مثلاً ۲ تیم در سید ۲ و بدون سید ۳ و ۴)", () => {
+  const teams = ["A", "B", "C", "D", "E", "F", "G", "H"];
+  const groups = buildGroups({
+    teams,
+    numGroups: 2,
+    seededTeams: ["A", "B"], // Pot 1: 2 teams
+    pot2Teams: ["C", "D"],   // Pot 2: 2 teams
+  });
+
+  for (const group of groups) {
+    const pot1Count = group.teams.filter(t => ["A", "B"].includes(t)).length;
+    const pot2Count = group.teams.filter(t => ["C", "D"].includes(t)).length;
+    assertEqual(pot1Count, 1, "هر گروه باید ۱ تیم از سید ۱ داشته باشد.");
+    assertEqual(pot2Count, 1, "هر گروه باید ۱ تیم از سید ۲ داشته باشد.");
+  }
+});
+
+test("خطای تکرار یک تیم در چند سید مختلف", () => {
+  assertThrows(
+    () =>
+      buildGroups({
+        teams: ["A", "B", "C", "D"],
+        numGroups: 2,
+        seededTeams: ["A"],
+        pot2Teams: ["A"], // Team A cannot be in both Pot 1 and Pot 2!
+      }),
+    "همزمان در سید"
+  );
+});
+
+test("خطای تعداد بیشتر از گروه‌ها در سید ۲", () => {
+  assertThrows(
+    () =>
+      buildGroups({
+        teams: ["A", "B", "C", "D", "E", "F"],
+        numGroups: 2,
+        seededTeams: ["A"],
+        pot2Teams: ["B", "C", "D"], // 3 teams in Pot 2 for 2 groups!
+      }),
+    "نمی‌تواند بیشتر از تعداد گروه‌ها"
+  );
+});
+
 test("گروه‌بندی: تیم سیدشده ناشناخته باید خطا بدهد", () => {
   assertThrows(
     () =>
