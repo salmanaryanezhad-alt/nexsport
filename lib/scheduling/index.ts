@@ -12,6 +12,7 @@ export {
   buildKnockout,
   buildGroupsKnockout,
   computeKnockoutWithScores,
+  nextPowerOfTwo,
   type MatchScore,
 } from "./knockout";
 export { buildGroups, calculateDefaultNumGroups } from "./groups";
@@ -71,6 +72,7 @@ export function generateSchedule(input: ScheduleInput): ScheduleResult {
       const knockout = buildGroupsKnockout({
         groupNames: groups.map((g) => g.name),
         qualifiersPerGroup: input.qualifiersPerGroup,
+        advanceBestThirds: input.advanceBestThirds,
         hasThirdPlace: input.hasThirdPlace,
       });
 

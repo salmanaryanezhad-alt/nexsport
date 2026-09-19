@@ -295,30 +295,132 @@ export function buildKnockout({
   return buildKnockoutFromSlots(slotTeams, byes, hasThirdPlace);
 }
 
-export function buildGroupsKnockout({
-  groupNames,
-  qualifiersPerGroup,
-  hasThirdPlace = false,
-}: {
-  groupNames: string[];
-  qualifiersPerGroup: number;
-  hasThirdPlace?: boolean;
-}): KnockoutResult {
-  const totalQualifiers = groupNames.length * qualifiersPerGroup;
-  if (totalQualifiers < 2) {
-    throw new ScheduleValidationError("برای مرحله حذفی حداقل به ۲ تیم صعودکننده نیاز است.");
-  }
-
-  const bracketSize = nextPowerOfTwo(totalQualifiers);
-  const byes = bracketSize - totalQualifiers;
+/**
+ * Builds standard UEFA Euro / World Cup style knockout matchups where
+ * extra best 3rd-placed teams advance to complete a full power-of-2 bracket
+ * without BYEs.
+ */
+function buildEuroStyleMatches(
+  groupNames: string[],
+  bracketSize: number,
+  extraThirds: number
+): { home: string | null; away: string | null }[] {
   const numMatches = bracketSize / 2;
-
   const matches: { home: string | null; away: string | null }[] = Array.from(
     { length: numMatches },
     () => ({ home: null, away: null })
   );
 
-  if (qualifiersPerGroup === 2) {
+  const G = groupNames.length;
+  const E = extraThirds;
+
+  if (G === 6 && E === 4) {
+    // Standard UEFA Euro 24-team bracket mapping (Matches 0..3 Upper Half, 4..7 Lower Half)
+    matches[0] = { home: `قهرمان ${groupNames[0]}`, away: `نایب‌قهرمان ${groupNames[1]}` };
+    matches[1] = { home: `قهرمان ${groupNames[2]}`, away: `تیم سوم برتر ۱` };
+    matches[2] = { home: `نایب‌قهرمان ${groupNames[3]}`, away: `نایب‌قهرمان ${groupNames[4]}` };
+    matches[3] = { home: `قهرمان ${groupNames[1]}`, away: `تیم سوم برتر ۲` };
+
+    matches[4] = { home: `قهرمان ${groupNames[3]}`, away: `نایب‌قهرمان ${groupNames[2]}` };
+    matches[5] = { home: `قهرمان ${groupNames[4]}`, away: `تیم سوم برتر ۳` };
+    matches[6] = { home: `نایب‌قهرمان ${groupNames[0]}`, away: `نایب‌قهرمان ${groupNames[5]}` };
+    matches[7] = { home: `قهرمان ${groupNames[5]}`, away: `تیم سوم برتر ۴` };
+    return matches;
+  }
+
+  if (G === 3 && E === 2) {
+    // 12 teams, 3 groups of 4 (Quarter-finals 8 teams)
+    matches[0] = { home: `قهرمان ${groupNames[0]}`, away: `تیم سوم برتر ۱` };
+    matches[1] = { home: `نایب‌قهرمان ${groupNames[1]}`, away: `نایب‌قهرمان ${groupNames[2]}` };
+    matches[2] = { home: `قهرمان ${groupNames[1]}`, away: `نایب‌قهرمان ${groupNames[0]}` };
+    matches[3] = { home: `قهرمان ${groupNames[2]}`, away: `تیم سوم برتر ۲` };
+    return matches;
+  }
+
+  // General algorithm for G groups with E extra best-thirds:
+  // 1. Assign E group winners to face the E best 3rd-placed teams
+  const bestThirdMatches: { home: string; away: string }[] = [];
+  for (let i = 0; i < E; i++) {
+    bestThirdMatches.push({
+      home: `قهرمان ${groupNames[i]}`,
+      away: `تیم سوم برتر ${i + 1}`,
+    });
+  }
+
+  // 2. Assign remaining G - E group winners to face runners-up from other groups
+  const winnerVsRuMatches: { home: string; away: string }[] = [];
+  for (let i = E; i < G; i++) {
+    const ruGroup = groupNames[(i - 1 + G) % G];
+    winnerVsRuMatches.push({
+      home: `قهرمان ${groupNames[i]}`,
+      away: `نایب‌قهرمان ${ruGroup}`,
+    });
+  }
+
+  // 3. The remaining runners-up play each other in runner-up vs runner-up matches
+  const usedRuGroups = new Set(winnerVsRuMatches.map((m) => m.away.replace("نایب‌قهرمان ", "")));
+  const remainingRuGroups = groupNames.filter((g) => !usedRuGroups.has(g));
+  const ruVsRuMatches: { home: string; away: string }[] = [];
+  for (let i = 0; i < remainingRuGroups.length; i += 2) {
+    const gA = remainingRuGroups[i];
+    const gB = remainingRuGroups[i + 1] ?? remainingRuGroups[0];
+    ruVsRuMatches.push({
+      home: `نایب‌قهرمان ${gA}`,
+      away: `نایب‌قهرمان ${gB}`,
+    });
+  }
+
+  const allPairs = [...winnerVsRuMatches, ...bestThirdMatches, ...ruVsRuMatches];
+  for (let i = 0; i < numMatches; i++) {
+    if (i < allPairs.length) {
+      matches[i] = allPairs[i];
+    }
+  }
+
+  return matches;
+}
+
+export function buildGroupsKnockout({
+  groupNames,
+  qualifiersPerGroup,
+  advanceBestThirds = true,
+  hasThirdPlace = false,
+}: {
+  groupNames: string[];
+  qualifiersPerGroup: number;
+  advanceBestThirds?: boolean;
+  hasThirdPlace?: boolean;
+}): KnockoutResult {
+  const baseQualifiers = groupNames.length * qualifiersPerGroup;
+  if (baseQualifiers < 2) {
+    throw new ScheduleValidationError("برای مرحله حذفی حداقل به ۲ تیم صعودکننده نیاز است.");
+  }
+
+  const bracketSize = nextPowerOfTwo(baseQualifiers);
+  const G = groupNames.length;
+  const extraNeeded = bracketSize - baseQualifiers;
+
+  // Euro / World Cup style: If 2 teams qualify per group and bracket size is not a power of 2,
+  // advance the missing teams from the best 3rd-placed teams to form a full power-of-2 bracket!
+  const useBestThirds =
+    qualifiersPerGroup === 2 &&
+    advanceBestThirds &&
+    extraNeeded > 0 &&
+    extraNeeded <= G;
+
+  const totalQualifiers = useBestThirds ? baseQualifiers + extraNeeded : baseQualifiers;
+  const finalBracketSize = nextPowerOfTwo(totalQualifiers);
+  const byes = finalBracketSize - totalQualifiers;
+  const numMatches = finalBracketSize / 2;
+
+  let matches: { home: string | null; away: string | null }[] = Array.from(
+    { length: numMatches },
+    () => ({ home: null, away: null })
+  );
+
+  if (useBestThirds) {
+    matches = buildEuroStyleMatches(groupNames, finalBracketSize, extraNeeded);
+  } else if (qualifiersPerGroup === 2) {
     const halfMatches = Math.max(1, Math.floor(numMatches / 2));
     const numPairs = Math.floor(groupNames.length / 2);
 

@@ -15,6 +15,7 @@ import {
   exportScheduleToCsv,
   downloadCsvFile,
   calculateDefaultNumGroups,
+  nextPowerOfTwo,
 } from "@/lib/scheduling";
 import { Stepper } from "@/components/planner/Stepper";
 import { ScheduleView } from "@/components/planner/ScheduleView";
@@ -203,6 +204,7 @@ function PlannerWizard() {
   const [avoidPairs, setAvoidPairs] = useState<[string, string][]>([]);
   const [hasThirdPlace, setHasThirdPlace] = useState(false);
   const [independentSecondLeg, setIndependentSecondLeg] = useState(true);
+  const [advanceBestThirds, setAdvanceBestThirds] = useState(true);
   const [metadata, setMetadata] = useState<TournamentMetadata>({
     title: "",
     venue: "",
@@ -255,6 +257,8 @@ function PlannerWizard() {
           setHasThirdPlace(parsed.hasThirdPlace);
         if (typeof parsed.independentSecondLeg === "boolean")
           setIndependentSecondLeg(parsed.independentSecondLeg);
+        if (typeof parsed.advanceBestThirds === "boolean")
+          setAdvanceBestThirds(parsed.advanceBestThirds);
         if (parsed.metadata) setMetadata(parsed.metadata);
         if (parsed.result) setResult(parsed.result);
         if (parsed.scores) setScores(parsed.scores);
@@ -296,6 +300,7 @@ function PlannerWizard() {
           avoidPairs,
           hasThirdPlace,
           independentSecondLeg,
+          advanceBestThirds,
           metadata,
           result,
           scores,
@@ -316,6 +321,7 @@ function PlannerWizard() {
     avoidPairs,
     hasThirdPlace,
     independentSecondLeg,
+    advanceBestThirds,
     metadata,
     result,
     scores,
@@ -324,6 +330,16 @@ function PlannerWizard() {
   const needsGroupRules = format === "groups" || format === "groups-knockout";
   const needsSeedRules = format === "knockout" || needsGroupRules;
   const supportsThirdPlace = format === "knockout" || format === "groups-knockout";
+
+  // Knocout structure math for groups-knockout
+  const baseQualifiers = numGroups * qualifiersPerGroup;
+  const targetBracketSize = nextPowerOfTwo(Math.max(2, baseQualifiers));
+  const missingForPowerOfTwo = targetBracketSize - baseQualifiers;
+  const isPowerOfTwo = missingForPowerOfTwo === 0;
+  const canUseBestThirds =
+    qualifiersPerGroup === 2 &&
+    missingForPowerOfTwo > 0 &&
+    missingForPowerOfTwo <= numGroups;
 
   const namesReady =
     teamNames.length === teamCount && teamNames.every((t) => t.trim().length > 0);
@@ -546,6 +562,7 @@ function PlannerWizard() {
           numGroups,
           seededTeams,
           qualifiersPerGroup,
+          advanceBestThirds,
           avoidPairs,
           hasThirdPlace,
           metadata: trimmedMetadata,
@@ -607,6 +624,7 @@ function PlannerWizard() {
       setAvoidPairs([]);
       setHasThirdPlace(false);
       setIndependentSecondLeg(true);
+      setAdvanceBestThirds(true);
       setMetadata({ title: "", venue: "" });
       setResult(null);
       setScores({});
@@ -1359,7 +1377,7 @@ function PlannerWizard() {
                 {format === "groups-knockout" && (
                   <label className="block">
                     <span className="text-xs font-semibold text-ink/70">
-                      تعداد صعودکننده از هر گروه
+                      تعداد صعودکننده مستقیم از هر گروه
                     </span>
                     <input
                       type="number"
@@ -1370,8 +1388,227 @@ function PlannerWizard() {
                       }
                       className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
                     />
+                    <span className="text-[11px] text-ink/50 mt-1 block">
+                      استاندارد بین‌المللی: ۲ تیم از هر گروه
+                    </span>
                   </label>
                 )}
+              </div>
+
+              {/* Notice & Guidelines on Power-of-2 and Euro-style 3rd Place Qualifiers */}
+              {format === "groups-knockout" && (
+                <div className="mt-4 rounded-xl border border-line bg-white p-4 space-y-3">
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-base">📌</span>
+                    <div className="space-y-0.5">
+                      <h4 className="text-xs font-bold text-pitch">
+                        قانون استاندارد تقارن مرحله حذفی (توان عدد ۲):
+                      </h4>
+                      <p className="text-xs text-ink/70 leading-relaxed">
+                        تعداد تیم‌های راه‌یافته به مرحله حذفی باید توان عدد ۲ (۴، ۸، ۱۶، ۳۲ تیم) باشد تا جدول بدون استراحت‌های نابرابر و با عدالت کامل برگزار شود.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Status Display */}
+                  {isPowerOfTwo ? (
+                    <div className="flex items-center gap-2 rounded-lg bg-pitch/5 border border-pitch/20 p-3 text-xs text-pitch">
+                      <span className="font-bold text-sm">✅ ساختار ایده‌آل:</span>
+                      <span>
+                        با {numGroups} گروه و صعود {qualifiersPerGroup} تیم، مجموعاً <strong>{baseQualifiers} تیم</strong> به مرحله <strong>{targetBracketSize} تیمی</strong> صعود می‌کنند و جدول حذفی کاملاً متقارن است.
+                      </span>
+                    </div>
+                  ) : canUseBestThirds ? (
+                    <div className="rounded-lg bg-gold/15 border border-gold/40 p-3.5 space-y-2 text-xs text-ink">
+                      <div className="flex items-center justify-between font-bold text-ink">
+                        <div className="flex items-center gap-1.5">
+                          <span>🏆</span>
+                          <span>فرمت استاندارد جام ملت‌های اروپا (UEFA Euro / جام جهانی ۲۰۲۶)</span>
+                        </div>
+                        <span className="text-[10px] bg-gold/30 text-ink px-2.5 py-0.5 rounded-full font-bold">
+                          بدون استراحت (BYE)
+                        </span>
+                      </div>
+                      <p className="leading-relaxed text-ink/85">
+                        با صعود ۲ تیم اول هر گروه، مجموعاً <strong>{baseQualifiers} تیم</strong> صعود می‌کنند که توان ۲ نیست. برای تشکیل جدول استاندارد <strong>{targetBracketSize} تیمی</strong>، دقیقاً <strong>{missingForPowerOfTwo} تیم</strong> کم است. سیستم هوشمند نکس‌پورت مشابه مسابقات یورو، این {missingForPowerOfTwo} تیم را از میان <strong>برترین تیم‌های رتبه سوم گروه‌ها</strong> تکمیل می‌کند تا مرحله حذفی بدون استراحت و با نهایت هیجان برگزار شود.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg bg-ink/5 border border-line p-3 text-xs text-ink/80 leading-relaxed">
+                      <span className="font-bold text-ink">ℹ️ وضعیت جدول حذفی:</span> با صعود {baseQualifiers} تیم، مرحله حذفی {targetBracketSize} تیمی تشکیل می‌شود و {missingForPowerOfTwo} جایگاه استراحت (BYE) به سرگروه‌های برتر تعلق می‌گیرد.
+                    </div>
+                  )}
+
+                  {/* Smart Preset Buttons */}
+                  {teamCount === 24 && (
+                    <div className="pt-2 border-t border-line/60">
+                      <span className="text-[11px] font-bold text-ink/60 block mb-2">
+                        چیدمان‌های استاندارد و متداول برای مسابقات ۲۴ تیمی:
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNumGroups(6);
+                            setQualifiersPerGroup(2);
+                          }}
+                          className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-all ${
+                            numGroups === 6 && qualifiersPerGroup === 2
+                              ? "border-pitch bg-pitch text-white shadow-sm"
+                              : "border-line bg-chalk/50 hover:bg-white text-ink/80"
+                          }`}
+                        >
+                          🏆 ۶ گروه ۴ تیمی (فرمت یورو: ۱۲ صعودکننده مستقیم + ۴ تیم برتر سوم = ۱۶ تیمی)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNumGroups(4);
+                            setQualifiersPerGroup(2);
+                          }}
+                          className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-all ${
+                            numGroups === 4 && qualifiersPerGroup === 2
+                              ? "border-pitch bg-pitch text-white shadow-sm"
+                              : "border-line bg-chalk/50 hover:bg-white text-ink/80"
+                          }`}
+                        >
+                          ۴ گروه ۶ تیمی (۸ صعودکننده مستقیم به یک‌چهارم نهایی)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNumGroups(8);
+                            setQualifiersPerGroup(2);
+                          }}
+                          className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-all ${
+                            numGroups === 8 && qualifiersPerGroup === 2
+                              ? "border-pitch bg-pitch text-white shadow-sm"
+                              : "border-line bg-chalk/50 hover:bg-white text-ink/80"
+                          }`}
+                        >
+                          ۸ گروه ۳ تیمی (۱۶ صعودکننده مستقیم به یک‌هشتم نهایی)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {teamCount === 12 && (
+                    <div className="pt-2 border-t border-line/60">
+                      <span className="text-[11px] font-bold text-ink/60 block mb-2">
+                        چیدمان‌های استاندارد پیشنهادی برای ۱۲ تیم:
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNumGroups(3);
+                            setQualifiersPerGroup(2);
+                          }}
+                          className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-all ${
+                            numGroups === 3 && qualifiersPerGroup === 2
+                              ? "border-pitch bg-pitch text-white shadow-sm"
+                              : "border-line bg-chalk/50 hover:bg-white text-ink/80"
+                          }`}
+                        >
+                          🏆 ۳ گروه ۴ تیمی (۶ تیم اول و دوم + ۲ تیم برتر سوم = ۸ تیمی)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNumGroups(4);
+                            setQualifiersPerGroup(2);
+                          }}
+                          className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-all ${
+                            numGroups === 4 && qualifiersPerGroup === 2
+                              ? "border-pitch bg-pitch text-white shadow-sm"
+                              : "border-line bg-chalk/50 hover:bg-white text-ink/80"
+                          }`}
+                        >
+                          ۴ گروه ۳ تیمی (۸ صعودکننده مستقیم به یک‌چهارم نهایی)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Advance Best 3rd-Place Teams Option (Euro / World Cup Style) */}
+          {format === "groups-knockout" && canUseBestThirds && (
+            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-sm text-pitch">
+                    نحوه تکمیل جدول مرحله حذفی ({targetBracketSize} تیمی)
+                  </h3>
+                  <p className="text-xs text-ink/60 mt-0.5">
+                    با صعود {baseQualifiers} تیم اول و دوم، برای تکمیل مرحله {targetBracketSize} تیمی شیوه موردنظر خود را انتخاب کنید:
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold bg-pitch/10 text-pitch px-2.5 py-1 rounded-full">
+                  فرمت جام ملت‌های اروپا
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label
+                  className={`relative flex cursor-pointer flex-col rounded-xl border p-4 transition-all ${
+                    advanceBestThirds
+                      ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20"
+                      : "border-line bg-white/70 hover:border-pitch/40"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="advanceBestThirdsOption"
+                        checked={advanceBestThirds}
+                        onChange={() => setAdvanceBestThirds(true)}
+                        className="text-pitch focus:ring-pitch"
+                      />
+                      <span className="font-bold text-sm text-pitch">
+                        صعود {missingForPowerOfTwo} تیم برتر رتبه سوم (استاندارد یورو)
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-pitch/10 text-pitch px-2 py-0.5 rounded-full">
+                      پیشنهادی
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-ink/70 leading-relaxed">
+                    {baseQualifiers} تیم اول و دوم به همراه {missingForPowerOfTwo} تیم برتر رتبه سوم صعود می‌کنند تا جدول {targetBracketSize} تیمی کاملاً پر شده و هیچ تیمی در دور اول استراحت نابرابر نداشته باشد.
+                  </p>
+                </label>
+
+                <label
+                  className={`relative flex cursor-pointer flex-col rounded-xl border p-4 transition-all ${
+                    !advanceBestThirds
+                      ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20"
+                      : "border-line bg-white/70 hover:border-pitch/40"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="advanceBestThirdsOption"
+                        checked={!advanceBestThirds}
+                        onChange={() => setAdvanceBestThirds(false)}
+                        className="text-pitch focus:ring-pitch"
+                      />
+                      <span className="font-bold text-sm text-pitch">
+                        صرفاً صعود تیم‌های اول و دوم (با استراحت / BYE)
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-ink/10 text-ink/70 px-2 py-0.5 rounded-full">
+                      سنتی
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-ink/70 leading-relaxed">
+                    فقط {baseQualifiers} تیم صعود می‌کنند و {missingForPowerOfTwo} تیم سرگروه برتر در دور اول حذفی استراحت (BYE) خواهند داشت.
+                  </p>
+                </label>
               </div>
             </div>
           )}

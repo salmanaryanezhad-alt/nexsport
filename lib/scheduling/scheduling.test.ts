@@ -662,6 +662,71 @@ test("گروهی + حذفی: تیم‌های هم‌گروه در دور اول 
   }
 });
 
+test("گروهی + حذفی (فرمت یورو ۲۴ تیمی / ۶ گروه): ۱۲ صعودکننده مستقیم + ۴ تیم برتر سوم = ۱۶ تیم حذفی بدون استراحت (BYE)", () => {
+  const teams = Array.from({ length: 24 }, (_, i) => `تیم ${i + 1}`);
+  const result = generateSchedule({
+    format: "groups-knockout",
+    teams,
+    numGroups: 6,
+    seededTeams: [],
+    qualifiersPerGroup: 2,
+    advanceBestThirds: true,
+  });
+
+  assertEqual(result.format, "groups-knockout", "فرمت خروجی باید groups-knockout باشد.");
+  if (result.format === "groups-knockout") {
+    assertEqual(result.knockout.bracketSize, 16, "براکت حذفی باید ۱۶ جایگاه (یک‌هشتم نهایی) داشته باشد.");
+    assertEqual(result.knockout.byes, 0, "فرمت یورو نباید استراحت (BYE) داشته باشد.");
+    const r1 = result.knockout.rounds[0].matches;
+    assertEqual(r1.length, 8, "مرحله یک‌هشتم نهایی باید ۸ مسابقه داشته باشد.");
+
+    // بررسی اینکه ۴ تیم سوم برتر در براکت حضور دارند
+    const allParticipants = r1.flatMap(m => [m.home, m.away]);
+    const thirdPlaceParticipants = allParticipants.filter(p => p && p.includes("تیم سوم برتر"));
+    assertEqual(thirdPlaceParticipants.length, 4, "باید ۴ تیم برتر رتبه سوم به مرحله حذفی صعود کرده باشند.");
+  }
+});
+
+test("گروهی + حذفی (۱۲ تیمی / ۳ گروه): ۶ صعودکننده مستقیم + ۲ تیم برتر سوم = ۸ تیم حذفی بدون استراحت", () => {
+  const teams = Array.from({ length: 12 }, (_, i) => `تیم ${i + 1}`);
+  const result = generateSchedule({
+    format: "groups-knockout",
+    teams,
+    numGroups: 3,
+    seededTeams: [],
+    qualifiersPerGroup: 2,
+    advanceBestThirds: true,
+  });
+
+  if (result.format === "groups-knockout") {
+    assertEqual(result.knockout.bracketSize, 8, "براکت حذفی باید ۸ جایگاه (یک‌چهارم نهایی) داشته باشد.");
+    assertEqual(result.knockout.byes, 0, "نباید استراحت (BYE) داشته باشد.");
+    const r1 = result.knockout.rounds[0].matches;
+    assertEqual(r1.length, 4, "مرحله یک‌چهارم نهایی باید ۴ مسابقه داشته باشد.");
+
+    const allParticipants = r1.flatMap(m => [m.home, m.away]);
+    const thirdPlaceParticipants = allParticipants.filter(p => p && p.includes("تیم سوم برتر"));
+    assertEqual(thirdPlaceParticipants.length, 2, "باید ۲ تیم برتر رتبه سوم صعود کرده باشند.");
+  }
+});
+
+test("گروهی + حذفی (advanceBestThirds: false): با غیرفعال بودن تیم‌های سوم، استراحت (BYE) تخصیص می‌یابد", () => {
+  const teams = Array.from({ length: 24 }, (_, i) => `تیم ${i + 1}`);
+  const result = generateSchedule({
+    format: "groups-knockout",
+    teams,
+    numGroups: 6,
+    seededTeams: [],
+    qualifiersPerGroup: 2,
+    advanceBestThirds: false,
+  });
+
+  if (result.format === "groups-knockout") {
+    assertEqual(result.knockout.bracketSize, 16, "براکت باید ۱۶ جایگاه داشته باشد.");
+    assertEqual(result.knockout.byes, 4, "با ۱۲ تیم صعودکننده و بدون تیم‌های سوم، باید ۴ استراحت (BYE) داشته باشیم.");
+  }
+});
+
 /* =========================================================
    تست‌های قابلیت‌های پیشرفته جدید
    ========================================================= */

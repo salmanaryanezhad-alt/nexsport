@@ -73,6 +73,7 @@ export interface GroupsScheduleInput {
   numGroups: number;
   seededTeams: string[];
   qualifiersPerGroup: number;
+  advanceBestThirds?: boolean;
   avoidPairs?: [string, string][];
   hasThirdPlace?: boolean;
   metadata?: TournamentMetadata;
