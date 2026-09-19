@@ -8,6 +8,8 @@ import {
   MatchScore,
   calculateStandings,
   computeKnockoutWithScores,
+  computeDoubleKnockoutWithScores,
+  DoubleKnockoutResult,
   TournamentMetadata,
 } from "@/lib/scheduling";
 
@@ -173,6 +175,25 @@ export function ScheduleView({
               </div>
               <InteractiveBracket
                 originalKnockout={result.knockout}
+                scores={scores}
+                onScoreChange={onScoreChange}
+              />
+            </div>
+          )}
+
+          {result.format === "double-knockout" && (
+            <div>
+              <div className="mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🛡️</span>
+                  <h2 className="text-lg font-bold text-pitch">تورنمنت دو حذفی (Double Elimination)</h2>
+                </div>
+                <p className="text-xs text-ink/60 mt-1">
+                  در این تورنمنت هیچ تیمی با یک باخت حذف نمی‌شود. بازنده‌ها به جدول شانس مجدد (Losers Bracket) منتقل می‌شوند و فینال بین قهرمان جدول برندگان و قهرمان شانس مجدد برگزار خواهد شد.
+                </p>
+              </div>
+              <InteractiveDoubleKnockoutBracket
+                originalDoubleKnockout={result.doubleKnockout}
                 scores={scores}
                 onScoreChange={onScoreChange}
               />
@@ -634,6 +655,227 @@ function InteractiveBracket({
               onScoreChange={onScoreChange}
               label="دیدار رده‌بندی"
             />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InteractiveDoubleKnockoutBracket({
+  originalDoubleKnockout,
+  scores,
+  onScoreChange,
+}: {
+  originalDoubleKnockout: DoubleKnockoutResult;
+  scores: Record<string, MatchScore>;
+  onScoreChange: (
+    matchId: string,
+    home: number | null,
+    away: number | null,
+    homePenalty?: number | null,
+    awayPenalty?: number | null,
+    winner?: string | null
+  ) => void;
+}) {
+  const [bracketView, setBracketView] = useState<"all" | "winners" | "losers" | "finals">("all");
+
+  const { doubleKnockout, champion, runnerUp, thirdPlace } = useMemo(
+    () => computeDoubleKnockoutWithScores(originalDoubleKnockout, scores),
+    [originalDoubleKnockout, scores]
+  );
+
+  return (
+    <div className="space-y-8">
+      {/* Celebration Podium */}
+      {champion && (
+        <div className="rounded-xl border-2 border-gold bg-gradient-to-r from-gold/15 via-gold/25 to-gold/15 p-6 shadow-md text-center animate-fade-in">
+          <p className="text-xs uppercase tracking-widest text-gold-dark font-extrabold mb-1">
+            🏆 سکوی قهرمانی مسابقات دو حذفی
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-6 mt-4">
+            {runnerUp && (
+              <div className="flex flex-col items-center">
+                <span className="text-2xl">🥈</span>
+                <span className="text-xs font-semibold text-ink/60 mt-1">نایب‌قهرمان</span>
+                <span className="font-bold text-sm text-ink">{runnerUp}</span>
+              </div>
+            )}
+            <div className="flex flex-col items-center px-6 py-2 rounded-xl bg-white/70 border border-gold/40 shadow-sm">
+              <span className="text-4xl">👑</span>
+              <span className="text-xs font-extrabold text-gold-dark mt-1">قهرمان تورنمنت دو حذفی</span>
+              <span className="text-2xl font-black text-pitch mt-0.5">{champion}</span>
+            </div>
+            {thirdPlace && (
+              <div className="flex flex-col items-center">
+                <span className="text-2xl">🥉</span>
+                <span className="text-xs font-semibold text-ink/60 mt-1">مقام سوم (فینالیست بازندگان)</span>
+                <span className="font-bold text-sm text-ink">{thirdPlace}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* View Filter Buttons */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-line pb-3">
+        {[
+          { key: "all" as const, label: "نمایش همه بخش‌ها" },
+          { key: "winners" as const, label: "🏆 جدول برندگان (Winners Bracket)" },
+          { key: "losers" as const, label: "🛡️ جدول شانس مجدد (Losers Bracket)" },
+          { key: "finals" as const, label: "👑 فینال نهایی مسابقات" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setBracketView(tab.key)}
+            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+              bracketView === tab.key
+                ? "bg-pitch text-chalk shadow-sm"
+                : "bg-line/40 text-ink/70 hover:bg-line"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Section 1: Winners Bracket */}
+      {(bracketView === "all" || bracketView === "winners") && (
+        <div className="rounded-xl border border-line bg-chalk/30 p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-line pb-3">
+            <div>
+              <h3 className="font-bold text-base text-pitch flex items-center gap-2">
+                <span>🏆</span>
+                <span>جدول برندگان (Winners Bracket)</span>
+              </h3>
+              <p className="text-xs text-ink/60 mt-0.5">
+                تیم‌هایی که در این جدول پیروز می‌شوند به مراحل بالاتر صعود می‌کنند؛ تیم بازنده مستقیماً به جدول شانس مجدد منتقل می‌شود.
+              </p>
+            </div>
+            <span className="text-xs font-bold bg-pitch/10 text-pitch px-2.5 py-1 rounded-full">
+              {doubleKnockout.winnersBracket.length} دور مسابقه
+            </span>
+          </div>
+
+          <div className="flex gap-6 overflow-x-auto pb-4 pt-2">
+            {doubleKnockout.winnersBracket.map((round, rIdx) => {
+              const isFinal = rIdx === doubleKnockout.winnersBracket.length - 1;
+              return (
+                <div
+                  key={round.round}
+                  className="flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6"
+                >
+                  <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3">
+                    <p className="text-xs font-bold text-pitch">{round.label}</p>
+                  </div>
+
+                  <div className="flex flex-col justify-around gap-8 flex-1">
+                    {round.matches.map((m) => (
+                      <MatchBracketCard
+                        key={m.id}
+                        match={m}
+                        scores={scores}
+                        isFinal={isFinal}
+                        onScoreChange={onScoreChange}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Section 2: Losers Bracket */}
+      {(bracketView === "all" || bracketView === "losers") && (
+        <div className="rounded-xl border border-amber-600/30 bg-amber-50/30 p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-amber-600/20 pb-3">
+            <div>
+              <h3 className="font-bold text-base text-amber-900 flex items-center gap-2">
+                <span>🛡️</span>
+                <span>جدول شانس مجدد / بازندگان (Losers Bracket)</span>
+              </h3>
+              <p className="text-xs text-ink/60 mt-0.5">
+                تیم‌هایی که یک‌بار در جدول برندگان شکست خورده‌اند در این جدول بازی می‌کنند. قهرمان این جدول به فینال نهایی تورنمنت راه می‌یابد.
+              </p>
+            </div>
+            <span className="text-xs font-bold bg-amber-600/10 text-amber-900 px-2.5 py-1 rounded-full">
+              {doubleKnockout.losersBracket.length} دور مسابقه
+            </span>
+          </div>
+
+          <div className="flex gap-6 overflow-x-auto pb-4 pt-2">
+            {doubleKnockout.losersBracket.map((round, rIdx) => {
+              const isFinal = rIdx === doubleKnockout.losersBracket.length - 1;
+              return (
+                <div
+                  key={round.round}
+                  className="flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6"
+                >
+                  <div className="text-center rounded-md bg-amber-600/15 py-1.5 px-3">
+                    <p className="text-xs font-bold text-amber-950">{round.label}</p>
+                  </div>
+
+                  <div className="flex flex-col justify-around gap-8 flex-1">
+                    {round.matches.map((m) => (
+                      <MatchBracketCard
+                        key={m.id}
+                        match={m}
+                        scores={scores}
+                        isFinal={isFinal}
+                        onScoreChange={onScoreChange}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Section 3: Grand Final */}
+      {(bracketView === "all" || bracketView === "finals") && (
+        <div className="rounded-xl border-2 border-gold/70 bg-white p-5 space-y-4 shadow-sm">
+          <div className="flex items-center justify-between border-b border-line pb-3">
+            <div>
+              <h3 className="font-bold text-base text-pitch flex items-center gap-2">
+                <span>👑</span>
+                <span>فینال نهایی مسابقات (Grand Final)</span>
+              </h3>
+              <p className="text-xs text-ink/60 mt-0.5">
+                دیدار سرنوشت‌ساز میان قهرمان جدول برندگان و قهرمان جدول شانس مجدد برای تصاحب جام قهرمانی.
+              </p>
+            </div>
+            <span className="text-xs font-bold bg-gold/20 text-ink px-2.5 py-1 rounded-full">
+              مسابقه پایانی تورنمنت
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+            <div>
+              <MatchBracketCard
+                match={doubleKnockout.grandFinal}
+                scores={scores}
+                isFinal={true}
+                onScoreChange={onScoreChange}
+                label="فینال نهایی (Grand Final)"
+              />
+            </div>
+
+            {doubleKnockout.bracketResetMatch && (
+              <div>
+                <MatchBracketCard
+                  match={doubleKnockout.bracketResetMatch}
+                  scores={scores}
+                  isFinal={true}
+                  onScoreChange={onScoreChange}
+                  label="فینال مجدد (Bracket Reset)"
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

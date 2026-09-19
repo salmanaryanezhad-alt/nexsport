@@ -1,6 +1,7 @@
 import { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 import { buildGroups } from "./groups";
 import { buildKnockout, buildGroupsKnockout } from "./knockout";
+import { buildDoubleKnockout } from "./doubleKnockout";
 import {
   ScheduleInput,
   ScheduleResult,
@@ -15,6 +16,10 @@ export {
   nextPowerOfTwo,
   type MatchScore,
 } from "./knockout";
+export {
+  buildDoubleKnockout,
+  computeDoubleKnockoutWithScores,
+} from "./doubleKnockout";
 export { buildGroups, calculateDefaultNumGroups } from "./groups";
 export { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 export { calculateStandings, type TeamStanding } from "./standings";
@@ -99,6 +104,19 @@ export function generateSchedule(input: ScheduleInput): ScheduleResult {
         hasThirdPlace: input.hasThirdPlace,
       });
       return { format: "knockout", knockout, metadata: input.metadata };
+    }
+
+    case "double-knockout": {
+      const doubleKnockout = buildDoubleKnockout({
+        teams: input.teams,
+        seededTeams: input.seededTeams,
+        hasResetFinal: input.hasResetFinal,
+      });
+      return {
+        format: "double-knockout",
+        doubleKnockout,
+        metadata: input.metadata,
+      };
     }
 
     default: {

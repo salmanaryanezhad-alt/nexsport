@@ -77,6 +77,24 @@ const FORMAT_OPTIONS: FormatCardInfo[] = [
     ],
   },
   {
+    key: "double-knockout",
+    title: "جدول دو حذفی (Double Elimination)",
+    subtitle: "Winners & Losers Brackets",
+    category: "tournament",
+    icon: "🛡️",
+    tag: "محبوب مدارس و المپیادها",
+    badgeBg: "bg-emerald-500/15",
+    badgeBorder: "border-emerald-500/30",
+    badgeText: "text-emerald-700",
+    desc: "هیچ تیمی با یک شکست حذف نمی‌شود! بازنده‌ها به جدول شانس مجدد (Losers Bracket) می‌روند و فینال بین قهرمان جدول برندگان و قهرمان شانس مجدد برگزار می‌شود.",
+    idealFor: "مسابقات مدارس، المپیادهای دانش‌آموزی و دانشجویی، والیبال، پینگ‌پنگ، کشتی و ورزش‌های الکترونیک",
+    features: [
+      "جدول دوگانه برندگان و شانس مجدد (امکان بازگشت به فینال با یک باخت)",
+      "تعیین طبیعی مقام‌های اول تا سوم بدون نیاز به بازی رده‌بندی",
+      "امکان فعال‌سازی فینال مجدد (Bracket Reset) مطابق استاندارد جهانی",
+    ],
+  },
+  {
     key: "league",
     title: "لیگ دوره‌ای (تک‌دور)",
     subtitle: "Single Round-Robin",
@@ -207,6 +225,7 @@ function PlannerWizard() {
   const [activePotTab, setActivePotTab] = useState<1 | 2 | 3 | 4>(1);
   const [avoidPairs, setAvoidPairs] = useState<[string, string][]>([]);
   const [hasThirdPlace, setHasThirdPlace] = useState(false);
+  const [hasResetFinal, setHasResetFinal] = useState(false);
   const [independentSecondLeg, setIndependentSecondLeg] = useState(true);
   const [advanceBestThirds, setAdvanceBestThirds] = useState(true);
   const [metadata, setMetadata] = useState<TournamentMetadata>({
@@ -239,6 +258,7 @@ function PlannerWizard() {
       "groups",
       "groups-knockout",
       "knockout",
+      "double-knockout",
     ];
 
     try {
@@ -262,6 +282,8 @@ function PlannerWizard() {
         if (Array.isArray(parsed.avoidPairs)) setAvoidPairs(parsed.avoidPairs);
         if (typeof parsed.hasThirdPlace === "boolean")
           setHasThirdPlace(parsed.hasThirdPlace);
+        if (typeof parsed.hasResetFinal === "boolean")
+          setHasResetFinal(parsed.hasResetFinal);
         if (typeof parsed.independentSecondLeg === "boolean")
           setIndependentSecondLeg(parsed.independentSecondLeg);
         if (typeof parsed.advanceBestThirds === "boolean")
@@ -309,6 +331,7 @@ function PlannerWizard() {
           pot4Teams,
           avoidPairs,
           hasThirdPlace,
+          hasResetFinal,
           independentSecondLeg,
           advanceBestThirds,
           metadata,
@@ -338,7 +361,7 @@ function PlannerWizard() {
   ]);
 
   const needsGroupRules = format === "groups" || format === "groups-knockout";
-  const needsSeedRules = format === "knockout" || needsGroupRules;
+  const needsSeedRules = format === "knockout" || format === "double-knockout" || needsGroupRules;
   const supportsThirdPlace = format === "knockout" || format === "groups-knockout";
 
   // Knocout structure math for groups-knockout
@@ -638,6 +661,14 @@ function PlannerWizard() {
           hasThirdPlace,
           metadata: trimmedMetadata,
         });
+      } else if (format === "double-knockout") {
+        r = generateSchedule({
+          format: "double-knockout",
+          teams: teamNames,
+          seededTeams,
+          hasResetFinal,
+          metadata: trimmedMetadata,
+        });
       } else if (format === "double-league") {
         r = generateSchedule({
           format: "double-league",
@@ -690,6 +721,7 @@ function PlannerWizard() {
       setActivePotTab(1);
       setAvoidPairs([]);
       setHasThirdPlace(false);
+      setHasResetFinal(false);
       setIndependentSecondLeg(true);
       setAdvanceBestThirds(true);
       setMetadata({ title: "", venue: "" });
@@ -1099,6 +1131,11 @@ function PlannerWizard() {
                     با توجه به اینکه {teamCount} توان ۲ نیست، جدول براکت {Math.pow(2, Math.ceil(Math.log2(teamCount)))} تیمی تشکیل شده و به <strong>{Math.pow(2, Math.ceil(Math.log2(teamCount))) - teamCount} تیم برتر</strong> استراحت مستقیم دور اول (Bye) داده می‌شود.
                   </>
                 )}
+              </p>
+            )}
+            {format === "double-knockout" && (
+              <p className="leading-6 pr-6">
+                در فرمت دو حذفی با <strong>{teamCount} تیم</strong>، مسابقات در دو جدول موازی «برندگان» و «شانس مجدد / بازندگان» برگزار می‌شود. هیچ تیمی با اولین شکست حذف نمی‌شود و با دو باخت از گردونه رقابت‌ها کنار می‌رود. قهرمانان دو جدول در فینال بزرگ به مصاف یکدیگر خواهند رفت.
               </p>
             )}
             {format === "league" && (
@@ -1851,11 +1888,33 @@ function PlannerWizard() {
             </div>
           )}
 
-          {/* Seeded Teams Selection for Knockout Only */}
-          {format === "knockout" && (
+          {/* Double Knockout Options (Bracket Reset) */}
+          {format === "double-knockout" && (
+            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hasResetFinal}
+                  onChange={(e) => setHasResetFinal(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-line text-pitch focus:ring-pitch"
+                />
+                <div>
+                  <span className="text-sm font-bold text-pitch">
+                    برگزاری فینال مجدد در صورت باخت قهرمان برندگان (Bracket Reset)
+                  </span>
+                  <p className="text-xs text-ink/70 mt-1 leading-relaxed">
+                    در فرمت رسمی دو حذفی، چون قهرمان جدول برندگان تا پیش از فینال هیچ شکستی نداشته است، در صورتی که در فینال اول از قهرمان بازندگان شکست بخورد، یک مسابقه سرنوشت‌ساز دوم برای تعیین قهرمان نهایی تورنمنت برگزار می‌شود.
+                  </p>
+                </div>
+              </label>
+            </div>
+          )}
+
+          {/* Seeded Teams Selection for Knockout and Double Knockout */}
+          {(format === "knockout" || format === "double-knockout") && (
             <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-3">
               <p className="text-sm font-bold text-pitch">
-                تیم‌های شاخص مرحله حذفی (اختیاری)
+                تیم‌های شاخص مسابقات {format === "double-knockout" ? "دو حذفی" : "تک‌حذفی"} (اختیاری)
               </p>
               <p className="text-xs text-ink/60">
                 به ترتیبی که کلیک می‌کنید، اولویت سیدبندی حذفی تعیین می‌شود تا تیم‌های برتر در مراحل اولیه به یکدیگر برخورد نکنند. برای لغو دوباره روی نام تیم کلیک کنید.

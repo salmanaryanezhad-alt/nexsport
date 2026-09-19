@@ -3,7 +3,8 @@ export type CompetitionFormat =
   | "double-league"
   | "groups"
   | "groups-knockout"
-  | "knockout";
+  | "knockout"
+  | "double-knockout";
 
 export interface Match {
   id?: string;
@@ -34,6 +35,7 @@ export interface BracketMatch {
   slot: number;
   home: string | null;
   away: string | null;
+  isBye?: boolean;
   autoAdvance?: string | null;
   homeScore?: number | null;
   awayScore?: number | null;
@@ -58,6 +60,15 @@ export interface KnockoutResult {
   byes: number;
   rounds: BracketRound[];
   thirdPlaceMatch?: BracketMatch | null;
+}
+
+export interface DoubleKnockoutResult {
+  bracketSize: number;
+  byes: number;
+  winnersBracket: BracketRound[];
+  losersBracket: BracketRound[];
+  grandFinal: BracketMatch;
+  bracketResetMatch?: BracketMatch | null;
 }
 
 export interface LeagueScheduleInput {
@@ -91,6 +102,14 @@ export interface KnockoutScheduleInput {
   metadata?: TournamentMetadata;
 }
 
+export interface DoubleKnockoutScheduleInput {
+  format: "double-knockout";
+  teams: string[];
+  seededTeams?: string[];
+  hasResetFinal?: boolean;
+  metadata?: TournamentMetadata;
+}
+
 export interface TournamentMetadata {
   title?: string;
   venue?: string;
@@ -101,7 +120,8 @@ export interface TournamentMetadata {
 export type ScheduleInput =
   | LeagueScheduleInput
   | GroupsScheduleInput
-  | KnockoutScheduleInput;
+  | KnockoutScheduleInput
+  | DoubleKnockoutScheduleInput;
 
 export type ScheduleResult =
   | {
@@ -128,6 +148,11 @@ export type ScheduleResult =
   | {
       format: "knockout";
       knockout: KnockoutResult;
+      metadata?: TournamentMetadata;
+    }
+  | {
+      format: "double-knockout";
+      doubleKnockout: DoubleKnockoutResult;
       metadata?: TournamentMetadata;
     };
 

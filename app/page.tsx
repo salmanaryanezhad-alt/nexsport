@@ -41,6 +41,14 @@ const FORMATS = [
     bullets: ["سیدبندی ۱ تا ۴ در ۴ بخش جداگانه", "صعود مستقیم تیم‌های برتر با Bye", "صعود خودکار برنده با ثبت نتیجه"],
     badgeColor: "bg-brick/10 text-brick border-brick/30",
   },
+  {
+    id: "double-knockout",
+    title: "جدول دو حذفی (Double Elimination)",
+    tag: "ویژه مدارس و المپیادها",
+    desc: "هیچ تیمی با یک شکست حذف نمی‌شود! بازنده‌ها به جدول شانس مجدد (Losers Bracket) می‌روند و فینال بین قهرمانان دو جدول برگزار می‌شود.",
+    bullets: ["جدول دوگانه برندگان و شانس مجدد", "تعیین دقیق مقام‌های اول تا سوم", "امکان فینال مجدد (Bracket Reset)"],
+    badgeColor: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+  },
 ];
 
 const FEATURES = [
@@ -567,6 +575,11 @@ export default function HomePage() {
                 <li>
                   <Link href="/planner?format=knockout" className="hover:text-pitch transition-colors">
                     براکت تک‌حذفی
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/planner?format=double-knockout" className="hover:text-pitch transition-colors">
+                    تورنمنت دو حذفی (Double Elimination)
                   </Link>
                 </li>
               </ul>

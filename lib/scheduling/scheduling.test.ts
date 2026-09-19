@@ -5,6 +5,8 @@ import {
 import { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 import { buildGroups, calculateDefaultNumGroups } from "./groups";
 import { buildKnockout, computeKnockoutWithScores } from "./knockout";
+import { buildDoubleKnockout, computeDoubleKnockoutWithScores } from "./doubleKnockout";
+import { formatScheduleAsText, formatScheduleAsCsv } from "./export";
 
 type TestFn = () => void;
 
@@ -942,6 +944,241 @@ test("لیگ: بازی اول هر دور متعلق به یک تیم ثابت �
     firstMatchTeams.size >= 4,
     `تیم‌های حاضر در بازی اول هفته‌ها باید متنوع باشند (تعداد شناسایی‌شده: ${firstMatchTeams.size})`
   );
+});
+
+/* =========================================================
+   دو حذفی (Double Elimination)
+   ========================================================= */
+
+test("دو حذفی ۴ تیمی: ساختار صحیح جدول برندگان، جدول بازندگان و فینال بزرگ", () => {
+  const teams = ["تیم الف", "تیم ب", "تیم ج", "تیم د"];
+  const dk = buildDoubleKnockout({
+    teams,
+    hasResetFinal: false,
+  });
+
+  assertEqual(dk.bracketSize, 4, "اندازه براکت باید ۴ باشد.");
+  assertEqual(dk.byes, 0, "۴ تیم توان ۲ است و نباید BYE داشته باشد.");
+
+  // جدول برندگان ۴ تیمی: ۲ دور (نیمه‌نهایی با ۲ بازی، فینال برندگان با ۱ بازی)
+  assertEqual(dk.winnersBracket.length, 2, "جدول برندگان باید ۲ دور داشته باشد.");
+  assertEqual(dk.winnersBracket[0].matches.length, 2, "دور اول برندگان باید ۲ مسابقه داشته باشد.");
+  assertEqual(dk.winnersBracket[1].matches.length, 1, "فینال برندگان باید ۱ مسابقه داشته باشد.");
+
+  // جدول بازندگان ۴ تیمی: ۲ دور (دور اول با ۱ بازی، فینال بازندگان با ۱ بازی)
+  assertEqual(dk.losersBracket.length, 2, "جدول بازندگان باید ۲ دور داشته باشد.");
+  assertEqual(dk.losersBracket[0].matches.length, 1, "دور اول بازندگان باید ۱ مسابقه داشته باشد.");
+  assertEqual(dk.losersBracket[1].matches.length, 1, "فینال بازندگان باید ۱ مسابقه داشته باشد.");
+
+  // فینال نهایی
+  assert(dk.grandFinal !== null && dk.grandFinal !== undefined, "فینال بزرگ باید وجود داشته باشد.");
+  assertEqual(dk.grandFinal.id, "gf-m1", "شناسه بازی فینال بزرگ باید gf-m1 باشد.");
+  assert(dk.bracketResetMatch === null, "bracketResetMatch در حالت غیرفعال باید null باشد.");
+});
+
+test("دو حذفی ۸ تیمی: ساختار کامل و توزیع مراحل", () => {
+  const teams = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"];
+  const dk = buildDoubleKnockout({
+    teams,
+    hasResetFinal: true,
+  });
+
+  assertEqual(dk.bracketSize, 8, "اندازه براکت باید ۸ باشد.");
+  assertEqual(dk.byes, 0, "۸ تیم توان ۲ است و نباید BYE داشته باشد.");
+
+  // برندگان: ۳ دور (یک‌چهارم ۴ بازی، نیمه‌نهایی ۲ بازی، فینال برندگان ۱ بازی)
+  assertEqual(dk.winnersBracket.length, 3, "جدول برندگان ۸ تیمی باید ۳ دور داشته باشد.");
+  assertEqual(dk.winnersBracket[0].matches.length, 4, "یک‌چهارم نهایی برندگان باید ۴ بازی باشد.");
+  assertEqual(dk.winnersBracket[1].matches.length, 2, "نیمه‌نهایی برندگان باید ۲ بازی باشد.");
+  assertEqual(dk.winnersBracket[2].matches.length, 1, "فینال برندگان باید ۱ بازی باشد.");
+
+  // بازندگان: ۴ دور (دور اول ۲ بازی، دور دوم ۲ بازی، دور سوم ۱ بازی، فینال بازندگان ۱ بازی)
+  assertEqual(dk.losersBracket.length, 4, "جدول بازندگان ۸ تیمی باید ۴ دور داشته باشد.");
+  assertEqual(dk.losersBracket[0].matches.length, 2, "دور اول بازندگان باید ۲ بازی باشد.");
+  assertEqual(dk.losersBracket[1].matches.length, 2, "دور دوم بازندگان باید ۲ بازی باشد.");
+  assertEqual(dk.losersBracket[2].matches.length, 1, "دور سوم بازندگان باید ۱ بازی باشد.");
+  assertEqual(dk.losersBracket[3].matches.length, 1, "فینال بازندگان باید ۱ بازی باشد.");
+
+  assert(dk.bracketResetMatch !== null, "مسابقه فینال مجدد (Reset Final) باید تعریف شده باشد.");
+  assertEqual(dk.bracketResetMatch?.id, "gf-reset", "شناسه فینال مجدد باید gf-reset باشد.");
+});
+
+test("دو حذفی: تخصیص استراحت (BYE) و جایگاه تیم‌های سیدبندی‌شده", () => {
+  const teams = ["ستاره ۱", "ستاره ۲", "تیم ۳", "تیم ۴", "تیم ۵"];
+  const dk = buildDoubleKnockout({
+    teams,
+    seededTeams: ["ستاره ۱", "ستاره ۲"],
+  });
+
+  assertEqual(dk.bracketSize, 8, "برای ۵ تیم نزدیک‌ترین توان ۲، عدد ۸ است.");
+  assertEqual(dk.byes, 3, "باید ۳ تیم استراحت دور اول (BYE) داشته باشند.");
+
+  // تیم‌های استراحت‌خورده در دور اول به صورت خودکار بدون رقیب هستند
+  const byeMatches = dk.winnersBracket[0].matches.filter((m) => m.isBye);
+  assertEqual(byeMatches.length, 3, "باید ۳ مسابقه دور اول به صورت استراحت (BYE) مشخص شده باشد.");
+});
+
+test("دو حذفی: چرخه کامل ثبت نتایج، سقوط به جدول بازندگان و تعیین مقام اول، دوم و سوم", () => {
+  const teams = ["تیم A", "تیم B", "تیم C", "تیم D"];
+  const dk = buildDoubleKnockout({
+    teams,
+    seededTeams: ["تیم A", "تیم B", "تیم C", "تیم D"],
+    hasResetFinal: false,
+  });
+
+  // سیدبندی ۴ تیم: M1 (سید ۱ مقابل سید ۴: A vs D)، M2 (سید ۲ مقابل سید ۳: B vs C)
+  const wbR1M1 = dk.winnersBracket[0].matches[0].id;
+  const wbR1M2 = dk.winnersBracket[0].matches[1].id;
+
+  // نتایج WB R1: A تیم D را می‌برد، B تیم C را می‌برد
+  let computed = computeDoubleKnockoutWithScores(dk, {
+    [wbR1M1]: { home: 3, away: 0 },
+    [wbR1M2]: { home: 2, away: 1 },
+  });
+
+  // WB Final باید A مقابل B باشد
+  const wbFinal = computed.doubleKnockout.winnersBracket[1].matches[0];
+  assertEqual(wbFinal.home, "تیم A", "تیم A باید به فینال برندگان صعود کند.");
+  assertEqual(wbFinal.away, "تیم B", "تیم B باید به فینال برندگان صعود کند.");
+
+  // بازندگان دور اول (LB R1) باید D مقابل C باشد (بازندگان WB R1)
+  const lbR1 = computed.doubleKnockout.losersBracket[0].matches[0];
+  assertEqual(lbR1.home, "تیم D", "تیم بازنده D باید به جدول بازندگان منتقل شود.");
+  assertEqual(lbR1.away, "تیم C", "تیم بازنده C باید به جدول بازندگان منتقل شود.");
+
+  // نتیجه LB R1: C تیم D را می‌برد (D با دو باخت حذف می‌شود)
+  // نتیجه WB Final: A تیم B را می‌برد (A به فینال نهایی صعود می‌کند، B به فینال بازندگان سقوط می‌کند)
+  computed = computeDoubleKnockoutWithScores(dk, {
+    [wbR1M1]: { home: 3, away: 0 },
+    [wbR1M2]: { home: 2, away: 1 },
+    [wbFinal.id]: { home: 2, away: 1 },
+    [lbR1.id]: { home: 0, away: 1 },
+  });
+
+  // فینال بازندگان باید B (بازنده فینال برندگان) مقابل C (برنده دور قبل بازندگان) باشد
+  const lbFinal = computed.doubleKnockout.losersBracket[1].matches[0];
+  assertEqual(lbFinal.home, "تیم C", "تیم C باید در فینال بازندگان باشد.");
+  assertEqual(lbFinal.away, "تیم B", "تیم B باید در فینال بازندگان باشد.");
+
+  // نتیجه LB Final: B تیم C را شکست می‌دهد (C با دو باخت در جایگاه سوم قرار می‌گیرد)
+  computed = computeDoubleKnockoutWithScores(dk, {
+    [wbR1M1]: { home: 3, away: 0 },
+    [wbR1M2]: { home: 2, away: 1 },
+    [wbFinal.id]: { home: 2, away: 1 },
+    [lbR1.id]: { home: 0, away: 1 },
+    [lbFinal.id]: { home: 1, away: 3 },
+  });
+
+  // فینال نهایی باید A (قهرمان برندگان) مقابل B (قهرمان بازندگان) باشد
+  const grandFinalMatch = computed.doubleKnockout.grandFinal;
+  assertEqual(grandFinalMatch.home, "تیم A", "میزبان فینال نهایی باید قهرمان برندگان (A) باشد.");
+  assertEqual(grandFinalMatch.away, "تیم B", "مهمان فینال نهایی باید قهرمان بازندگان (B) باشد.");
+
+  // نتیجه فینال نهایی: A تیم B را شکست می‌دهد
+  computed = computeDoubleKnockoutWithScores(dk, {
+    [wbR1M1]: { home: 3, away: 0 },
+    [wbR1M2]: { home: 2, away: 1 },
+    [wbFinal.id]: { home: 2, away: 1 },
+    [lbR1.id]: { home: 0, away: 1 },
+    [lbFinal.id]: { home: 1, away: 3 },
+    [grandFinalMatch.id]: { home: 3, away: 0 },
+  });
+
+  // تعیین قهرمان، نایب‌قهرمان و مقام سوم
+  assertEqual(computed.champion, "تیم A", "تیم A باید قهرمان تورنمنت شود.");
+  assertEqual(computed.runnerUp, "تیم B", "تیم B باید نایب‌قهرمان شود.");
+  assertEqual(computed.thirdPlace, "تیم C", "تیم C باید مقام سوم را کسب کند.");
+});
+
+test("دو حذفی با فینال مجدد (Bracket Reset): پیروزی قهرمان بازندگان در بازی اول باعث فعال شدن فینال دوم می‌شود", () => {
+  const teams = ["T1", "T2", "T3", "T4"];
+  const dk = buildDoubleKnockout({
+    teams,
+    seededTeams: ["T1", "T2", "T3", "T4"],
+    hasResetFinal: true,
+  });
+
+  // T1 vs T4, T2 vs T3
+  const wbR1M1 = dk.winnersBracket[0].matches[0].id;
+  const wbR1M2 = dk.winnersBracket[0].matches[1].id;
+  const wbFinalId = dk.winnersBracket[1].matches[0].id;
+  const lbR1Id = dk.losersBracket[0].matches[0].id;
+  const lbFinalId = dk.losersBracket[1].matches[0].id;
+  const gf1Id = dk.grandFinal.id;
+  const gf2Id = dk.bracketResetMatch?.id!;
+
+  // T1 تیم T4 را می‌برد، T2 تیم T3 را می‌برد. WB Final: T1 vs T2
+  // T1 در WB Final تیم T2 را می‌برد و قهرمان WB می‌شود. T2 به LB Final می‌رود.
+  // در LB R1: T4 تیم T3 را می‌برد.
+  // در LB Final: T2 تیم T4 را می‌برد و قهرمان LB می‌شود.
+  // در فینال اول: T2 (قهرمان LB) تیم T1 (قهرمان WB) را شکست می‌دهد!
+  let computed = computeDoubleKnockoutWithScores(dk, {
+    [wbR1M1]: { home: 1, away: 0 }, // T1 beats T4
+    [wbR1M2]: { home: 1, away: 0 }, // T2 beats T3
+    [wbFinalId]: { home: 2, away: 1 }, // T1 beats T2 in WB Final
+    [lbR1Id]: { home: 2, away: 1 }, // T4 beats T3 in LB R1
+    [lbFinalId]: { home: 0, away: 2 }, // T2 beats T4 in LB Final
+    [gf1Id]: { home: 0, away: 1 }, // T2 beats T1 in Grand Final 1!
+  });
+
+  // چون T1 اولین باخت خود را تجربه کرده، فینال مجدد فعال می‌شود
+  assert(computed.doubleKnockout.bracketResetMatch !== null, "فینال مجدد باید وجود داشته باشد.");
+  const resetMatch = computed.doubleKnockout.bracketResetMatch!;
+  assertEqual(resetMatch.home, "T1", "میزبان فینال مجدد T1 است.");
+  assertEqual(resetMatch.away, "T2", "مهمان فینال مجدد T2 است.");
+  assertEqual(computed.champion, null, "قهرمان هنوز مشخص نشده چون فینال مجدد انجام نشده است.");
+
+  // اکنون فینال مجدد برگزار می‌شود و T1 پیروز می‌شود
+  computed = computeDoubleKnockoutWithScores(dk, {
+    [wbR1M1]: { home: 1, away: 0 },
+    [wbR1M2]: { home: 1, away: 0 },
+    [wbFinalId]: { home: 2, away: 1 },
+    [lbR1Id]: { home: 2, away: 1 },
+    [lbFinalId]: { home: 0, away: 2 },
+    [gf1Id]: { home: 0, away: 1 },
+    [gf2Id]: { home: 2, away: 0 }, // T1 wins Reset Match!
+  });
+
+  assertEqual(computed.champion, "T1", "T1 با پیروزی در فینال مجدد باید قهرمان شود.");
+  assertEqual(computed.runnerUp, "T2", "T2 باید نایب‌قهرمان شود.");
+});
+
+test("دو حذفی: اعتبارسنجی ورودی‌ها (خطا در تعداد کمتر از ۳ تیم یا اسامی تکراری)", () => {
+  assertThrows(
+    () =>
+      buildDoubleKnockout({
+        teams: ["A", "B"],
+      }),
+    "حداقل به ۳ تیم"
+  );
+
+  assertThrows(
+    () =>
+      buildDoubleKnockout({
+        teams: ["A", "B", "A"],
+      }),
+    "یکتا"
+  );
+});
+
+test("دو حذفی: خروجی متنی و CSV به درستی تولید می‌شود", () => {
+  const result = generateSchedule({
+    format: "double-knockout",
+    teams: ["تیم الف", "تیم ب", "تیم ج", "تیم د"],
+    hasResetFinal: true,
+  });
+
+  assertEqual(result.format, "double-knockout", "فرمت خروجی باید double-knockout باشد.");
+
+  const textExport = formatScheduleAsText(result);
+  assert(textExport.includes("دو حذفی"), "خروجی متنی باید شامل عنوان دو حذفی باشد.");
+  assert(textExport.includes("جدول برندگان"), "خروجی متنی باید شامل جدول برندگان باشد.");
+  assert(textExport.includes("جدول بازندگان"), "خروجی متنی باید شامل جدول بازندگان باشد.");
+  assert(textExport.includes("فینال بزرگ"), "خروجی متنی باید شامل فینال بزرگ باشد.");
+
+  const csvExport = formatScheduleAsCsv(result);
+  assert(csvExport.includes("جدول برندگان"), "خروجی CSV باید شامل جدول برندگان باشد.");
+  assert(csvExport.includes("جدول بازندگان"), "خروجی CSV باید شامل جدول بازندگان باشد.");
 });
 
 /* =========================================================

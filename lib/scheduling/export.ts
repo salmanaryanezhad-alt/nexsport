@@ -13,6 +13,7 @@ export function formatScheduleAsText(
     groups: "مرحله گروهی",
     "groups-knockout": "مرحله گروهی + حذفی",
     knockout: "مرحله حذفی",
+    "double-knockout": "تورنمنت دو حذفی (Double Elimination)",
   };
 
   const title = result.metadata?.title || "برنامه مسابقات NexSport";
@@ -70,6 +71,20 @@ export function formatScheduleAsText(
     appendKnockoutText(lines, result.knockout.rounds, result.knockout.thirdPlaceMatch, scores);
   } else if (result.format === "knockout") {
     appendKnockoutText(lines, result.knockout.rounds, result.knockout.thirdPlaceMatch, scores);
+  } else if (result.format === "double-knockout") {
+    lines.push("\n🏆 بخش اول: جدول برندگان (Winners Bracket)");
+    appendKnockoutText(lines, result.doubleKnockout.winnersBracket, null, scores);
+    lines.push("\n🛡️ بخش دوم: جدول شانس مجدد (Losers Bracket)");
+    appendKnockoutText(lines, result.doubleKnockout.losersBracket, null, scores);
+    lines.push("\n👑 فینال بزرگ نهایی (Grand Final):");
+    const gf = result.doubleKnockout.grandFinal;
+    const gfSc = scores && scores[gf.id] ? scores[gf.id] : null;
+    lines.push(`  ⚔️ ${gf.home ?? "قهرمان برندگان"} 🆚 ${gf.away ?? "قهرمان بازندگان"}${formatMatchScoreString(gfSc)}`);
+    if (result.doubleKnockout.bracketResetMatch) {
+      const rst = result.doubleKnockout.bracketResetMatch;
+      const rstSc = scores && scores[rst.id] ? scores[rst.id] : null;
+      lines.push(`  🔄 فینال مجدد (در صورت باخت برندگان): ${rst.home ?? "قهرمان برندگان"} 🆚 ${rst.away ?? "قهرمان بازندگان"}${formatMatchScoreString(rstSc)}`);
+    }
   }
 
   lines.push("\n━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -268,6 +283,71 @@ export function exportScheduleToCsv(
         "مقام سوم و چهارم",
       ]);
     }
+  } else if (result.format === "double-knockout") {
+    for (const round of result.doubleKnockout.winnersBracket) {
+      for (const m of round.matches) {
+        const sc = scores && scores[m.id] ? scores[m.id] : null;
+        rows.push([
+          round.label,
+          "جدول برندگان",
+          m.home ?? "نامشخص",
+          sc && sc.home !== null ? String(sc.home) : "",
+          sc && sc.away !== null ? String(sc.away) : "",
+          m.away ?? "نامشخص",
+          sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
+          sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
+          sc?.winner ?? (m.autoAdvance ? m.autoAdvance : ""),
+          m.autoAdvance ? "صعود مستقیم Bye" : "",
+        ]);
+      }
+    }
+    for (const round of result.doubleKnockout.losersBracket) {
+      for (const m of round.matches) {
+        const sc = scores && scores[m.id] ? scores[m.id] : null;
+        rows.push([
+          round.label,
+          "جدول بازندگان",
+          m.home ?? "نامشخص",
+          sc && sc.home !== null ? String(sc.home) : "",
+          sc && sc.away !== null ? String(sc.away) : "",
+          m.away ?? "نامشخص",
+          sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
+          sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
+          sc?.winner ?? (m.autoAdvance ? m.autoAdvance : ""),
+          m.autoAdvance ? "صعود مستقیم Bye" : "",
+        ]);
+      }
+    }
+    const gf = result.doubleKnockout.grandFinal;
+    const gfSc = scores && scores[gf.id] ? scores[gf.id] : null;
+    rows.push([
+      "فینال نهایی (Grand Final)",
+      "فینال کل",
+      gf.home ?? "قهرمان برندگان",
+      gfSc && gfSc.home !== null ? String(gfSc.home) : "",
+      gfSc && gfSc.away !== null ? String(gfSc.away) : "",
+      gf.away ?? "قهرمان بازندگان",
+      gfSc?.homePenalty !== null && gfSc?.homePenalty !== undefined ? String(gfSc.homePenalty) : "",
+      gfSc?.awayPenalty !== null && gfSc?.awayPenalty !== undefined ? String(gfSc.awayPenalty) : "",
+      gfSc?.winner ?? "",
+      "تعیین قهرمان تورنمنت",
+    ]);
+    if (result.doubleKnockout.bracketResetMatch) {
+      const rst = result.doubleKnockout.bracketResetMatch;
+      const rstSc = scores && scores[rst.id] ? scores[rst.id] : null;
+      rows.push([
+        "فینال مجدد (Bracket Reset)",
+        "فینال کل",
+        rst.home ?? "قهرمان برندگان",
+        rstSc && rstSc.home !== null ? String(rstSc.home) : "",
+        rstSc && rstSc.away !== null ? String(rstSc.away) : "",
+        rst.away ?? "قهرمان بازندگان",
+        rstSc?.homePenalty !== null && rstSc?.homePenalty !== undefined ? String(rstSc.homePenalty) : "",
+        rstSc?.awayPenalty !== null && rstSc?.awayPenalty !== undefined ? String(rstSc.awayPenalty) : "",
+        rstSc?.winner ?? "",
+        "در صورت باخت قهرمان برندگان در فینال اول",
+      ]);
+    }
   }
 
   // UTF-8 BOM + CSV escaping
@@ -286,6 +366,8 @@ export function exportScheduleToCsv(
 
   return "\uFEFF" + csvBody;
 }
+
+export const formatScheduleAsCsv = exportScheduleToCsv;
 
 export function downloadCsvFile(csvContent: string, filename = "nexsport-schedule.csv") {
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
