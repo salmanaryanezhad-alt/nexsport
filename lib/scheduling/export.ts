@@ -1,9 +1,19 @@
-import { ScheduleResult, BracketRound, BracketMatch } from "./types";
+import { ScheduleResult, BracketRound, BracketMatch, MatchScheduleDetail } from "./types";
 import { MatchScore } from "./knockout";
+
+function formatScheduleDetail(dt?: MatchScheduleDetail): string {
+  if (!dt) return "";
+  const parts: string[] = [];
+  if (dt.date) parts.push(`تاریخ: ${dt.date}`);
+  if (dt.time) parts.push(`ساعت ${dt.time}`);
+  if (dt.pitch) parts.push(`زمین/سالن: ${dt.pitch}`);
+  return parts.length > 0 ? ` [${parts.join(" | ")}]` : "";
+}
 
 export function formatScheduleAsText(
   result: ScheduleResult,
-  scores?: Record<string, MatchScore>
+  scores?: Record<string, MatchScore>,
+  matchDetails?: Record<string, MatchScheduleDetail>
 ): string {
   const lines: string[] = [];
 
@@ -29,11 +39,12 @@ export function formatScheduleAsText(
       lines.push(`\n📅 هفته ${round.round}:`);
       for (const m of round.matches) {
         const sc = m.id && scores && scores[m.id] ? scores[m.id] : null;
+        const dt = m.id && matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
         const scoreStr =
           sc && sc.home !== null && sc.away !== null
             ? ` (${sc.home} - ${sc.away})`
             : "";
-        lines.push(`  ⚽ ${m.home} 🆚 ${m.away}${scoreStr}`);
+        lines.push(`  ⚽ ${m.home} 🆚 ${m.away}${scoreStr}${formatScheduleDetail(dt)}`);
       }
     }
   } else if (result.format === "groups") {
@@ -43,11 +54,12 @@ export function formatScheduleAsText(
         lines.push(`  📅 هفته ${round.round}:`);
         for (const m of round.matches) {
           const sc = m.id && scores && scores[m.id] ? scores[m.id] : null;
+          const dt = m.id && matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
           const scoreStr =
             sc && sc.home !== null && sc.away !== null
               ? ` (${sc.home} - ${sc.away})`
               : "";
-          lines.push(`    ⚽ ${m.home} 🆚 ${m.away}${scoreStr}`);
+          lines.push(`    ⚽ ${m.home} 🆚 ${m.away}${scoreStr}${formatScheduleDetail(dt)}`);
         }
       }
     }
@@ -59,36 +71,39 @@ export function formatScheduleAsText(
         lines.push(`  📅 هفته ${round.round}:`);
         for (const m of round.matches) {
           const sc = m.id && scores && scores[m.id] ? scores[m.id] : null;
+          const dt = m.id && matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
           const scoreStr =
             sc && sc.home !== null && sc.away !== null
               ? ` (${sc.home} - ${sc.away})`
               : "";
-          lines.push(`    ⚽ ${m.home} 🆚 ${m.away}${scoreStr}`);
+          lines.push(`    ⚽ ${m.home} 🆚 ${m.away}${scoreStr}${formatScheduleDetail(dt)}`);
         }
       }
     }
     lines.push("\n🚩 بخش دوم: براکت مرحله حذفی");
-    appendKnockoutText(lines, result.knockout.rounds, result.knockout.thirdPlaceMatch, scores);
+    appendKnockoutText(lines, result.knockout.rounds, result.knockout.thirdPlaceMatch, scores, matchDetails);
   } else if (result.format === "knockout") {
-    appendKnockoutText(lines, result.knockout.rounds, result.knockout.thirdPlaceMatch, scores);
+    appendKnockoutText(lines, result.knockout.rounds, result.knockout.thirdPlaceMatch, scores, matchDetails);
   } else if (result.format === "double-knockout") {
     lines.push("\n🏆 بخش اول: جدول برندگان (Winners Bracket)");
-    appendKnockoutText(lines, result.doubleKnockout.winnersBracket, null, scores);
+    appendKnockoutText(lines, result.doubleKnockout.winnersBracket, null, scores, matchDetails);
     lines.push("\n🛡️ بخش دوم: جدول شانس مجدد (Losers Bracket)");
-    appendKnockoutText(lines, result.doubleKnockout.losersBracket, null, scores);
+    appendKnockoutText(lines, result.doubleKnockout.losersBracket, null, scores, matchDetails);
     lines.push("\n👑 فینال بزرگ نهایی (Grand Final):");
     const gf = result.doubleKnockout.grandFinal;
     const gfSc = scores && scores[gf.id] ? scores[gf.id] : null;
-    lines.push(`  ⚔️ ${gf.home ?? "قهرمان برندگان"} 🆚 ${gf.away ?? "قهرمان بازندگان"}${formatMatchScoreString(gfSc)}`);
+    const gfDt = matchDetails && matchDetails[gf.id] ? matchDetails[gf.id] : undefined;
+    lines.push(`  ⚔️ ${gf.home ?? "قهرمان برندگان"} 🆚 ${gf.away ?? "قهرمان بازندگان"}${formatMatchScoreString(gfSc)}${formatScheduleDetail(gfDt)}`);
     if (result.doubleKnockout.bracketResetMatch) {
       const rst = result.doubleKnockout.bracketResetMatch;
       const rstSc = scores && scores[rst.id] ? scores[rst.id] : null;
-      lines.push(`  🔄 فینال مجدد (در صورت باخت برندگان): ${rst.home ?? "قهرمان برندگان"} 🆚 ${rst.away ?? "قهرمان بازندگان"}${formatMatchScoreString(rstSc)}`);
+      const rstDt = matchDetails && matchDetails[rst.id] ? matchDetails[rst.id] : undefined;
+      lines.push(`  🔄 فینال مجدد (در صورت باخت برندگان): ${rst.home ?? "قهرمان برندگان"} 🆚 ${rst.away ?? "قهرمان بازندگان"}${formatMatchScoreString(rstSc)}${formatScheduleDetail(rstDt)}`);
     }
   }
 
   lines.push("\n━━━━━━━━━━━━━━━━━━━━━━━━━");
-  lines.push("تولید شده توسط پلتفرم ورزشی NexSport");
+  lines.push("سامانه آنلاین و رایگان برنامه‌ریزی مسابقات ورزشی: nexsport.ir");
 
   return lines.join("\n");
 }
@@ -112,7 +127,8 @@ function appendKnockoutText(
   lines: string[],
   rounds: BracketRound[],
   thirdPlaceMatch?: BracketMatch | null,
-  scores?: Record<string, MatchScore>
+  scores?: Record<string, MatchScore>,
+  matchDetails?: Record<string, MatchScheduleDetail>
 ) {
   for (const round of rounds) {
     lines.push(`\n🥊 ${round.label}:`);
@@ -120,11 +136,12 @@ function appendKnockoutText(
       const home = m.home ?? "نامشخص";
       const away = m.away ?? "نامشخص";
       const sc = scores && scores[m.id] ? scores[m.id] : null;
+      const dt = matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
       const scoreStr = formatMatchScoreString(sc);
       if (m.autoAdvance) {
         lines.push(`  ⚡ ${m.autoAdvance} (صعود مستقیم با استراحت Bye)`);
       } else {
-        lines.push(`  ⚔️ ${home} 🆚 ${away}${scoreStr}`);
+        lines.push(`  ⚔️ ${home} 🆚 ${away}${scoreStr}${formatScheduleDetail(dt)}`);
       }
     }
   }
@@ -134,19 +151,21 @@ function appendKnockoutText(
     const home = thirdPlaceMatch.home ?? "بازنده نیمه‌نهایی ۱";
     const away = thirdPlaceMatch.away ?? "بازنده نیمه‌نهایی ۲";
     const sc = scores && scores[thirdPlaceMatch.id] ? scores[thirdPlaceMatch.id] : null;
+    const dt = matchDetails && matchDetails[thirdPlaceMatch.id] ? matchDetails[thirdPlaceMatch.id] : undefined;
     const scoreStr = formatMatchScoreString(sc);
-    lines.push(`  ⚔️ ${home} 🆚 ${away}${scoreStr}`);
+    lines.push(`  ⚔️ ${home} 🆚 ${away}${scoreStr}${formatScheduleDetail(dt)}`);
   }
 }
 
 export function exportScheduleToCsv(
   result: ScheduleResult,
-  scores?: Record<string, MatchScore>
+  scores?: Record<string, MatchScore>,
+  matchDetails?: Record<string, MatchScheduleDetail>
 ): string {
   const rows: string[][] = [
     [
       "مرحله / دور",
-      "گروه",
+      "گروه / بخش",
       "تیم میزبان",
       "گل میزبان",
       "گل میهمان",
@@ -154,6 +173,9 @@ export function exportScheduleToCsv(
       "پنالتی میزبان",
       "پنالتی میهمان",
       "برنده",
+      "تاریخ",
+      "ساعت",
+      "زمین / سالن",
       "توضیحات",
     ],
   ];
@@ -162,6 +184,7 @@ export function exportScheduleToCsv(
     for (const round of result.rounds) {
       for (const m of round.matches) {
         const sc = m.id && scores && scores[m.id] ? scores[m.id] : null;
+        const dt = m.id && matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
         rows.push([
           `هفته ${round.round}`,
           "-",
@@ -172,6 +195,9 @@ export function exportScheduleToCsv(
           "",
           "",
           sc?.winner ?? "",
+          dt?.date ?? "",
+          dt?.time ?? "",
+          dt?.pitch ?? "",
           "",
         ]);
       }
@@ -181,6 +207,7 @@ export function exportScheduleToCsv(
       for (const round of g.rounds) {
         for (const m of round.matches) {
           const sc = m.id && scores && scores[m.id] ? scores[m.id] : null;
+          const dt = m.id && matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
           rows.push([
             `هفته ${round.round}`,
             g.name,
@@ -191,6 +218,9 @@ export function exportScheduleToCsv(
             "",
             "",
             sc?.winner ?? "",
+            dt?.date ?? "",
+            dt?.time ?? "",
+            dt?.pitch ?? "",
             "",
           ]);
         }
@@ -201,6 +231,7 @@ export function exportScheduleToCsv(
       for (const round of g.rounds) {
         for (const m of round.matches) {
           const sc = m.id && scores && scores[m.id] ? scores[m.id] : null;
+          const dt = m.id && matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
           rows.push([
             `هفته ${round.round}`,
             g.name,
@@ -211,6 +242,9 @@ export function exportScheduleToCsv(
             "",
             "",
             sc?.winner ?? "",
+            dt?.date ?? "",
+            dt?.time ?? "",
+            dt?.pitch ?? "",
             "مرحله گروهی",
           ]);
         }
@@ -219,6 +253,7 @@ export function exportScheduleToCsv(
     for (const round of result.knockout.rounds) {
       for (const m of round.matches) {
         const sc = scores && scores[m.id] ? scores[m.id] : null;
+        const dt = matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
         rows.push([
           round.label,
           "حذفی",
@@ -229,6 +264,9 @@ export function exportScheduleToCsv(
           sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
           sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
           sc?.winner ?? (m.autoAdvance ? m.autoAdvance : ""),
+          dt?.date ?? "",
+          dt?.time ?? "",
+          dt?.pitch ?? "",
           m.autoAdvance ? "صعود مستقیم Bye" : "",
         ]);
       }
@@ -236,6 +274,7 @@ export function exportScheduleToCsv(
     if (result.knockout.thirdPlaceMatch) {
       const m = result.knockout.thirdPlaceMatch;
       const sc = scores && scores[m.id] ? scores[m.id] : null;
+      const dt = matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
       rows.push([
         "رده‌بندی (مقام سوم)",
         "حذفی",
@@ -246,6 +285,9 @@ export function exportScheduleToCsv(
         sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
         sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
         sc?.winner ?? "",
+        dt?.date ?? "",
+        dt?.time ?? "",
+        dt?.pitch ?? "",
         "مقام سوم و چهارم",
       ]);
     }
@@ -253,6 +295,7 @@ export function exportScheduleToCsv(
     for (const round of result.knockout.rounds) {
       for (const m of round.matches) {
         const sc = scores && scores[m.id] ? scores[m.id] : null;
+        const dt = matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
         rows.push([
           round.label,
           "-",
@@ -263,6 +306,9 @@ export function exportScheduleToCsv(
           sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
           sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
           sc?.winner ?? (m.autoAdvance ? m.autoAdvance : ""),
+          dt?.date ?? "",
+          dt?.time ?? "",
+          dt?.pitch ?? "",
           m.autoAdvance ? "صعود مستقیم Bye" : "",
         ]);
       }
@@ -270,6 +316,7 @@ export function exportScheduleToCsv(
     if (result.knockout.thirdPlaceMatch) {
       const m = result.knockout.thirdPlaceMatch;
       const sc = scores && scores[m.id] ? scores[m.id] : null;
+      const dt = matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
       rows.push([
         "رده‌بندی (مقام سوم)",
         "-",
@@ -280,6 +327,9 @@ export function exportScheduleToCsv(
         sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
         sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
         sc?.winner ?? "",
+        dt?.date ?? "",
+        dt?.time ?? "",
+        dt?.pitch ?? "",
         "مقام سوم و چهارم",
       ]);
     }
@@ -287,6 +337,7 @@ export function exportScheduleToCsv(
     for (const round of result.doubleKnockout.winnersBracket) {
       for (const m of round.matches) {
         const sc = scores && scores[m.id] ? scores[m.id] : null;
+        const dt = matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
         rows.push([
           round.label,
           "جدول برندگان",
@@ -297,6 +348,9 @@ export function exportScheduleToCsv(
           sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
           sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
           sc?.winner ?? (m.autoAdvance ? m.autoAdvance : ""),
+          dt?.date ?? "",
+          dt?.time ?? "",
+          dt?.pitch ?? "",
           m.autoAdvance ? "صعود مستقیم Bye" : "",
         ]);
       }
@@ -304,6 +358,7 @@ export function exportScheduleToCsv(
     for (const round of result.doubleKnockout.losersBracket) {
       for (const m of round.matches) {
         const sc = scores && scores[m.id] ? scores[m.id] : null;
+        const dt = matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
         rows.push([
           round.label,
           "جدول بازندگان",
@@ -314,12 +369,16 @@ export function exportScheduleToCsv(
           sc?.homePenalty !== null && sc?.homePenalty !== undefined ? String(sc.homePenalty) : "",
           sc?.awayPenalty !== null && sc?.awayPenalty !== undefined ? String(sc.awayPenalty) : "",
           sc?.winner ?? (m.autoAdvance ? m.autoAdvance : ""),
+          dt?.date ?? "",
+          dt?.time ?? "",
+          dt?.pitch ?? "",
           m.autoAdvance ? "صعود مستقیم Bye" : "",
         ]);
       }
     }
     const gf = result.doubleKnockout.grandFinal;
     const gfSc = scores && scores[gf.id] ? scores[gf.id] : null;
+    const gfDt = matchDetails && matchDetails[gf.id] ? matchDetails[gf.id] : undefined;
     rows.push([
       "فینال نهایی (Grand Final)",
       "فینال کل",
@@ -330,11 +389,15 @@ export function exportScheduleToCsv(
       gfSc?.homePenalty !== null && gfSc?.homePenalty !== undefined ? String(gfSc.homePenalty) : "",
       gfSc?.awayPenalty !== null && gfSc?.awayPenalty !== undefined ? String(gfSc.awayPenalty) : "",
       gfSc?.winner ?? "",
+      gfDt?.date ?? "",
+      gfDt?.time ?? "",
+      gfDt?.pitch ?? "",
       "تعیین قهرمان تورنمنت",
     ]);
     if (result.doubleKnockout.bracketResetMatch) {
       const rst = result.doubleKnockout.bracketResetMatch;
       const rstSc = scores && scores[rst.id] ? scores[rst.id] : null;
+      const rstDt = matchDetails && matchDetails[rst.id] ? matchDetails[rst.id] : undefined;
       rows.push([
         "فینال مجدد (Bracket Reset)",
         "فینال کل",
@@ -345,10 +408,16 @@ export function exportScheduleToCsv(
         rstSc?.homePenalty !== null && rstSc?.homePenalty !== undefined ? String(rstSc.homePenalty) : "",
         rstSc?.awayPenalty !== null && rstSc?.awayPenalty !== undefined ? String(rstSc.awayPenalty) : "",
         rstSc?.winner ?? "",
+        rstDt?.date ?? "",
+        rstDt?.time ?? "",
+        rstDt?.pitch ?? "",
         "در صورت باخت قهرمان برندگان در فینال اول",
       ]);
     }
   }
+
+  rows.push([]);
+  rows.push(["تولید شده توسط سامانه ورزشی نکس‌اسپورت", "nexsport.ir"]);
 
   // UTF-8 BOM + CSV escaping
   const csvBody = rows

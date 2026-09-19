@@ -1,4 +1,4 @@
-import { Match } from "./types";
+import { Match, PointsRule } from "./types";
 
 export interface TeamStanding {
   team: string;
@@ -15,7 +15,8 @@ export interface TeamStanding {
 export function calculateStandings(
   teams: string[],
   matches: Match[],
-  scores?: Record<string, { home: number | null; away: number | null }>
+  scores?: Record<string, { home: number | null; away: number | null }>,
+  pointsRule: PointsRule = { win: 3, draw: 1, loss: 0 }
 ): TeamStanding[] {
   const table: Record<string, TeamStanding> = {};
 
@@ -69,17 +70,19 @@ export function calculateStandings(
 
         if (hScore > aScore) {
           homeStats.won += 1;
-          homeStats.points += 3;
+          homeStats.points += pointsRule.win;
           awayStats.lost += 1;
+          awayStats.points += pointsRule.loss;
         } else if (aScore > hScore) {
           awayStats.won += 1;
-          awayStats.points += 3;
+          awayStats.points += pointsRule.win;
           homeStats.lost += 1;
+          homeStats.points += pointsRule.loss;
         } else {
           homeStats.drawn += 1;
-          homeStats.points += 1;
+          homeStats.points += pointsRule.draw;
           awayStats.drawn += 1;
-          awayStats.points += 1;
+          awayStats.points += pointsRule.draw;
         }
       }
     }

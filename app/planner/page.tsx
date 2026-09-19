@@ -16,6 +16,8 @@ import {
   downloadCsvFile,
   calculateDefaultNumGroups,
   nextPowerOfTwo,
+  MatchScheduleDetail,
+  PointsRule,
 } from "@/lib/scheduling";
 import { Stepper } from "@/components/planner/Stepper";
 import { ScheduleView } from "@/components/planner/ScheduleView";
@@ -232,6 +234,13 @@ function PlannerWizard() {
     title: "",
     venue: "",
   });
+  const [pointsRule, setPointsRule] = useState<PointsRule>({
+    win: 3,
+    draw: 1,
+    loss: 0,
+    name: "استاندارد فوتبال (۳-۱-۰)",
+  });
+  const [matchDetails, setMatchDetails] = useState<Record<string, MatchScheduleDetail>>({});
   const [result, setResult] = useState<ScheduleResult | null>(null);
   const [scores, setScores] = useState<Record<string, MatchScore>>({});
   const [error, setError] = useState<string | null>(null);
@@ -239,12 +248,13 @@ function PlannerWizard() {
   const [copiedText, setCopiedText] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Bulk input modal state
+  // Bulk input & file input refs
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkText, setBulkText] = useState("");
   const [excelHasHeader, setExcelHasHeader] = useState(true);
   const [rawExcelRows, setRawExcelRows] = useState<string[]>([]);
   const excelInputRef = useRef<HTMLInputElement | null>(null);
+  const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Avoidance helper selector state
   const [avoidTeamA, setAvoidTeamA] = useState("");
@@ -288,9 +298,11 @@ function PlannerWizard() {
           setIndependentSecondLeg(parsed.independentSecondLeg);
         if (typeof parsed.advanceBestThirds === "boolean")
           setAdvanceBestThirds(parsed.advanceBestThirds);
+        if (parsed.pointsRule) setPointsRule(parsed.pointsRule);
         if (parsed.metadata) setMetadata(parsed.metadata);
         if (parsed.result) setResult(parsed.result);
         if (parsed.scores) setScores(parsed.scores);
+        if (parsed.matchDetails) setMatchDetails(parsed.matchDetails);
       }
 
       // If user selected a format on the homepage (e.g. /planner?format=knockout), jump directly to that format!
@@ -334,9 +346,11 @@ function PlannerWizard() {
           hasResetFinal,
           independentSecondLeg,
           advanceBestThirds,
+          pointsRule,
           metadata,
           result,
           scores,
+          matchDetails,
         })
       );
     } catch {
@@ -355,9 +369,11 @@ function PlannerWizard() {
     hasThirdPlace,
     independentSecondLeg,
     advanceBestThirds,
+    pointsRule,
     metadata,
     result,
     scores,
+    matchDetails,
   ]);
 
   const needsGroupRules = format === "groups" || format === "groups-knockout";
@@ -636,6 +652,7 @@ function PlannerWizard() {
       const trimmedMetadata: TournamentMetadata = {
         title: metadata.title?.trim() || undefined,
         venue: metadata.venue?.trim() || undefined,
+        pointsRule,
       };
 
       if (format === "groups" || format === "groups-knockout") {
@@ -725,6 +742,13 @@ function PlannerWizard() {
       setIndependentSecondLeg(true);
       setAdvanceBestThirds(true);
       setMetadata({ title: "", venue: "" });
+      setPointsRule({
+        win: 3,
+        draw: 1,
+        loss: 0,
+        name: "استاندارد فوتبال (۳-۱-۰)",
+      });
+      setMatchDetails({});
       setResult(null);
       setScores({});
       setError(null);
@@ -742,6 +766,116 @@ function PlannerWizard() {
       setInfoMessage("🧹 تمامی نتایج بازی‌ها بازنشانی شدند.");
       setTimeout(() => setInfoMessage(null), 3000);
     }
+  }
+
+  function handleMatchDetailChange(matchId: string, detail: MatchScheduleDetail) {
+    setMatchDetails((prev) => {
+      if (!detail.date && !detail.time && !detail.pitch) {
+        const next = { ...prev };
+        delete next[matchId];
+        return next;
+      }
+      return { ...prev, [matchId]: detail };
+    });
+  }
+
+  function handleExportJson() {
+    if (!result) return;
+    const exportData = {
+      version: 1,
+      exportDate: new Date().toISOString(),
+      step,
+      format,
+      teamCount,
+      teamNames,
+      numGroups,
+      qualifiersPerGroup,
+      seededTeams,
+      pot2Teams,
+      pot3Teams,
+      pot4Teams,
+      avoidPairs,
+      hasThirdPlace,
+      hasResetFinal,
+      independentSecondLeg,
+      advanceBestThirds,
+      pointsRule,
+      metadata,
+      result,
+      scores,
+      matchDetails,
+    };
+    const jsonStr = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeTitle = (metadata.title || format || "tournament")
+      .trim()
+      .replace(/[\s/\\?%*:|"<>]+/g, "-");
+    link.href = url;
+    link.download = `nexsport-${safeTitle}-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setInfoMessage("💾 فایل پشتیبان مسابقه (.json) با موفقیت دانلود شد.");
+    setTimeout(() => setInfoMessage(null), 3500);
+  }
+
+  function handleImportJson(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content);
+
+        if (!parsed.format || !Array.isArray(parsed.teamNames) || !parsed.result) {
+          throw new Error("فایل انتخاب شده ساختار معتبر مسابقات NexSport را ندارد.");
+        }
+
+        if (parsed.format) setFormat(parsed.format);
+        if (typeof parsed.teamCount === "number") {
+          setTeamCount(parsed.teamCount);
+          setTeamCountInput(String(parsed.teamCount));
+        }
+        if (Array.isArray(parsed.teamNames)) setTeamNames(parsed.teamNames);
+        if (typeof parsed.numGroups === "number") setNumGroups(parsed.numGroups);
+        if (typeof parsed.qualifiersPerGroup === "number")
+          setQualifiersPerGroup(parsed.qualifiersPerGroup);
+        if (Array.isArray(parsed.seededTeams)) setSeededTeams(parsed.seededTeams);
+        if (Array.isArray(parsed.pot2Teams)) setPot2Teams(parsed.pot2Teams);
+        if (Array.isArray(parsed.pot3Teams)) setPot3Teams(parsed.pot3Teams);
+        if (Array.isArray(parsed.pot4Teams)) setPot4Teams(parsed.pot4Teams);
+        if (Array.isArray(parsed.avoidPairs)) setAvoidPairs(parsed.avoidPairs);
+        if (typeof parsed.hasThirdPlace === "boolean")
+          setHasThirdPlace(parsed.hasThirdPlace);
+        if (typeof parsed.hasResetFinal === "boolean")
+          setHasResetFinal(parsed.hasResetFinal);
+        if (typeof parsed.independentSecondLeg === "boolean")
+          setIndependentSecondLeg(parsed.independentSecondLeg);
+        if (typeof parsed.advanceBestThirds === "boolean")
+          setAdvanceBestThirds(parsed.advanceBestThirds);
+        if (parsed.pointsRule) setPointsRule(parsed.pointsRule);
+        if (parsed.metadata) setMetadata(parsed.metadata);
+        if (parsed.result) setResult(parsed.result);
+        if (parsed.scores) setScores(parsed.scores);
+        if (parsed.matchDetails) setMatchDetails(parsed.matchDetails);
+
+        setStep(4);
+        setInfoMessage("📂 مسابقه با موفقیت از فایل بازیابی شد!");
+        setTimeout(() => setInfoMessage(null), 4000);
+
+        if (jsonFileInputRef.current) {
+          jsonFileInputRef.current.value = "";
+        }
+      } catch (err: any) {
+        alert(err?.message || "خطا در خواندن فایل مسابقه. لطفاً از فایل معتبر JSON استفاده کنید.");
+      }
+    };
+    reader.readAsText(file);
   }
 
   function handleScoreChange(
@@ -770,7 +904,7 @@ function PlannerWizard() {
   async function handleCopyText() {
     if (!result) return;
     try {
-      const text = formatScheduleAsText(result, scores);
+      const text = formatScheduleAsText(result, scores, matchDetails);
       await navigator.clipboard.writeText(text);
       setCopiedText(true);
       setTimeout(() => setCopiedText(false), 2500);
@@ -781,8 +915,11 @@ function PlannerWizard() {
 
   function handleDownloadCsv() {
     if (!result) return;
-    const csv = exportScheduleToCsv(result, scores);
-    downloadCsvFile(csv, `nexsport-${format ?? "schedule"}.csv`);
+    const csv = exportScheduleToCsv(result, scores, matchDetails);
+    const safeTitle = (metadata.title || format || "schedule")
+      .trim()
+      .replace(/[\s/\\?%*:|"<>]+/g, "-");
+    downloadCsvFile(csv, `nexsport-${safeTitle}.csv`);
   }
 
   const displayedFormats =
@@ -887,6 +1024,26 @@ function PlannerWizard() {
               >
                 ⚽ لیگ و دوره‌ای (۳)
               </button>
+            </div>
+
+            {/* Restore from JSON backup button */}
+            <div className="pt-3 flex justify-center">
+              <button
+                type="button"
+                onClick={() => jsonFileInputRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-full border border-pitch/30 bg-white/90 px-4 py-2 text-xs font-bold text-pitch shadow-2xs hover:bg-white hover:border-pitch hover:shadow-xs transition-all"
+                title="بارگذاری مسابقه ذخیره شده (.json) از سیستم یا تلفن همراه"
+              >
+                <span>📂</span>
+                <span>بارگذاری مسابقه قبلی (فایل JSON)</span>
+              </button>
+              <input
+                ref={jsonFileInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleImportJson}
+              />
             </div>
           </div>
 
@@ -1444,6 +1601,68 @@ function PlannerWizard() {
               </label>
             </div>
           </div>
+
+          {/* Points System Selector */}
+          {(format === "league" ||
+            format === "double-league" ||
+            format === "groups" ||
+            format === "groups-knockout") && (
+            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-3">
+              <div>
+                <h3 className="text-sm font-bold text-pitch flex items-center gap-1.5">
+                  <span>📊</span>
+                  <span>سیستم امتیازدهی جدول رده‌بندی</span>
+                </h3>
+                <p className="text-xs text-ink/60 mt-0.5">
+                  نحوه محاسبه امتیازات را متناسب با رشته ورزشی مسابقات خود انتخاب فرمایید:
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                {[
+                  {
+                    id: "football",
+                    title: "فوتبال و فوتسال (استاندارد)",
+                    desc: "برد: ۳ امتیاز | مساوی: ۱ | باخت: ۰",
+                    rule: { win: 3, draw: 1, loss: 0, name: "استاندارد فوتبال (۳-۱-۰)" },
+                  },
+                  {
+                    id: "two-point",
+                    title: "والیبال، بسکتبال و هندبال",
+                    desc: "برد: ۲ امتیاز | باخت: ۱ | بدون بازی: ۰",
+                    rule: { win: 2, draw: 1, loss: 0, name: "سیستم ۲ امتیازی (۲-۱-۰)" },
+                  },
+                  {
+                    id: "chess",
+                    title: "شطرنج و انفرادی (پینگ‌پنگ)",
+                    desc: "برد: ۲ (یا ۱) | مساوی: ۱ (یا ۰.۵) | باخت: ۰",
+                    rule: { win: 2, draw: 1, loss: 0, name: "شطرنج و انفرادی (۲-۱-۰)" },
+                  },
+                ].map((pts) => {
+                  const isSelected = pointsRule.name === pts.rule.name;
+                  return (
+                    <button
+                      key={pts.id}
+                      type="button"
+                      onClick={() => setPointsRule(pts.rule)}
+                      className={`flex flex-col text-right p-3 rounded-xl border transition-all ${
+                        isSelected
+                          ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20 font-bold"
+                          : "border-line bg-white/70 hover:bg-white text-ink/80"
+                      }`}
+                    >
+                      <span className={isSelected ? "text-pitch font-bold text-xs" : "text-ink text-xs font-semibold"}>
+                        {pts.title}
+                      </span>
+                      <span className="text-[11px] text-ink/60 mt-1 leading-normal">
+                        {pts.desc}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Group Rules */}
           {needsGroupRules && (
@@ -2187,6 +2406,22 @@ function PlannerWizard() {
 
               <button
                 className={btnGhost}
+                onClick={handleExportJson}
+                title="دانلود فایل پشتیبان مسابقه (.json) برای ذخیره روی سیستم یا انتقال به دستگاه دیگر"
+              >
+                💾 ذخیره فایل (JSON)
+              </button>
+
+              <button
+                className={btnGhost}
+                onClick={() => jsonFileInputRef.current?.click()}
+                title="بارگذاری مسابقه قبلی از فایل JSON"
+              >
+                📂 باز کردن مسابقه
+              </button>
+
+              <button
+                className={btnGhost}
                 onClick={() => setStep(3)}
                 title="تغییر گروه‌ها، سرگروه‌ها یا تنظیمات"
               >
@@ -2202,7 +2437,9 @@ function PlannerWizard() {
           <ScheduleView
             result={result}
             scores={scores}
+            matchDetails={matchDetails}
             onScoreChange={handleScoreChange}
+            onMatchDetailChange={handleMatchDetailChange}
             onResetScores={handleResetScores}
             teams={teamNames}
             qualifiersPerGroup={qualifiersPerGroup}

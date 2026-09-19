@@ -40,21 +40,63 @@ select:focus-visible,
   }
 }
 
-/* Print: only the schedule sheet prints */
+/* Print-only helper for screen */
+.print-only {
+  display: none;
+}
+
+/* Print: professional multi-page document layout */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm 15mm 10mm;
+  }
+
+  html,
+  body {
+    background-color: #FFFFFF !important;
+    color: #111827 !important;
+    font-size: 12pt;
+    line-height: 1.5;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   body * {
     visibility: hidden;
   }
+
   #print-area,
   #print-area * {
     visibility: visible;
   }
+
   #print-area {
-    position: absolute;
-    inset: 0;
-    padding: 0;
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
   }
-  .no-print {
+
+  .no-print,
+  header,
+  footer,
+  nav {
     display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 }

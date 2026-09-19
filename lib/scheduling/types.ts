@@ -110,11 +110,25 @@ export interface DoubleKnockoutScheduleInput {
   metadata?: TournamentMetadata;
 }
 
+export interface PointsRule {
+  win: number;
+  draw: number;
+  loss: number;
+  name?: string;
+}
+
+export interface MatchScheduleDetail {
+  date?: string;
+  time?: string;
+  pitch?: string;
+}
+
 export interface TournamentMetadata {
   title?: string;
   venue?: string;
   startDate?: string;
   matchIntervalDays?: number;
+  pointsRule?: PointsRule;
 }
 
 export type ScheduleInput =

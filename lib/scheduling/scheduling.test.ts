@@ -7,6 +7,7 @@ import { buildGroups, calculateDefaultNumGroups } from "./groups";
 import { buildKnockout, computeKnockoutWithScores } from "./knockout";
 import { buildDoubleKnockout, computeDoubleKnockoutWithScores } from "./doubleKnockout";
 import { formatScheduleAsText, formatScheduleAsCsv } from "./export";
+import { calculateStandings } from "./standings";
 
 type TestFn = () => void;
 
@@ -1179,6 +1180,64 @@ test("دو حذفی: خروجی متنی و CSV به درستی تولید می�
   const csvExport = formatScheduleAsCsv(result);
   assert(csvExport.includes("جدول برندگان"), "خروجی CSV باید شامل جدول برندگان باشد.");
   assert(csvExport.includes("جدول بازندگان"), "خروجی CSV باید شامل جدول بازندگان باشد.");
+});
+
+test("سیستم امتیازدهی دلخواه (PointsRule): محاسبه امتیازات والیبال/بسکتبال (برد ۲، باخت ۱)", () => {
+  const teams = ["تیم الف", "تیم ب"];
+  const matches = [
+    {
+      id: "m1",
+      home: "تیم الف",
+      away: "تیم ب",
+      homeScore: 3,
+      awayScore: 2,
+    },
+  ];
+
+  // قانون استاندارد فوتبال (۳ برای برد، ۰ برای باخت)
+  const footballStandings = calculateStandings(teams, matches);
+  const teamAFootball = footballStandings.find((s) => s.team === "تیم الف");
+  const teamBFootball = footballStandings.find((s) => s.team === "تیم ب");
+  assertEqual(teamAFootball?.points, 3, "در فوتبال برد باید ۳ امتیاز داشته باشد.");
+  assertEqual(teamBFootball?.points, 0, "در فوتبال باخت باید ۰ امتیاز داشته باشد.");
+
+  // قانون والیبال/بسکتبال (۲ برای برد، ۱ برای باخت)
+  const volleyStandings = calculateStandings(teams, matches, undefined, {
+    win: 2,
+    draw: 1,
+    loss: 1,
+  });
+  const teamAVolley = volleyStandings.find((s) => s.team === "تیم الف");
+  const teamBVolley = volleyStandings.find((s) => s.team === "تیم ب");
+  assertEqual(teamAVolley?.points, 2, "در سیستم والیبال برد باید ۲ امتیاز داشته باشد.");
+  assertEqual(teamBVolley?.points, 1, "در سیستم والیبال باخت باید ۱ امتیاز داشته باشد.");
+});
+
+test("خروجی متنی و CSV شامل زمان، زمین و آدرس وب‌سایت nexsport.ir است", () => {
+  const result = generateSchedule({
+    format: "league",
+    teams: ["پرسپولیس", "استقلال"],
+  });
+
+  const matchDetails = {
+    "r1-m1": {
+      date: "۱۴۰۳/۰۷/۱۰",
+      time: "۱۸:۳۰",
+      pitch: "زمین شماره ۱",
+    },
+  };
+
+  const textExport = formatScheduleAsText(result, undefined, matchDetails);
+  assert(textExport.includes("nexsport.ir"), "خروجی متنی باید شامل نشانی nexsport.ir باشد.");
+  assert(textExport.includes("۱۴۰۳/۰۷/۱۰"), "خروجی متنی باید شامل تاریخ مسابقه باشد.");
+  assert(textExport.includes("ساعت ۱۸:۳۰"), "خروجی متنی باید شامل ساعت مسابقه باشد.");
+  assert(textExport.includes("زمین شماره ۱"), "خروجی متنی باید شامل نام زمین باشد.");
+
+  const csvExport = formatScheduleAsCsv(result, undefined, matchDetails);
+  assert(csvExport.includes("nexsport.ir"), "خروجی CSV باید شامل نشانی nexsport.ir باشد.");
+  assert(csvExport.includes("۱۴۰۳/۰۷/۱۰"), "خروجی CSV باید شامل تاریخ مسابقه باشد.");
+  assert(csvExport.includes("۱۸:۳۰"), "خروجی CSV باید شامل ساعت مسابقه باشد.");
+  assert(csvExport.includes("زمین شماره ۱"), "خروجی CSV باید شامل نام زمین باشد.");
 });
 
 /* =========================================================
