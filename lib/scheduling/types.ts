@@ -44,6 +44,11 @@ export interface BracketMatch {
   winner?: string | null;
   sourceMatchHomeId?: string;
   sourceMatchAwayId?: string;
+  matchCode?: string;
+  homePlaceholder?: string;
+  awayPlaceholder?: string;
+  nextMatchWinnerCode?: string;
+  nextMatchLoserCode?: string;
   date?: string;
   time?: string;
   venue?: string;

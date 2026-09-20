@@ -44,14 +44,25 @@ export interface MatchScore {
   winner?: string | null;
 }
 
-function resolveWinner(
+export function resolveWinner(
   home: string | null,
   away: string | null,
   sc?: MatchScore,
   autoAdvance?: string | null
 ): string | null {
+  if (autoAdvance) return autoAdvance;
+
+  // STRICT REQUIREMENT: If both competitors are not yet real resolved teams, NO WINNER CAN BE RESOLVED!
+  if (!home || !away || home === "BYE" || away === "BYE") {
+    return null;
+  }
+
   if (sc) {
-    if (sc.winner) return sc.winner;
+    // If a manual winner was selected, verify it matches one of the two active teams
+    if (sc.winner && (sc.winner === home || sc.winner === away)) {
+      return sc.winner;
+    }
+
     if (
       sc.home !== null &&
       sc.away !== null &&
@@ -81,7 +92,7 @@ function resolveWinner(
       }
     }
   }
-  return autoAdvance ?? null;
+  return null;
 }
 
 export function computeKnockoutWithScores(
@@ -111,9 +122,15 @@ export function computeKnockoutWithScores(
         const feederB = prevRound.matches[i * 2 + 1];
         if (feederA) {
           match.home = feederA.winner ?? feederA.autoAdvance ?? null;
+          if (feederA.winner || feederA.autoAdvance) {
+            match.homePlaceholder = feederA.winner ?? feederA.autoAdvance ?? undefined;
+          }
         }
         if (feederB) {
           match.away = feederB.winner ?? feederB.autoAdvance ?? null;
+          if (feederB.winner || feederB.autoAdvance) {
+            match.awayPlaceholder = feederB.winner ?? feederB.autoAdvance ?? undefined;
+          }
         }
       }
 
@@ -166,8 +183,11 @@ export function computeKnockoutWithScores(
 
     thirdPlaceMatch = {
       ...knockout.thirdPlaceMatch,
+      matchCode: "رده‌بندی",
       home: loser1,
       away: loser2,
+      homePlaceholder: loser1 ?? "بازنده نیمه‌نهایی ۱",
+      awayPlaceholder: loser2 ?? "بازنده نیمه‌نهایی ۲",
       homeScore: sc?.home ?? null,
       awayScore: sc?.away ?? null,
       homePenalty: sc?.homePenalty ?? null,
@@ -216,12 +236,18 @@ export function buildKnockoutFromSlots(
     const home = slotTeams[i * 2];
     const away = slotTeams[i * 2 + 1];
     const autoAdvance = home && !away ? home : !home && away ? away : null;
+    const isBye = Boolean(autoAdvance);
+    const matchCode = `بازی ${i + 1}`;
     round1Matches.push({
       id: `r1-m${i + 1}`,
       round: 1,
       slot: i,
+      matchCode,
       home: home ?? (autoAdvance ? "BYE" : null),
       away: away ?? (autoAdvance ? "BYE" : null),
+      homePlaceholder: home ?? (isBye ? "قرعه استراحت (Bye)" : `تیم ${i * 2 + 1}`),
+      awayPlaceholder: away ?? (isBye ? "قرعه استراحت (Bye)" : `تیم ${i * 2 + 2}`),
+      isBye,
       autoAdvance,
     });
   }
@@ -229,19 +255,36 @@ export function buildKnockoutFromSlots(
 
   // Subsequent rounds
   let previousMatches = round1Matches;
+  let matchCounter = bracketSize / 2 + 1;
   for (let r = 2; r <= totalRounds; r++) {
     const matches: BracketMatch[] = [];
+    const isFinalRound = r === totalRounds;
+    const isSemiRound = r === totalRounds - 1;
+
     for (let i = 0; i < previousMatches.length / 2; i++) {
       const feederA = previousMatches[i * 2];
       const feederB = previousMatches[i * 2 + 1];
       const home = feederA.autoAdvance ?? null;
       const away = feederB.autoAdvance ?? null;
+
+      const matchCode = isFinalRound
+        ? "فینال"
+        : isSemiRound
+        ? `نیمه‌نهایی ${i + 1}`
+        : `بازی ${matchCounter++}`;
+
+      const feederACode = feederA.matchCode || `بازی ${feederA.slot + 1}`;
+      const feederBCode = feederB.matchCode || `بازی ${feederB.slot + 1}`;
+
       matches.push({
         id: `r${r}-m${i + 1}`,
         round: r,
         slot: i,
+        matchCode,
         home,
         away,
+        homePlaceholder: feederA.autoAdvance ? feederA.autoAdvance : `برنده ${feederACode}`,
+        awayPlaceholder: feederB.autoAdvance ? feederB.autoAdvance : `برنده ${feederBCode}`,
         autoAdvance: null,
         sourceMatchHomeId: feederA.id,
         sourceMatchAwayId: feederB.id,
@@ -257,8 +300,11 @@ export function buildKnockoutFromSlots(
       id: "m-third-place",
       round: totalRounds,
       slot: 1,
+      matchCode: "رده‌بندی",
       home: null,
       away: null,
+      homePlaceholder: "بازنده نیمه‌نهایی ۱",
+      awayPlaceholder: "بازنده نیمه‌نهایی ۲",
       autoAdvance: null,
     };
   }

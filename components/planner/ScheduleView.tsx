@@ -1050,6 +1050,54 @@ function InteractiveDoubleKnockoutBracket({
         ))}
       </div>
 
+      {/* Double Knockout Interactive Guide & Clarification */}
+      <div className="no-print rounded-xl border border-line bg-white/90 p-4 shadow-xs space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">💡</span>
+          <h4 className="text-xs font-black text-pitch">
+            راهنمای شفاف و آسان تورنمنت دو حذفی (Double Elimination):
+          </h4>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px] text-ink/80">
+          <div className="rounded-lg bg-emerald-50/80 border border-emerald-200/80 p-3 space-y-1">
+            <p className="font-bold text-emerald-950 flex items-center gap-1.5 text-xs">
+              <span>🏆</span>
+              <span>جدول برندگان (کدهای W)</span>
+            </p>
+            <p className="leading-5">
+              همه تیم‌ها از این جدول شروع می‌کنند. هر تیمی ببرد به دور بعد می‌رود، و هر تیمی ببازد <b>حذف نمی‌شود</b> بلکه به جدول شانس مجدد منتقل می‌شود.
+            </p>
+          </div>
+          <div className="rounded-lg bg-amber-50/80 border border-amber-200/80 p-3 space-y-1">
+            <p className="font-bold text-amber-950 flex items-center gap-1.5 text-xs">
+              <span>🛡️</span>
+              <span>جدول شانس مجدد (کدهای L)</span>
+            </p>
+            <p className="leading-5">
+              تیم‌هایی که یک باخت داده‌اند در این جدول برای ماندن در تورنمنت می‌جنگند. در این جدول هر باخت مساوی حذف قطعی است، ولی قهرمان این بخش به فینال نهایی می‌رسد.
+            </p>
+          </div>
+          <div className="rounded-lg bg-gold/15 border border-gold/40 p-3 space-y-1">
+            <p className="font-bold text-pitch flex items-center gap-1.5 text-xs">
+              <span>👑</span>
+              <span>فینال بزرگ (Grand Final)</span>
+            </p>
+            <p className="leading-5">
+              مسابقه نهایی میان قهرمان جدول برندگان و قهرمان جدول شانس مجدد برگزار می‌شود تا قهرمان کل تورنمنت تعیین شود.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 text-[10px] text-ink/65 pt-1 border-t border-line/40">
+          <span className="font-bold text-pitch">تفاوت وضعیت‌ها در جدول:</span>
+          <span className="text-emerald-800">
+            🟢 <b>استراحت (Bye):</b> تیم به دلیل قرعه، بدون نیاز به بازی مستقیماً راهی دور بعد شده است.
+          </span>
+          <span className="text-amber-800">
+            ⏳ <b>در انتظار حریف:</b> بازی هنوز آماده نیست و پس از پایان مسابقه قبلی فعال می‌شود.
+          </span>
+        </div>
+      </div>
+
       {/* Section 1: Winners Bracket */}
       {(bracketView === "all" || bracketView === "winners") && (
         <div className="rounded-xl border border-line bg-chalk/30 p-5 space-y-4">
@@ -1238,16 +1286,28 @@ function MatchBracketCard({
     awayPenalty: m.awayPenalty ?? null,
     winner: m.winner ?? null,
   };
-  const isAuto = Boolean(m.autoAdvance);
-  const isHomeWinner = m.winner && m.home && m.winner === m.home;
-  const isAwayWinner = m.winner && m.away && m.winner === m.away;
+
+  // 1. Status classification:
+  // Bye: One team advances automatically due to odd teams / seeding
+  const isBye = Boolean(m.isBye || m.autoAdvance);
+
+  // Real teams:
+  const isHomeReal = Boolean(m.home && m.home !== "BYE");
+  const isAwayReal = Boolean(m.away && m.away !== "BYE");
+
+  // Ready to play: Both teams are known and it's NOT a Bye
+  const isReadyToPlay = !isBye && isHomeReal && isAwayReal;
+
+  // Pending: Still waiting for one or both teams to arrive from previous match
+  const isPending = !isBye && (!isHomeReal || !isAwayReal);
+
+  const isHomeWinner = m.winner && isHomeReal && m.winner === m.home;
+  const isAwayWinner = m.winner && isAwayReal && m.winner === m.away;
   const isTied =
+    isReadyToPlay &&
     sc.home !== null &&
     sc.away !== null &&
-    sc.home === sc.away &&
-    m.home &&
-    m.away &&
-    !isAuto;
+    sc.home === sc.away;
 
   const dt = matchDetails?.[m.id];
   const isFilteredTeam =
@@ -1258,129 +1318,247 @@ function MatchBracketCard({
   return (
     <div
       className={
-        "rounded-lg border shadow-sm transition-all overflow-hidden print-avoid-break " +
+        "rounded-lg border shadow-xs transition-all overflow-hidden print-avoid-break " +
         (isFilteredTeam ? "ring-2 ring-gold border-gold bg-gold/5 " : "") +
-        (isFinal ? "border-gold/80 bg-white" : "border-line bg-white/90")
+        (isPending
+          ? "border-amber-200/90 bg-amber-50/20"
+          : isBye
+          ? "border-emerald-200 bg-emerald-50/15"
+          : isFinal
+          ? "border-gold/80 bg-white"
+          : "border-line bg-white/95")
       }
     >
       {/* Match Header */}
-      <div className="flex items-center justify-between border-b border-line/60 bg-chalk/60 px-3 py-1 text-[11px] text-ink/50">
-        <span>{label || `بازی ${m.slot + 1}`}</span>
-        {isAuto && <span className="text-gold-dark font-semibold">استراحت Bye</span>}
-        {m.winner && !isAuto && (
-          <span className="text-pitch font-bold flex items-center gap-1">
+      <div
+        className={
+          "flex items-center justify-between border-b px-3 py-1.5 text-[11px] " +
+          (isPending
+            ? "border-amber-200/80 bg-amber-50/60 text-amber-900"
+            : isBye
+            ? "border-emerald-200 bg-emerald-50/60 text-emerald-900"
+            : "border-line/60 bg-chalk/70 text-ink/70")
+        }
+      >
+        <div className="flex items-center gap-1.5 font-bold">
+          {m.matchCode && (
+            <span className="rounded bg-pitch/10 text-pitch px-1.5 py-0.2 text-[10px] font-mono">
+              {m.matchCode}
+            </span>
+          )}
+          <span>{label || (m.matchCode ? "" : `بازی ${m.slot + 1}`)}</span>
+        </div>
+
+        {/* State Badges */}
+        {isBye && (
+          <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold border border-emerald-300">
+            🟢 استراحت (Bye)
+          </span>
+        )}
+        {isPending && (
+          <span className="rounded bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold border border-amber-300">
+            ⏳ در انتظار حریف
+          </span>
+        )}
+        {isReadyToPlay && m.winner && (
+          <span className="rounded bg-pitch/10 text-pitch px-2 py-0.5 text-[10px] font-bold">
             ✓ برنده: {m.winner}
+          </span>
+        )}
+        {isReadyToPlay && !m.winner && (
+          <span className="rounded bg-sky-100 text-sky-800 px-2 py-0.5 text-[10px] font-bold border border-sky-300">
+            ⚽ آماده ثبت نتیجه
           </span>
         )}
       </div>
 
-      {/* Home Team */}
+      {/* Pending / Bye explanation banner */}
+      {isPending && (
+        <div className="bg-amber-100/40 border-b border-amber-200/50 px-3 py-1 text-[10px] text-amber-900 flex items-center gap-1.5">
+          <span>🔒</span>
+          <span>امکان ثبت نتیجه پس از پایان بازی قبلی و مشخص شدن هر دو تیم فعال می‌شود.</span>
+        </div>
+      )}
+      {isBye && (
+        <div className="bg-emerald-100/40 border-b border-emerald-200/50 px-3 py-1 text-[10px] text-emerald-900 flex items-center gap-1.5">
+          <span>⚡</span>
+          <span>این تیم با قرعه استراحت و بدون نیاز به بازی مستقیماً صعود کرد.</span>
+        </div>
+      )}
+
+      {/* Home Team Row */}
       <div
         className={
           "flex items-center justify-between px-3 py-2 border-b border-line/40 transition-colors " +
           (isHomeWinner ? "bg-pitch/10 font-bold text-pitch" : "")
         }
       >
-        <button
-          type="button"
-          onClick={() => {
-            if (!m.home || isAuto) return;
-            onScoreChange(
-              m.id,
-              sc.home,
-              sc.away,
-              sc.homePenalty ?? null,
-              sc.awayPenalty ?? null,
-              m.home
-            );
-          }}
-          disabled={!m.home || isAuto}
-          className="text-right flex-1 truncate text-xs font-semibold hover:text-pitch transition-colors disabled:cursor-default"
-          title={m.home ? `کلیک برای انتخاب دستی ${m.home} به عنوان برنده` : ""}
-        >
-          {m.home || "نامشخص"}
-        </button>
+        {isHomeReal ? (
+          <div className="flex items-center justify-between flex-1 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (!isReadyToPlay) return;
+                onScoreChange(
+                  m.id,
+                  sc.home,
+                  sc.away,
+                  sc.homePenalty ?? null,
+                  sc.awayPenalty ?? null,
+                  m.home
+                );
+              }}
+              disabled={!isReadyToPlay}
+              className={
+                "text-right flex-1 truncate text-xs font-semibold transition-colors " +
+                (isReadyToPlay
+                  ? "hover:text-pitch cursor-pointer"
+                  : "cursor-default text-ink")
+              }
+              title={
+                isReadyToPlay
+                  ? `کلیک برای انتخاب مستقیم ${m.home} به عنوان برنده`
+                  : "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+              }
+            >
+              <span>{m.home}</span>
+              {isBye && m.autoAdvance === m.home && (
+                <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
+                  ✓ صعود مستقیم
+                </span>
+              )}
+              {isPending && !isAwayReal && (
+                <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
+                  منتظر حریف مقابل
+                </span>
+              )}
+            </button>
 
-        {!isAuto && m.home && m.away && (
-          <input
-            type="number"
-            min="0"
-            max="99"
-            value={
-              sc.home !== null && sc.home !== undefined ? sc.home : ""
-            }
-            onChange={(e) => {
-              const val =
-                e.target.value === ""
-                  ? null
-                  : Math.max(0, parseInt(e.target.value) || 0);
-              onScoreChange(
-                m.id,
-                val,
-                sc.away,
-                sc.homePenalty ?? null,
-                sc.awayPenalty ?? null,
-                undefined
-              );
-            }}
-            placeholder="-"
-            className="w-9 h-7 text-center text-xs font-bold rounded border border-line bg-white focus:border-gold focus:outline-none"
-          />
+            {isReadyToPlay && (
+              <input
+                type="number"
+                min="0"
+                max="99"
+                value={
+                  sc.home !== null && sc.home !== undefined ? sc.home : ""
+                }
+                onChange={(e) => {
+                  const val =
+                    e.target.value === ""
+                      ? null
+                      : Math.max(0, parseInt(e.target.value) || 0);
+                  onScoreChange(
+                    m.id,
+                    val,
+                    sc.away,
+                    sc.homePenalty ?? null,
+                    sc.awayPenalty ?? null,
+                    undefined
+                  );
+                }}
+                placeholder="-"
+                className="w-9 h-7 text-center text-xs font-bold rounded border border-line bg-white focus:border-gold focus:outline-none"
+              />
+            )}
+          </div>
+        ) : isBye ? (
+          <div className="flex items-center justify-between flex-1 py-0.5 text-ink/40 italic text-xs">
+            <span>— قرعه استراحت (بدون بازی) —</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between flex-1 py-0.5 text-xs">
+            <span className="rounded bg-amber-50/80 border border-dashed border-amber-300 px-2 py-0.5 text-[11px] text-amber-900 font-medium">
+              ⏳ {m.homePlaceholder || "در انتظار برنده بازی قبل"}
+            </span>
+          </div>
         )}
       </div>
 
-      {/* Away Team */}
+      {/* Away Team Row */}
       <div
         className={
           "flex items-center justify-between px-3 py-2 transition-colors " +
           (isAwayWinner ? "bg-pitch/10 font-bold text-pitch" : "")
         }
       >
-        <button
-          type="button"
-          onClick={() => {
-            if (!m.away || isAuto) return;
-            onScoreChange(
-              m.id,
-              sc.home,
-              sc.away,
-              sc.homePenalty ?? null,
-              sc.awayPenalty ?? null,
-              m.away
-            );
-          }}
-          disabled={!m.away || isAuto}
-          className="text-right flex-1 truncate text-xs font-semibold hover:text-pitch transition-colors disabled:cursor-default"
-          title={m.away ? `کلیک برای انتخاب دستی ${m.away} به عنوان برنده` : ""}
-        >
-          {m.away || "نامشخص"}
-        </button>
+        {isAwayReal ? (
+          <div className="flex items-center justify-between flex-1 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (!isReadyToPlay) return;
+                onScoreChange(
+                  m.id,
+                  sc.home,
+                  sc.away,
+                  sc.homePenalty ?? null,
+                  sc.awayPenalty ?? null,
+                  m.away
+                );
+              }}
+              disabled={!isReadyToPlay}
+              className={
+                "text-right flex-1 truncate text-xs font-semibold transition-colors " +
+                (isReadyToPlay
+                  ? "hover:text-pitch cursor-pointer"
+                  : "cursor-default text-ink")
+              }
+              title={
+                isReadyToPlay
+                  ? `کلیک برای انتخاب مستقیم ${m.away} به عنوان برنده`
+                  : "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+              }
+            >
+              <span>{m.away}</span>
+              {isBye && m.autoAdvance === m.away && (
+                <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
+                  ✓ صعود مستقیم
+                </span>
+              )}
+              {isPending && !isHomeReal && (
+                <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
+                  منتظر حریف مقابل
+                </span>
+              )}
+            </button>
 
-        {!isAuto && m.home && m.away && (
-          <input
-            type="number"
-            min="0"
-            max="99"
-            value={
-              sc.away !== null && sc.away !== undefined ? sc.away : ""
-            }
-            onChange={(e) => {
-              const val =
-                e.target.value === ""
-                  ? null
-                  : Math.max(0, parseInt(e.target.value) || 0);
-              onScoreChange(
-                m.id,
-                sc.home,
-                val,
-                sc.homePenalty ?? null,
-                sc.awayPenalty ?? null,
-                undefined
-              );
-            }}
-            placeholder="-"
-            className="w-9 h-7 text-center text-xs font-bold rounded border border-line bg-white focus:border-gold focus:outline-none"
-          />
+            {isReadyToPlay && (
+              <input
+                type="number"
+                min="0"
+                max="99"
+                value={
+                  sc.away !== null && sc.away !== undefined ? sc.away : ""
+                }
+                onChange={(e) => {
+                  const val =
+                    e.target.value === ""
+                      ? null
+                      : Math.max(0, parseInt(e.target.value) || 0);
+                  onScoreChange(
+                    m.id,
+                    sc.home,
+                    val,
+                    sc.homePenalty ?? null,
+                    sc.awayPenalty ?? null,
+                    undefined
+                  );
+                }}
+                placeholder="-"
+                className="w-9 h-7 text-center text-xs font-bold rounded border border-line bg-white focus:border-gold focus:outline-none"
+              />
+            )}
+          </div>
+        ) : isBye ? (
+          <div className="flex items-center justify-between flex-1 py-0.5 text-ink/40 italic text-xs">
+            <span>— قرعه استراحت (بدون بازی) —</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between flex-1 py-0.5 text-xs">
+            <span className="rounded bg-amber-50/80 border border-dashed border-amber-300 px-2 py-0.5 text-[11px] text-amber-900 font-medium">
+              ⏳ {m.awayPlaceholder || "در انتظار برنده بازی قبل"}
+            </span>
+          </div>
         )}
       </div>
 
@@ -1448,6 +1626,24 @@ function MatchBracketCard({
         </div>
       )}
 
+      {/* Routing paths for winners / losers */}
+      {(m.nextMatchWinnerCode || m.nextMatchLoserCode) && (
+        <div className="flex flex-wrap items-center justify-between border-t border-line/40 bg-gray-50/90 px-3 py-1 text-[10px]">
+          {m.nextMatchWinnerCode && (
+            <span className="text-pitch font-medium flex items-center gap-1">
+              <span className="text-ink/60">برنده:</span>
+              <span className="font-bold text-pitch">{m.nextMatchWinnerCode}</span>
+            </span>
+          )}
+          {m.nextMatchLoserCode && (
+            <span className="text-amber-900/90 font-medium flex items-center gap-1">
+              <span className="text-ink/60">بازنده:</span>
+              <span className="font-bold">{m.nextMatchLoserCode}</span>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Date/Time/Pitch Slot */}
       <div className="flex items-center justify-between border-t border-line/40 bg-chalk/40 px-3 py-1 text-[10px] text-ink/70">
         {dt?.date || dt?.time || dt?.pitch ? (
@@ -1463,7 +1659,7 @@ function MatchBracketCard({
         ) : (
           <span className="text-ink/40 print:hidden">زمان و زمین مشخص نشده</span>
         )}
-        {onOpenEditModal && m.home && m.away && (
+        {onOpenEditModal && isReadyToPlay && (
           <button
             type="button"
             onClick={() =>

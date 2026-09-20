@@ -5,49 +5,9 @@ import {
   ScheduleValidationError,
 } from "./types";
 import { shuffle } from "./shuffle";
-import { nextPowerOfTwo, seedOrder, MatchScore } from "./knockout";
+import { nextPowerOfTwo, seedOrder, MatchScore, resolveWinner } from "./knockout";
 
 const BYE = null;
-
-function resolveWinner(
-  home: string | null,
-  away: string | null,
-  sc?: MatchScore,
-  autoAdvance?: string | null
-): string | null {
-  if (sc) {
-    if (sc.winner) return sc.winner;
-    if (
-      sc.home !== null &&
-      sc.away !== null &&
-      sc.home !== undefined &&
-      sc.away !== undefined &&
-      !isNaN(Number(sc.home)) &&
-      !isNaN(Number(sc.away))
-    ) {
-      const h = Number(sc.home);
-      const a = Number(sc.away);
-      if (h > a) return home;
-      if (a > h) return away;
-
-      // Draw: check penalties
-      if (
-        sc.homePenalty !== null &&
-        sc.homePenalty !== undefined &&
-        sc.awayPenalty !== null &&
-        sc.awayPenalty !== undefined &&
-        !isNaN(Number(sc.homePenalty)) &&
-        !isNaN(Number(sc.awayPenalty))
-      ) {
-        const hp = Number(sc.homePenalty);
-        const ap = Number(sc.awayPenalty);
-        if (hp > ap) return home;
-        if (ap > hp) return away;
-      }
-    }
-  }
-  return autoAdvance ?? null;
-}
 
 export interface BuildDoubleKnockoutParams {
   teams: string[];
@@ -96,6 +56,7 @@ export function buildDoubleKnockout({
   // 1. Build Winners Bracket (WB)
   const winnersRounds: BracketRound[] = [];
   let currentMatchCount = bracketSize / 2;
+  let wbMatchCounter = 1;
 
   for (let r = 0; r < k; r++) {
     const roundsFromWbFinal = k - 1 - r;
@@ -109,6 +70,8 @@ export function buildDoubleKnockout({
 
     for (let m = 0; m < currentMatchCount; m++) {
       const matchId = `wb-r${r + 1}-m${m + 1}`;
+      const isWbFinal = roundsFromWbFinal === 0;
+      const matchCode = isWbFinal ? "W-Final" : `W${wbMatchCounter++}`;
 
       if (r === 0) {
         const home = slotTeams[m * 2] ?? null;
@@ -127,10 +90,15 @@ export function buildDoubleKnockout({
           id: matchId,
           round: r + 1,
           slot: m + 1,
+          matchCode,
           home,
           away,
+          homePlaceholder: home ?? (isBye ? "قرعه استراحت (Bye)" : `تیم ${m * 2 + 1}`),
+          awayPlaceholder: away ?? (isBye ? "قرعه استراحت (Bye)" : `تیم ${m * 2 + 2}`),
           isBye,
           autoAdvance,
+          nextMatchWinnerCode: isWbFinal ? "صعود به فینال بزرگ (GF)" : "صعود به دور بعد برندگان",
+          nextMatchLoserCode: isBye ? "بدون باخت (استراحت)" : "انتقال به جدول شانس مجدد (دور ۱)",
         });
       } else {
         const feederHomeId = `wb-r${r}-m${m * 2 + 1}`;
@@ -140,10 +108,15 @@ export function buildDoubleKnockout({
           id: matchId,
           round: r + 1,
           slot: m + 1,
-          home: `برنده ${feederHomeId.toUpperCase()}`,
-          away: `برنده ${feederAwayId.toUpperCase()}`,
+          matchCode,
+          home: null,
+          away: null,
+          homePlaceholder: `برنده بازی قبلی (${feederHomeId.toUpperCase()})`,
+          awayPlaceholder: `برنده بازی قبلی (${feederAwayId.toUpperCase()})`,
           sourceMatchHomeId: feederHomeId,
           sourceMatchAwayId: feederAwayId,
+          nextMatchWinnerCode: isWbFinal ? "صعود به فینال بزرگ (GF)" : "صعود به دور بعد برندگان",
+          nextMatchLoserCode: "انتقال به جدول شانس مجدد",
         });
       }
     }
@@ -160,20 +133,19 @@ export function buildDoubleKnockout({
   // 2. Build Losers Bracket (LB)
   const losersRounds: BracketRound[] = [];
   const totalLbRounds = Math.max(1, 2 * (k - 1));
+  let lbMatchCounter = 1;
 
-  if (k === 1) {
-    // 2 teams: WB has 1 match, simple 1 round
-  } else {
+  if (k > 1) {
     let lbMatchCount = bracketSize / 4;
 
     for (let r = 0; r < totalLbRounds; r++) {
       const roundNum = r + 1;
-      const isFinal = roundNum === totalLbRounds;
-      const isSemi = roundNum === totalLbRounds - 1;
+      const isLbFinal = roundNum === totalLbRounds;
+      const isLbSemi = roundNum === totalLbRounds - 1;
 
-      let label = `دور ${roundNum} شانس مجدد (بازندگان)`;
-      if (isFinal) label = "فینال جدول بازندگان (تعیین فینالیست دوم)";
-      else if (isSemi && totalLbRounds > 2) label = "نیمه‌نهایی جدول بازندگان";
+      let label = `دور ${roundNum} شانس مجدد`;
+      if (isLbFinal) label = "فینال جدول بازندگان (تعیین فینالیست دوم)";
+      else if (isLbSemi && totalLbRounds > 2) label = "نیمه‌نهایی جدول بازندگان";
 
       const matches: BracketMatch[] = [];
 
@@ -182,37 +154,47 @@ export function buildDoubleKnockout({
         for (let m = 0; m < lbMatchCount; m++) {
           const feederHomeId = `wb-r1-m${m * 2 + 1}`;
           const feederAwayId = `wb-r1-m${m * 2 + 2}`;
+          const matchCode = isLbFinal ? "L-Final" : `L${lbMatchCounter++}`;
 
           matches.push({
             id: `lb-r1-m${m + 1}`,
             round: 1,
             slot: m + 1,
-            home: `بازنده ${feederHomeId.toUpperCase()}`,
-            away: `بازنده ${feederAwayId.toUpperCase()}`,
+            matchCode,
+            home: null,
+            away: null,
+            homePlaceholder: `بازنده بازی W${m * 2 + 1}`,
+            awayPlaceholder: `بازنده بازی W${m * 2 + 2}`,
             sourceMatchHomeId: feederHomeId,
             sourceMatchAwayId: feederAwayId,
+            nextMatchWinnerCode: isLbFinal ? "صعود به فینال بزرگ (GF)" : "صعود به دور بعد شانس مجدد",
+            nextMatchLoserCode: "❌ حذف قطعی از مسابقات",
           });
         }
       } else if (roundNum % 2 === 0) {
         // Even round: winners of previous LB round meet drop-down losers from corresponding WB round
-        // wbRound = roundNum / 2 + 1
         const wbRound = Math.floor(roundNum / 2) + 1;
         const wbMatchesCount = winnersRounds[wbRound - 1]?.matches.length ?? lbMatchCount;
 
         for (let m = 0; m < lbMatchCount; m++) {
           const feederHomeId = `lb-r${roundNum - 1}-m${m + 1}`;
-          // Cross-pair WB losers to avoid early rematches
           const wbMatchSlot = wbMatchesCount - m;
           const feederAwayId = `wb-r${wbRound}-m${wbMatchSlot}`;
+          const matchCode = isLbFinal ? "L-Final" : `L${lbMatchCounter++}`;
 
           matches.push({
             id: `lb-r${roundNum}-m${m + 1}`,
             round: roundNum,
             slot: m + 1,
-            home: `برنده ${feederHomeId.toUpperCase()}`,
-            away: `بازنده ${feederAwayId.toUpperCase()}`,
+            matchCode,
+            home: null,
+            away: null,
+            homePlaceholder: `برنده دور قبل شانس مجدد`,
+            awayPlaceholder: `بازنده دور ${wbRound} برندگان`,
             sourceMatchHomeId: feederHomeId,
             sourceMatchAwayId: feederAwayId,
+            nextMatchWinnerCode: isLbFinal ? "صعود به فینال بزرگ (GF)" : "صعود به دور بعد شانس مجدد",
+            nextMatchLoserCode: "❌ حذف قطعی از مسابقات",
           });
         }
       } else {
@@ -220,15 +202,21 @@ export function buildDoubleKnockout({
         for (let m = 0; m < lbMatchCount; m++) {
           const feederHomeId = `lb-r${roundNum - 1}-m${m * 2 + 1}`;
           const feederAwayId = `lb-r${roundNum - 1}-m${m * 2 + 2}`;
+          const matchCode = isLbFinal ? "L-Final" : `L${lbMatchCounter++}`;
 
           matches.push({
             id: `lb-r${roundNum}-m${m + 1}`,
             round: roundNum,
             slot: m + 1,
-            home: `برنده ${feederHomeId.toUpperCase()}`,
-            away: `برنده ${feederAwayId.toUpperCase()}`,
+            matchCode,
+            home: null,
+            away: null,
+            homePlaceholder: `برنده دور قبل شانس مجدد`,
+            awayPlaceholder: `برنده دور قبل شانس مجدد`,
             sourceMatchHomeId: feederHomeId,
             sourceMatchAwayId: feederAwayId,
+            nextMatchWinnerCode: isLbFinal ? "صعود به فینال بزرگ (GF)" : "صعود به دور بعد شانس مجدد",
+            nextMatchLoserCode: "❌ حذف قطعی از مسابقات",
           });
         }
       }
@@ -239,7 +227,6 @@ export function buildDoubleKnockout({
         matches,
       });
 
-      // Update match count for next LB round
       if (roundNum % 2 === 0) {
         lbMatchCount = Math.max(1, Math.floor(lbMatchCount / 2));
       }
@@ -247,17 +234,26 @@ export function buildDoubleKnockout({
   }
 
   // 3. Build Grand Final
-  const wbFinalId = winnersRounds[winnersRounds.length - 1]?.matches[0]?.id ?? "wb-r1-m1";
-  const lbFinalId = losersRounds[losersRounds.length - 1]?.matches[0]?.id ?? wbFinalId;
+  const wbFinal = winnersRounds[winnersRounds.length - 1]?.matches[0];
+  const lbFinal = losersRounds[losersRounds.length - 1]?.matches[0];
+  const wbFinalId = wbFinal?.id ?? "wb-r1-m1";
+  const lbFinalId = lbFinal?.id ?? wbFinalId;
 
   const grandFinal: BracketMatch = {
     id: "gf-m1",
     round: 1,
     slot: 1,
-    home: "قهرمان جدول برندگان",
-    away: "قهرمان جدول بازندگان",
+    matchCode: "فینال کل (GF)",
+    home: null,
+    away: null,
+    homePlaceholder: "قهرمان جدول برندگان",
+    awayPlaceholder: "قهرمان جدول شانس مجدد",
     sourceMatchHomeId: wbFinalId,
     sourceMatchAwayId: lbFinalId,
+    nextMatchWinnerCode: "👑 قهرمان نهایی مسابقات",
+    nextMatchLoserCode: hasResetFinal
+      ? "در صورت شکست قهرمان برندگان ⬅️ فینال دوم"
+      : "🥈 نایب‌قهرمان مسابقات",
   };
 
   const bracketResetMatch: BracketMatch | null = hasResetFinal
@@ -265,10 +261,15 @@ export function buildDoubleKnockout({
         id: "gf-reset",
         round: 2,
         slot: 1,
-        home: "قهرمان جدول برندگان",
-        away: "قهرمان جدول بازندگان",
+        matchCode: "فینال مجدد (GF2)",
+        home: null,
+        away: null,
+        homePlaceholder: "قهرمان جدول برندگان",
+        awayPlaceholder: "قهرمان جدول بازندگان",
         sourceMatchHomeId: "gf-m1",
         sourceMatchAwayId: "gf-m1",
+        nextMatchWinnerCode: "👑 قهرمان قطعی تورنمنت",
+        nextMatchLoserCode: "🥈 نایب‌قهرمان مسابقات",
       }
     : null;
 
@@ -293,6 +294,19 @@ export function computeDoubleKnockoutWithScores(
 } {
   const matchWinners = new Map<string, string | null>();
   const matchLosers = new Map<string, string | null>();
+  const matchCodes = new Map<string, string>();
+
+  // Collect all matchCodes for friendly placeholder formatting
+  for (const r of doubleKnockout.winnersBracket) {
+    for (const m of r.matches) {
+      if (m.matchCode) matchCodes.set(m.id, m.matchCode);
+    }
+  }
+  for (const r of doubleKnockout.losersBracket) {
+    for (const m of r.matches) {
+      if (m.matchCode) matchCodes.set(m.id, m.matchCode);
+    }
+  }
 
   // 1. Process Winners Bracket
   const winnersBracket: BracketRound[] = doubleKnockout.winnersBracket.map((round) => ({
@@ -308,6 +322,11 @@ export function computeDoubleKnockoutWithScores(
       if (r > 0 && match.sourceMatchHomeId && match.sourceMatchAwayId) {
         match.home = matchWinners.get(match.sourceMatchHomeId) ?? null;
         match.away = matchWinners.get(match.sourceMatchAwayId) ?? null;
+
+        const homeFeederCode = matchCodes.get(match.sourceMatchHomeId) || match.sourceMatchHomeId.toUpperCase();
+        const awayFeederCode = matchCodes.get(match.sourceMatchAwayId) || match.sourceMatchAwayId.toUpperCase();
+        match.homePlaceholder = match.home ?? `برنده بازی ${homeFeederCode}`;
+        match.awayPlaceholder = match.away ?? `برنده بازی ${awayFeederCode}`;
       }
 
       const sc = scores[match.id];
@@ -322,11 +341,11 @@ export function computeDoubleKnockoutWithScores(
 
       if (match.winner) {
         matchWinners.set(match.id, match.winner);
-        if (match.home && match.away) {
+        if (match.home && match.away && match.home !== "BYE" && match.away !== "BYE" && !match.isBye) {
           const loser = match.winner === match.home ? match.away : match.home;
           matchLosers.set(match.id, loser);
         } else {
-          // If match had a BYE, no actual loser dropped
+          // If match had a BYE, no actual loser dropped!
           matchLosers.set(match.id, null);
         }
       }
@@ -344,38 +363,70 @@ export function computeDoubleKnockoutWithScores(
     const round = losersBracket[r];
 
     for (const match of round.matches) {
+      let homeFeederCode = "";
+      let awayFeederCode = "";
+
       // Resolve home participant
       if (match.sourceMatchHomeId) {
-        if (match.sourceMatchHomeId.startsWith("wb-")) {
+        const isFromWb = match.sourceMatchHomeId.startsWith("wb-");
+        homeFeederCode = matchCodes.get(match.sourceMatchHomeId) || match.sourceMatchHomeId.toUpperCase();
+
+        if (isFromWb) {
           match.home = matchLosers.get(match.sourceMatchHomeId) ?? null;
+          match.homePlaceholder = match.home ?? `بازنده بازی ${homeFeederCode}`;
         } else {
           match.home = matchWinners.get(match.sourceMatchHomeId) ?? null;
+          match.homePlaceholder = match.home ?? `برنده بازی ${homeFeederCode}`;
         }
       }
 
       // Resolve away participant
       if (match.sourceMatchAwayId) {
-        if (match.sourceMatchAwayId.startsWith("wb-")) {
+        const isFromWb = match.sourceMatchAwayId.startsWith("wb-");
+        awayFeederCode = matchCodes.get(match.sourceMatchAwayId) || match.sourceMatchAwayId.toUpperCase();
+
+        if (isFromWb) {
           match.away = matchLosers.get(match.sourceMatchAwayId) ?? null;
+          match.awayPlaceholder = match.away ?? `بازنده بازی ${awayFeederCode}`;
         } else {
           match.away = matchWinners.get(match.sourceMatchAwayId) ?? null;
+          match.awayPlaceholder = match.away ?? `برنده بازی ${awayFeederCode}`;
         }
       }
 
-      // Handle automatic advance in Losers Bracket if one side was empty due to WB Bye
+      // Handle automatic advance in Losers Bracket ONLY when one side was an actual Bye in WB
       let autoAdvance: string | null = null;
-      if (match.home && !match.away && match.sourceMatchAwayId?.startsWith("wb-")) {
+      let isBye = false;
+
+      // Case 1: Away slot was a Bye in WB (match finished with no loser)
+      if (match.sourceMatchAwayId?.startsWith("wb-")) {
+        const wbAwayFinished = matchWinners.has(match.sourceMatchAwayId);
         const wbAwayLoser = matchLosers.get(match.sourceMatchAwayId);
-        if (wbAwayLoser === null && matchWinners.has(match.sourceMatchAwayId)) {
-          // The WB match was a Bye, so home team advances automatically in LB!
-          autoAdvance = match.home;
-        }
-      } else if (!match.home && match.away && match.sourceMatchHomeId?.startsWith("wb-")) {
-        const wbHomeLoser = matchLosers.get(match.sourceMatchHomeId);
-        if (wbHomeLoser === null && matchWinners.has(match.sourceMatchHomeId)) {
-          autoAdvance = match.away;
+        if (wbAwayFinished && wbAwayLoser === null) {
+          // Away slot is a Bye!
+          match.awayPlaceholder = `استراحت (بدون بازنده در بازی ${awayFeederCode})`;
+          if (match.home) {
+            autoAdvance = match.home;
+            isBye = true;
+          }
         }
       }
+
+      // Case 2: Home slot was a Bye in WB
+      if (match.sourceMatchHomeId?.startsWith("wb-")) {
+        const wbHomeFinished = matchWinners.has(match.sourceMatchHomeId);
+        const wbHomeLoser = matchLosers.get(match.sourceMatchHomeId);
+        if (wbHomeFinished && wbHomeLoser === null) {
+          match.homePlaceholder = `استراحت (بدون بازنده در بازی ${homeFeederCode})`;
+          if (match.away) {
+            autoAdvance = match.away;
+            isBye = true;
+          }
+        }
+      }
+
+      match.isBye = isBye;
+      match.autoAdvance = autoAdvance;
 
       const sc = scores[match.id];
       if (sc) {
@@ -389,7 +440,7 @@ export function computeDoubleKnockoutWithScores(
 
       if (match.winner) {
         matchWinners.set(match.id, match.winner);
-        if (match.home && match.away) {
+        if (match.home && match.away && !isBye) {
           const loser = match.winner === match.home ? match.away : match.home;
           matchLosers.set(match.id, loser);
         }
@@ -404,9 +455,11 @@ export function computeDoubleKnockoutWithScores(
   const grandFinal: BracketMatch = { ...doubleKnockout.grandFinal };
   if (wbFinalId) {
     grandFinal.home = matchWinners.get(wbFinalId) ?? null;
+    grandFinal.homePlaceholder = grandFinal.home ?? "قهرمان جدول برندگان";
   }
   if (lbFinalId) {
     grandFinal.away = matchWinners.get(lbFinalId) ?? null;
+    grandFinal.awayPlaceholder = grandFinal.away ?? "قهرمان جدول شانس مجدد";
   }
 
   const gfSc = scores[grandFinal.id];
@@ -416,7 +469,7 @@ export function computeDoubleKnockoutWithScores(
     grandFinal.homePenalty = gfSc.homePenalty;
     grandFinal.awayPenalty = gfSc.awayPenalty;
   }
-  grandFinal.winner = resolveWinner(grandFinal.home, grandFinal.away, gfSc);
+  grandFinal.winner = resolveWinner(grandFinal.home, grandFinal.away, gfSc, null);
 
   // 4. Process Bracket Reset Match (if applicable)
   let bracketResetMatch: BracketMatch | null = null;
@@ -428,10 +481,12 @@ export function computeDoubleKnockoutWithScores(
     const lbChampion = grandFinal.away;
     const wbChampion = grandFinal.home;
 
-    // Reset match is only required if the Losers Bracket winner won the Grand Final match
+    // Reset match is ONLY required if the Losers Bracket winner won the Grand Final match
     if (grandFinal.winner && lbChampion && grandFinal.winner === lbChampion) {
       bracketResetMatch.home = wbChampion;
       bracketResetMatch.away = lbChampion;
+      bracketResetMatch.homePlaceholder = wbChampion ?? "قهرمان جدول برندگان";
+      bracketResetMatch.awayPlaceholder = lbChampion ?? "قهرمان جدول بازندگان";
 
       const resetSc = scores[bracketResetMatch.id];
       if (resetSc) {
@@ -443,7 +498,8 @@ export function computeDoubleKnockoutWithScores(
       bracketResetMatch.winner = resolveWinner(
         bracketResetMatch.home,
         bracketResetMatch.away,
-        resetSc
+        resetSc,
+        null
       );
 
       if (bracketResetMatch.winner) {
