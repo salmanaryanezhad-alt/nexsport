@@ -24,12 +24,32 @@ import { ScheduleView } from "@/components/planner/ScheduleView";
 
 const STORAGE_KEY = "nexsport_wizard_state_v4";
 
+function BracketSvgIcon({ className = "w-7 h-7" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 5h5v5H3" />
+      <path d="M3 14h5v5H3" />
+      <path d="M8 7.5h6v9H8" />
+      <path d="M14 12h7" />
+      <circle cx="21" cy="12" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 interface FormatCardInfo {
   key: CompetitionFormat;
   title: string;
   subtitle: string;
   category: "tournament" | "league";
-  icon: string;
+  icon: React.ReactNode;
   tag: string;
   badgeBg: string;
   badgeBorder: string;
@@ -65,7 +85,7 @@ const FORMAT_OPTIONS: FormatCardInfo[] = [
     title: "براکت تک‌حذفی (جام حذفی)",
     subtitle: "Single Elimination Bracket",
     category: "tournament",
-    icon: "🥊",
+    icon: <BracketSvgIcon className="w-7 h-7 text-brick group-hover:text-gold transition-colors" />,
     tag: "سریع‌ترین و پرهیجان‌ترین",
     badgeBg: "bg-brick/10",
     badgeBorder: "border-brick/30",

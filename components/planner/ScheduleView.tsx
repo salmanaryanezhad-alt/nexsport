@@ -115,8 +115,8 @@ export function ScheduleView({
               <span>سامانه برنامه‌ریزی مسابقات NexSport</span>
               <span>⚽</span>
             </div>
-            <div className="font-mono text-pitch/80 font-bold dir-ltr text-[11px]">
-              nexsport.ir
+            <div className="font-mono text-pitch font-bold dir-ltr text-xs">
+              https://nexsport.ir
             </div>
           </div>
         </div>
@@ -360,7 +360,7 @@ export function ScheduleView({
             <span>برنامه‌ریزی و قرعه‌کشی با سامانه ورزشی NexSport</span>
           </div>
           <div className="font-mono font-bold text-pitch dir-ltr text-xs">
-            nexsport.ir
+            https://nexsport.ir
           </div>
           <span className="text-[11px] text-ink/50">
             تولید آنلاین، استاندارد و رایگان جدول مسابقات

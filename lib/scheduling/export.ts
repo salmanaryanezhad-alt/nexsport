@@ -103,7 +103,7 @@ export function formatScheduleAsText(
   }
 
   lines.push("\n━━━━━━━━━━━━━━━━━━━━━━━━━");
-  lines.push("سامانه آنلاین و رایگان برنامه‌ریزی مسابقات ورزشی: nexsport.ir");
+  lines.push("سامانه آنلاین و رایگان برنامه‌ریزی مسابقات ورزشی: https://nexsport.ir");
 
   return lines.join("\n");
 }
@@ -131,7 +131,7 @@ function appendKnockoutText(
   matchDetails?: Record<string, MatchScheduleDetail>
 ) {
   for (const round of rounds) {
-    lines.push(`\n🥊 ${round.label}:`);
+    lines.push(`\n🏆 ${round.label}:`);
     for (const m of round.matches) {
       const home = m.home ?? "نامشخص";
       const away = m.away ?? "نامشخص";
@@ -417,7 +417,7 @@ export function exportScheduleToCsv(
   }
 
   rows.push([]);
-  rows.push(["تولید شده توسط سامانه ورزشی نکس‌اسپورت", "nexsport.ir"]);
+  rows.push(["تولید شده توسط سامانه ورزشی نکس‌اسپورت", "https://nexsport.ir"]);
 
   // UTF-8 BOM + CSV escaping
   const csvBody = rows

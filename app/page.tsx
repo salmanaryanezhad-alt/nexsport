@@ -1,9 +1,31 @@
 import Link from "next/link";
+import React from "react";
+
+function BracketSvgIcon({ className = "w-6 h-6" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 5h5v5H3" />
+      <path d="M3 14h5v5H3" />
+      <path d="M8 7.5h6v9H8" />
+      <path d="M14 12h7" />
+      <circle cx="21" cy="12" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
 
 const FORMATS = [
   {
     id: "league",
     title: "لیگ دوره‌ای (تک‌دور)",
+    icon: "⚽",
     tag: "پرطرفدار",
     desc: "هر تیم دقیقاً یک‌بار با سایر تیم‌ها بازی می‌کند. مبتنی بر الگوریتم استاندارد برگر که از نظر ریاضی تضمین می‌کند هیچ بازی تکراری ایجاد نشود.",
     bullets: ["بدون مسابقه تکراری", "توازن میزبانی و میهمانی", "محاسبه خودکار استراحت (Bye) برای تیم‌های فرد"],
@@ -12,6 +34,7 @@ const FORMATS = [
   {
     id: "double-league",
     title: "لیگ رفت و برگشت",
+    icon: "🔄",
     tag: "استاندارد حرفه‌ای",
     desc: "هر دو تیم دو بار، یک‌بار در زمین خود و یک‌بار در زمین حریف به مصاف هم می‌روند. نیم‌فصل اول و دوم به طور منظم تفکیک می‌شوند.",
     bullets: ["تفکیک بازی‌های رفت و برگشت", "تضمین دو بازی برای هر زوج", "تولید تقویم منظم هفتگی"],
@@ -20,6 +43,7 @@ const FORMATS = [
   {
     id: "groups",
     title: "مرحله گروهی",
+    icon: "👥",
     tag: "سیدبندی اختیاری",
     desc: "تقسیم تیم‌ها به ۲ تا ۳۲ گروه به صورت کاملاً تصادفی یا با تعیین سرگروه‌ها و تیم‌های شاخص دلخواه شما.",
     bullets: ["سیدبندی کاملاً اختیاری", "تعداد سرگروه کمتر یا مساوی تعداد گروه", "توازن خودکار تعداد تیم‌ها در گروه‌ها"],
@@ -28,6 +52,7 @@ const FORMATS = [
   {
     id: "groups-knockout",
     title: "گروهی + براکت حذفی",
+    icon: "🏆",
     tag: "جام‌های رسمی",
     desc: "مسابقات با مرحله گروهی آغاز شده و تیم‌های اول و دوم با سیستم ضربدری کلاسیک (مثل جام جهانی) وارد براکت حذفی می‌شوند.",
     bullets: ["عدم برخورد تیم‌های هم‌گروه تا فینال", "جدول ضربدری صعودکنندگان", "براکت حذفی شکیل تا تعیین قهرمان"],
@@ -36,6 +61,7 @@ const FORMATS = [
   {
     id: "knockout",
     title: "براکت تک‌حذفی",
+    icon: <BracketSvgIcon className="w-5 h-5 text-brick" />,
     tag: "جام حذفی",
     desc: "براکت تک‌حذفی استاندارد با مدیریت خودکار تعداد تیم‌های نامتوازن (پشتیبانی کامل از قرعه‌های استراحت / Bye).",
     bullets: ["سیدبندی ۱ تا ۴ در ۴ بخش جداگانه", "صعود مستقیم تیم‌های برتر با Bye", "صعود خودکار برنده با ثبت نتیجه"],
@@ -44,6 +70,7 @@ const FORMATS = [
   {
     id: "double-knockout",
     title: "جدول دو حذفی (Double Elimination)",
+    icon: "🛡️",
     tag: "ویژه مدارس و المپیادها",
     desc: "هیچ تیمی با یک شکست حذف نمی‌شود! بازنده‌ها به جدول شانس مجدد (Losers Bracket) می‌روند و فینال بین قهرمانان دو جدول برگزار می‌شود.",
     bullets: ["جدول دوگانه برندگان و شانس مجدد", "تعیین دقیق مقام‌های اول تا سوم", "امکان فینال مجدد (Bracket Reset)"],
@@ -63,7 +90,7 @@ const FEATURES = [
     desc: "برخلاف برنامه‌های دیگر، در NexSport مجبور به سیدبندی اجباری نیستید. می‌توانید همه‌چیز را تصادفی بگذارید یا فقط چند سرگروه شاخص انتخاب کنید.",
   },
   {
-    icon: "🥊",
+    icon: <BracketSvgIcon className="w-7 h-7 text-pitch" />,
     title: "براکت حذفی با تقسیم هوشمند Bye",
     desc: "اگر تعداد تیم‌هایتان توان ۲ نباشد (مثلاً ۱۰ یا ۱۳ تیم)، سیستم به طور عادلانه به تیم‌های برتر استراحت دور اول می‌دهد.",
   },
@@ -339,9 +366,14 @@ export default function HomePage() {
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold text-lg text-pitch">{f.title}</h3>
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-pitch/10 text-base shrink-0">
+                        {f.icon}
+                      </span>
+                      <h3 className="font-bold text-lg text-pitch">{f.title}</h3>
+                    </div>
                     <span
-                      className={`text-[11px] font-bold px-2 py-0.5 rounded border ${f.badgeColor}`}
+                      className={`text-[11px] font-bold px-2 py-0.5 rounded border shrink-0 ${f.badgeColor}`}
                     >
                       {f.tag}
                     </span>
