@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://nexsport-ten.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://nexsport.ir";
   const now = new Date();
 
   return [

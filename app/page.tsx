@@ -1,5 +1,6 @@
 import Link from "next/link";
 import React from "react";
+import { NexSportIcon } from "@/components/NexSportLogo";
 
 function BracketSvgIcon({ className = "w-6 h-6" }: { className?: string }) {
   return (
@@ -135,23 +136,41 @@ const FAQS = [
 ];
 
 export default function HomePage() {
-  // Structured Data (JSON-LD) for Google SEO Rich Snippets
+  // Structured Data (JSON-LD) for Google SEO Rich Snippets & Knowledge Graph
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
+        "@type": "Organization",
+        "@id": "https://nexsport.ir/#organization",
+        name: "NexSport",
+        url: "https://nexsport.ir",
+        logo: {
+          "@type": "ImageObject",
+          url: "https://nexsport.ir/logo.png",
+          width: 512,
+          height: 512,
+        },
+        image: "https://nexsport.ir/og-image.png",
+        description: "سامانه آنلاین و رایگان قرعه‌کشی و برنامه‌ریزی مسابقات ورزشی",
+      },
+      {
         "@type": "WebSite",
-        "@id": "https://nexsport-ten.vercel.app/#website",
-        url: "https://nexsport-ten.vercel.app",
+        "@id": "https://nexsport.ir/#website",
+        url: "https://nexsport.ir",
         name: "NexSport",
         description: "سامانه آنلاین و رایگان قرعه‌کشی و برنامه‌ریزی مسابقات ورزشی",
         inLanguage: "fa-IR",
+        publisher: {
+          "@id": "https://nexsport.ir/#organization",
+        },
       },
       {
         "@type": "SoftwareApplication",
         name: "NexSport Tournament Planner",
         operatingSystem: "Web",
         applicationCategory: "SportsApplication",
+        image: "https://nexsport.ir/og-image.png",
         offers: {
           "@type": "Offer",
           price: "0",
@@ -184,10 +203,8 @@ export default function HomePage() {
       {/* NAVBAR */}
       <header className="sticky top-0 z-50 border-b border-line/70 bg-chalk/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2 text-pitch hover:opacity-90 transition-opacity">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-pitch text-gold text-lg shadow-sm">
-              ⚽
-            </span>
+          <Link href="/" className="flex items-center gap-2.5 text-pitch hover:opacity-90 transition-opacity">
+            <NexSportIcon className="w-9 h-9 shrink-0 drop-shadow-xs" />
             <span className="text-xl font-black tracking-tight text-ink">NexSport</span>
             <span className="rounded bg-gold/20 px-2 py-0.5 text-[11px] font-bold text-gold-dark">
               نسخه ۱
@@ -542,10 +559,8 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl px-6">
           <div className="grid gap-8 md:grid-cols-12 items-start">
             <div className="md:col-span-6 space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-pitch text-gold text-base">
-                  ⚽
-                </span>
+              <div className="flex items-center gap-2.5">
+                <NexSportIcon className="w-8 h-8 shrink-0 drop-shadow-xs" />
                 <span className="text-lg font-black text-ink">NexSport</span>
               </div>
               <p className="text-xs text-ink/70 leading-6 max-w-md">

@@ -21,6 +21,7 @@ import {
 } from "@/lib/scheduling";
 import { Stepper } from "@/components/planner/Stepper";
 import { ScheduleView } from "@/components/planner/ScheduleView";
+import { NexSportIcon } from "@/components/NexSportLogo";
 
 const STORAGE_KEY = "nexsport_wizard_state_v4";
 
@@ -961,9 +962,7 @@ function PlannerWizard() {
           </Link>
           <div className="h-4 w-px bg-line/80" />
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-pitch text-gold text-sm shadow-2xs font-bold">
-              ⚽
-            </span>
+            <NexSportIcon size={28} className="shrink-0 drop-shadow-2xs" />
             <span className="text-sm font-black text-ink">برنامه‌ریز مسابقات NexSport</span>
           </div>
         </div>

@@ -1,0 +1,22 @@
+{
+  "name": "NexSport | برنامه‌ریز و قرعه‌کشی مسابقات ورزشی",
+  "short_name": "NexSport",
+  "description": "سامانه آنلاین و رایگان قرعه‌کشی و برنامه‌ریزی مسابقات فوتبال، فوتسال، والیبال و تورنمنت‌های ورزشی",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#081C15",
+  "theme_color": "#1B4332",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

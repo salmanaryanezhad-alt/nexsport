@@ -14,6 +14,7 @@ import {
   MatchScheduleDetail,
   PointsRule,
 } from "@/lib/scheduling";
+import { NexSportIcon } from "@/components/NexSportLogo";
 
 interface ScheduleViewProps {
   result: ScheduleResult;
@@ -113,7 +114,7 @@ export function ScheduleView({
           <div className="text-left text-xs space-y-0.5">
             <div className="flex items-center gap-1.5 font-bold text-pitch justify-end">
               <span>سامانه برنامه‌ریزی مسابقات NexSport</span>
-              <span>⚽</span>
+              <NexSportIcon size={20} className="shrink-0 drop-shadow-2xs" />
             </div>
             <div className="font-mono text-pitch font-bold dir-ltr text-xs">
               https://nexsport.ir
@@ -355,8 +356,8 @@ export function ScheduleView({
       {/* Official Watermark / Footer for Print */}
       <div className="print-only border-t-2 border-pitch/30 pt-3 mt-8 print-avoid-break">
         <div className="flex items-center justify-between text-xs text-ink/75">
-          <div className="flex items-center gap-1.5 font-bold text-pitch">
-            <span>⚽</span>
+          <div className="flex items-center gap-2 font-bold text-pitch">
+            <NexSportIcon size={22} className="shrink-0 drop-shadow-2xs" />
             <span>برنامه‌ریزی و قرعه‌کشی با سامانه ورزشی NexSport</span>
           </div>
           <div className="font-mono font-bold text-pitch dir-ltr text-xs">

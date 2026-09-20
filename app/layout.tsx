@@ -8,7 +8,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nexsport-ten.vercel.app"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nexsport.ir"),
   title: {
     default: "NexSport | برنامه‌ریز و قرعه‌کشی آنلاین مسابقات ورزشی",
     template: "%s | NexSport",
@@ -42,20 +42,38 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/favicon.ico",
+  },
+  manifest: "/site.webmanifest",
   openGraph: {
     title: "NexSport | برنامه‌ریز و قرعه‌کشی آنلاین مسابقات ورزشی",
     description:
       "تولید خودکار و استاندارد برنامه مسابقات لیگ، گروهی و حذفی بدون بازی تکراری، با ثبت نتایج زنده، رده‌بندی و خروجی اکسل و PDF.",
-    url: "https://nexsport-ten.vercel.app",
+    url: "https://nexsport.ir",
     siteName: "NexSport",
     locale: "fa_IR",
     type: "website",
+    images: [
+      {
+        url: "https://nexsport.ir/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "لوگوی رسمی و سامانه مسابقات ورزشی NexSport",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "NexSport | برنامه‌ریز آنلاین مسابقات ورزشی",
     description:
       "سامانه هوشمند و رایگان قرعه‌کشی، جدول لیگ و براکت حذفی مسابقات ورزشی.",
+    images: ["https://nexsport.ir/og-image.png"],
   },
   robots: {
     index: false,
@@ -76,6 +94,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fa" dir="rtl">
       <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
         <meta name="robots" content="noindex, nofollow, noarchive" />
         <meta name="googlebot" content="noindex, nofollow, noarchive" />
       </head>
