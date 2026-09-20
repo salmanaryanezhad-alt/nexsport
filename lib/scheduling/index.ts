@@ -13,6 +13,7 @@ export {
   buildKnockout,
   buildGroupsKnockout,
   computeKnockoutWithScores,
+  findPlayedDownstreamMatch,
   nextPowerOfTwo,
   type MatchScore,
 } from "./knockout";

@@ -95,6 +95,50 @@ export function resolveWinner(
   return null;
 }
 
+export function findPlayedDownstreamMatch(
+  matchId: string,
+  allMatches: any[],
+  scores: Record<string, MatchScore>,
+  visited: Set<string> = new Set()
+): any | null {
+  if (visited.has(matchId)) return null;
+  visited.add(matchId);
+
+  const directDependents = allMatches.filter(
+    (m) => m && (m.sourceMatchHomeId === matchId || m.sourceMatchAwayId === matchId)
+  );
+
+  for (const dep of directDependents) {
+    const sc = scores[dep.id];
+    const isUserPlayed =
+      Boolean(sc?.winner) ||
+      (sc?.home !== null &&
+        sc?.home !== undefined &&
+        !isNaN(Number(sc.home)) &&
+        sc?.away !== null &&
+        sc?.away !== undefined &&
+        !isNaN(Number(sc.away)));
+
+    if (isUserPlayed) {
+      return dep;
+    }
+
+    if (dep.isBye || dep.autoAdvance) {
+      const recursivePlayed = findPlayedDownstreamMatch(
+        dep.id,
+        allMatches,
+        scores,
+        visited
+      );
+      if (recursivePlayed) {
+        return recursivePlayed;
+      }
+    }
+  }
+
+  return null;
+}
+
 export function computeKnockoutWithScores(
   knockout: KnockoutResult,
   scores: Record<string, MatchScore>
@@ -193,6 +237,8 @@ export function computeKnockoutWithScores(
       homePenalty: sc?.homePenalty ?? null,
       awayPenalty: sc?.awayPenalty ?? null,
       winner: resolveWinner(loser1, loser2, sc, null),
+      sourceMatchHomeId: sf1?.id,
+      sourceMatchAwayId: sf2?.id,
     };
 
     thirdPlace = thirdPlaceMatch.winner ?? null;
@@ -296,6 +342,7 @@ export function buildKnockoutFromSlots(
 
   let thirdPlaceMatch: BracketMatch | null = null;
   if (hasThirdPlace && bracketSize >= 4) {
+    const semiRound = rounds[rounds.length - 2];
     thirdPlaceMatch = {
       id: "m-third-place",
       round: totalRounds,
@@ -306,6 +353,8 @@ export function buildKnockoutFromSlots(
       homePlaceholder: "بازنده نیمه‌نهایی ۱",
       awayPlaceholder: "بازنده نیمه‌نهایی ۲",
       autoAdvance: null,
+      sourceMatchHomeId: semiRound?.matches[0]?.id,
+      sourceMatchAwayId: semiRound?.matches[1]?.id,
     };
   }
 

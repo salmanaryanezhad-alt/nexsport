@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   ScheduleResult,
   RoundRobinRound,
@@ -9,6 +9,7 @@ import {
   calculateStandings,
   computeKnockoutWithScores,
   computeDoubleKnockoutWithScores,
+  findPlayedDownstreamMatch,
   DoubleKnockoutResult,
   TournamentMetadata,
   MatchScheduleDetail,
@@ -833,6 +834,10 @@ function StandingsTable({
 }
 
 /* =========================================================
+   DOWNSTREAM PLAYED CHECKER (PROTECTS BRACKET INTEGRITY)
+   ========================================================= */
+
+/* =========================================================
    INTERACTIVE KNOCKOUT BRACKET WITH PENALTIES & 3RD PLACE
    ========================================================= */
 
@@ -861,6 +866,26 @@ function InteractiveBracket({
   const { knockout, champion, runnerUp, thirdPlace } = useMemo(
     () => computeKnockoutWithScores(originalKnockout, scores),
     [originalKnockout, scores]
+  );
+
+  const allMatches = useMemo(() => {
+    const list: any[] = [];
+    if (knockout?.rounds) {
+      for (const r of knockout.rounds) {
+        if (r.matches) list.push(...r.matches);
+      }
+    }
+    if (knockout?.thirdPlaceMatch) {
+      list.push(knockout.thirdPlaceMatch);
+    }
+    return list;
+  }, [knockout]);
+
+  const checkDownstreamPlayed = useCallback(
+    (matchId: string) => {
+      return findPlayedDownstreamMatch(matchId, allMatches, scores);
+    },
+    [allMatches, scores]
   );
 
   return (
@@ -926,6 +951,7 @@ function InteractiveBracket({
                     matchDetails={matchDetails}
                     onOpenEditModal={onOpenEditModal}
                     filterTeam={filterTeam}
+                    checkDownstreamPlayed={checkDownstreamPlayed}
                   />
                 ))}
               </div>
@@ -958,6 +984,7 @@ function InteractiveBracket({
               matchDetails={matchDetails}
               onOpenEditModal={onOpenEditModal}
               filterTeam={filterTeam}
+              checkDownstreamPlayed={checkDownstreamPlayed}
             />
           </div>
         </div>
@@ -1013,6 +1040,34 @@ function InteractiveDoubleKnockoutBracket({
     }
     return null;
   }, [doubleKnockout.losersBracket]);
+
+  const allMatches = useMemo(() => {
+    const list: any[] = [];
+    if (doubleKnockout?.winnersBracket) {
+      for (const r of doubleKnockout.winnersBracket) {
+        if (r.matches) list.push(...r.matches);
+      }
+    }
+    if (doubleKnockout?.losersBracket) {
+      for (const r of doubleKnockout.losersBracket) {
+        if (r.matches) list.push(...r.matches);
+      }
+    }
+    if (doubleKnockout?.grandFinal) {
+      list.push(doubleKnockout.grandFinal);
+    }
+    if (doubleKnockout?.bracketResetMatch) {
+      list.push(doubleKnockout.bracketResetMatch);
+    }
+    return list;
+  }, [doubleKnockout]);
+
+  const checkDownstreamPlayed = useCallback(
+    (matchId: string) => {
+      return findPlayedDownstreamMatch(matchId, allMatches, scores);
+    },
+    [allMatches, scores]
+  );
 
   return (
     <div className="space-y-8">
@@ -1158,6 +1213,7 @@ function InteractiveDoubleKnockoutBracket({
                         matchDetails={matchDetails}
                         onOpenEditModal={onOpenEditModal}
                         filterTeam={filterTeam}
+                        checkDownstreamPlayed={checkDownstreamPlayed}
                       />
                     ))}
                   </div>
@@ -1228,6 +1284,7 @@ function InteractiveDoubleKnockoutBracket({
                         matchDetails={matchDetails}
                         onOpenEditModal={onOpenEditModal}
                         filterTeam={filterTeam}
+                        checkDownstreamPlayed={checkDownstreamPlayed}
                       />
                     ))}
                   </div>
@@ -1267,6 +1324,7 @@ function InteractiveDoubleKnockoutBracket({
                 matchDetails={matchDetails}
                 onOpenEditModal={onOpenEditModal}
                 filterTeam={filterTeam}
+                checkDownstreamPlayed={checkDownstreamPlayed}
               />
             </div>
 
@@ -1281,6 +1339,7 @@ function InteractiveDoubleKnockoutBracket({
                   matchDetails={matchDetails}
                   onOpenEditModal={onOpenEditModal}
                   filterTeam={filterTeam}
+                  checkDownstreamPlayed={checkDownstreamPlayed}
                 />
               </div>
             )}
@@ -1300,6 +1359,7 @@ function MatchBracketCard({
   matchDetails,
   onOpenEditModal,
   filterTeam,
+  checkDownstreamPlayed,
 }: {
   match: any;
   scores: Record<string, MatchScore>;
@@ -1316,6 +1376,7 @@ function MatchBracketCard({
   matchDetails?: Record<string, MatchScheduleDetail>;
   onOpenEditModal?: (id: string, home: string, away: string) => void;
   filterTeam?: string;
+  checkDownstreamPlayed?: (matchId: string) => any;
 }) {
   const sc = scores[m.id] || {
     home: m.homeScore ?? null,
@@ -1356,6 +1417,146 @@ function MatchBracketCard({
   const dt = matchDetails?.[m.id];
   const isFilteredTeam =
     filterTeam &&
+    filterTeam !== "all" &&
+    (m.home === filterTeam || m.away === filterTeam);
+
+  // Downstream dependency protection
+  const downstreamPlayed = checkDownstreamPlayed ? checkDownstreamPlayed(m.id) : null;
+  const isDownstreamBlocked = Boolean(downstreamPlayed);
+
+  const warnDownstreamPlayed = () => {
+    const nextCode =
+      downstreamPlayed?.matchCode ||
+      downstreamPlayed?.label ||
+      (downstreamPlayed?.slot !== undefined ? `بازی ${downstreamPlayed.slot + 1}` : "مرحله بعد");
+    alert(
+      `امکان تغییر یا لغو نتیجه این مسابقه وجود ندارد، زیرا نتیجه مسابقه مرحله بعد (${nextCode}) قبلاً ثبت شده است.\n\nلطفاً ابتدا نتیجه مسابقه مرحله بعد را پاک یا لغو نمایید.`
+    );
+  };
+
+  const handleHomeClick = () => {
+    if (!isReadyToPlay) return;
+
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+
+    if (isHomeWinner) {
+      // Toggle unselect winner and clear match result
+      onScoreChange(m.id, null, null, null, null, null);
+    } else {
+      // Select home team as winner
+      onScoreChange(
+        m.id,
+        sc.home,
+        sc.away,
+        sc.homePenalty ?? null,
+        sc.awayPenalty ?? null,
+        m.home
+      );
+    }
+  };
+
+  const handleAwayClick = () => {
+    if (!isReadyToPlay) return;
+
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+
+    if (isAwayWinner) {
+      // Toggle unselect winner and clear match result
+      onScoreChange(m.id, null, null, null, null, null);
+    } else {
+      // Select away team as winner
+      onScoreChange(
+        m.id,
+        sc.home,
+        sc.away,
+        sc.homePenalty ?? null,
+        sc.awayPenalty ?? null,
+        m.away
+      );
+    }
+  };
+
+  const handleHomeScoreInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+    const val =
+      e.target.value === ""
+        ? null
+        : Math.max(0, parseInt(e.target.value) || 0);
+    onScoreChange(
+      m.id,
+      val,
+      sc.away,
+      sc.homePenalty ?? null,
+      sc.awayPenalty ?? null,
+      undefined
+    );
+  };
+
+  const handleAwayScoreInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+    const val =
+      e.target.value === ""
+        ? null
+        : Math.max(0, parseInt(e.target.value) || 0);
+    onScoreChange(
+      m.id,
+      sc.home,
+      val,
+      sc.homePenalty ?? null,
+      sc.awayPenalty ?? null,
+      undefined
+    );
+  };
+
+  const handleHomePenaltyInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+    const val =
+      e.target.value === ""
+        ? null
+        : Math.max(0, parseInt(e.target.value) || 0);
+    onScoreChange(
+      m.id,
+      sc.home,
+      sc.away,
+      val,
+      sc.awayPenalty ?? null,
+      undefined
+    );
+  };
+
+  const handleAwayPenaltyInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+    const val =
+      e.target.value === ""
+        ? null
+        : Math.max(0, parseInt(e.target.value) || 0);
+    onScoreChange(
+      m.id,
+      sc.home,
+      sc.away,
+      sc.homePenalty ?? null,
+      val,
+      undefined
+    );
+  };
     filterTeam !== "all" &&
     (m.home === filterTeam || m.away === filterTeam);
 
@@ -1419,9 +1620,36 @@ function MatchBracketCard({
           </span>
         )}
         {isReadyToPlay && m.winner && (
-          <span className="rounded bg-pitch/10 text-pitch px-2 py-0.5 text-[10px] font-bold">
+          <button
+            type="button"
+            onClick={() => {
+              if (isDownstreamBlocked) {
+                warnDownstreamPlayed();
+                return;
+              }
+              onScoreChange(m.id, null, null, null, null, null);
+            }}
+            className={
+              "rounded px-2 py-0.5 text-[10px] font-bold transition-all " +
+              (isDownstreamBlocked
+                ? "bg-amber-100 text-amber-900 border border-amber-300 cursor-not-allowed"
+                : "bg-pitch/10 text-pitch hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300 border border-pitch/20 cursor-pointer")
+            }
+            title={
+              isDownstreamBlocked
+                ? `امکان لغو یا تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
+                : "کلیک برای لغو برنده و پاک کردن نتیجه این مسابقه"
+            }
+          >
             ✓ برنده: {m.winner}
-          </span>
+            {!isDownstreamBlocked ? (
+              <span className="mr-1 text-[9px] opacity-75 font-normal">
+                (لغو ✕)
+              </span>
+            ) : (
+              <span className="mr-1 text-[9px] font-normal">🔒</span>
+            )}
+          </button>
         )}
         {isReadyToPlay && !m.winner && (
           <span className="rounded bg-sky-100 text-sky-800 px-2 py-0.5 text-[10px] font-bold border border-sky-300">
@@ -1473,31 +1701,39 @@ function MatchBracketCard({
           <div className="flex items-center justify-between flex-1 gap-2">
             <button
               type="button"
-              onClick={() => {
-                if (!isReadyToPlay) return;
-                onScoreChange(
-                  m.id,
-                  sc.home,
-                  sc.away,
-                  sc.homePenalty ?? null,
-                  sc.awayPenalty ?? null,
-                  m.home
-                );
-              }}
+              onClick={handleHomeClick}
               disabled={!isReadyToPlay}
               className={
                 "text-right flex-1 truncate text-xs font-semibold transition-colors " +
                 (isReadyToPlay
-                  ? "hover:text-pitch cursor-pointer"
+                  ? isDownstreamBlocked
+                    ? "cursor-not-allowed text-ink hover:text-amber-800"
+                    : isHomeWinner
+                    ? "text-pitch cursor-pointer hover:text-rose-700"
+                    : "hover:text-pitch cursor-pointer text-ink"
                   : "cursor-default text-ink")
               }
               title={
-                isReadyToPlay
-                  ? `کلیک برای انتخاب مستقیم ${m.home} به عنوان برنده`
-                  : "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+                !isReadyToPlay
+                  ? "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+                  : isDownstreamBlocked
+                  ? `امکان تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
+                  : isHomeWinner
+                  ? `کلیک برای لغو انتخاب ${m.home} به عنوان برنده`
+                  : `کلیک برای انتخاب مستقیم ${m.home} به عنوان برنده`
               }
             >
               <span>{m.home}</span>
+              {isHomeWinner && !isDownstreamBlocked && (
+                <span className="mr-1.5 inline-block text-[9px] text-pitch font-bold bg-pitch/10 border border-pitch/20 rounded px-1.5 py-0.2">
+                  ✓ برنده (کلیک برای لغو)
+                </span>
+              )}
+              {isHomeWinner && isDownstreamBlocked && (
+                <span className="mr-1.5 inline-block text-[9px] text-amber-900 font-bold bg-amber-100 border border-amber-300 rounded px-1.5 py-0.2">
+                  🔒 قفل‌شده
+                </span>
+              )}
               {isSingleBye && m.autoAdvance === m.home && (
                 <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
                   ✓ صعود مستقیم
@@ -1518,22 +1754,19 @@ function MatchBracketCard({
                 value={
                   sc.home !== null && sc.home !== undefined ? sc.home : ""
                 }
-                onChange={(e) => {
-                  const val =
-                    e.target.value === ""
-                      ? null
-                      : Math.max(0, parseInt(e.target.value) || 0);
-                  onScoreChange(
-                    m.id,
-                    val,
-                    sc.away,
-                    sc.homePenalty ?? null,
-                    sc.awayPenalty ?? null,
-                    undefined
-                  );
-                }}
+                onChange={handleHomeScoreInput}
                 placeholder="-"
-                className="w-9 h-7 text-center text-xs font-bold rounded border border-line bg-white focus:border-gold focus:outline-none"
+                className={
+                  "w-9 h-7 text-center text-xs font-bold rounded border bg-white focus:outline-none " +
+                  (isDownstreamBlocked
+                    ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                    : "border-line focus:border-gold")
+                }
+                title={
+                  isDownstreamBlocked
+                    ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                    : undefined
+                }
               />
             )}
           </div>
@@ -1561,31 +1794,39 @@ function MatchBracketCard({
           <div className="flex items-center justify-between flex-1 gap-2">
             <button
               type="button"
-              onClick={() => {
-                if (!isReadyToPlay) return;
-                onScoreChange(
-                  m.id,
-                  sc.home,
-                  sc.away,
-                  sc.homePenalty ?? null,
-                  sc.awayPenalty ?? null,
-                  m.away
-                );
-              }}
+              onClick={handleAwayClick}
               disabled={!isReadyToPlay}
               className={
                 "text-right flex-1 truncate text-xs font-semibold transition-colors " +
                 (isReadyToPlay
-                  ? "hover:text-pitch cursor-pointer"
+                  ? isDownstreamBlocked
+                    ? "cursor-not-allowed text-ink hover:text-amber-800"
+                    : isAwayWinner
+                    ? "text-pitch cursor-pointer hover:text-rose-700"
+                    : "hover:text-pitch cursor-pointer text-ink"
                   : "cursor-default text-ink")
               }
               title={
-                isReadyToPlay
-                  ? `کلیک برای انتخاب مستقیم ${m.away} به عنوان برنده`
-                  : "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+                !isReadyToPlay
+                  ? "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+                  : isDownstreamBlocked
+                  ? `امکان تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
+                  : isAwayWinner
+                  ? `کلیک برای لغو انتخاب ${m.away} به عنوان برنده`
+                  : `کلیک برای انتخاب مستقیم ${m.away} به عنوان برنده`
               }
             >
               <span>{m.away}</span>
+              {isAwayWinner && !isDownstreamBlocked && (
+                <span className="mr-1.5 inline-block text-[9px] text-pitch font-bold bg-pitch/10 border border-pitch/20 rounded px-1.5 py-0.2">
+                  ✓ برنده (کلیک برای لغو)
+                </span>
+              )}
+              {isAwayWinner && isDownstreamBlocked && (
+                <span className="mr-1.5 inline-block text-[9px] text-amber-900 font-bold bg-amber-100 border border-amber-300 rounded px-1.5 py-0.2">
+                  🔒 قفل‌شده
+                </span>
+              )}
               {isSingleBye && m.autoAdvance === m.away && (
                 <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
                   ✓ صعود مستقیم
@@ -1606,22 +1847,19 @@ function MatchBracketCard({
                 value={
                   sc.away !== null && sc.away !== undefined ? sc.away : ""
                 }
-                onChange={(e) => {
-                  const val =
-                    e.target.value === ""
-                      ? null
-                      : Math.max(0, parseInt(e.target.value) || 0);
-                  onScoreChange(
-                    m.id,
-                    sc.home,
-                    val,
-                    sc.homePenalty ?? null,
-                    sc.awayPenalty ?? null,
-                    undefined
-                  );
-                }}
+                onChange={handleAwayScoreInput}
                 placeholder="-"
-                className="w-9 h-7 text-center text-xs font-bold rounded border border-line bg-white focus:border-gold focus:outline-none"
+                className={
+                  "w-9 h-7 text-center text-xs font-bold rounded border bg-white focus:outline-none " +
+                  (isDownstreamBlocked
+                    ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                    : "border-line focus:border-gold")
+                }
+                title={
+                  isDownstreamBlocked
+                    ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                    : undefined
+                }
               />
             )}
           </div>
@@ -1654,22 +1892,19 @@ function MatchBracketCard({
                   ? sc.homePenalty
                   : ""
               }
-              onChange={(e) => {
-                const val =
-                  e.target.value === ""
-                    ? null
-                    : Math.max(0, parseInt(e.target.value) || 0);
-                onScoreChange(
-                  m.id,
-                  sc.home,
-                  sc.away,
-                  val,
-                  sc.awayPenalty ?? null,
-                  undefined
-                );
-              }}
+              onChange={handleHomePenaltyInput}
               placeholder="میزبان"
-              className="w-10 h-6 text-center text-xs font-bold rounded border border-gold/60 bg-white"
+              className={
+                "w-10 h-6 text-center text-xs font-bold rounded border bg-white " +
+                (isDownstreamBlocked
+                  ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                  : "border-gold/60")
+              }
+              title={
+                isDownstreamBlocked
+                  ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                  : undefined
+              }
             />
             <span className="text-gold-dark font-bold">:</span>
             <input
@@ -1681,22 +1916,19 @@ function MatchBracketCard({
                   ? sc.awayPenalty
                   : ""
               }
-              onChange={(e) => {
-                const val =
-                  e.target.value === ""
-                    ? null
-                    : Math.max(0, parseInt(e.target.value) || 0);
-                onScoreChange(
-                  m.id,
-                  sc.home,
-                  sc.away,
-                  sc.homePenalty ?? null,
-                  val,
-                  undefined
-                );
-              }}
+              onChange={handleAwayPenaltyInput}
               placeholder="میهمان"
-              className="w-10 h-6 text-center text-xs font-bold rounded border border-gold/60 bg-white"
+              className={
+                "w-10 h-6 text-center text-xs font-bold rounded border bg-white " +
+                (isDownstreamBlocked
+                  ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                  : "border-gold/60")
+              }
+              title={
+                isDownstreamBlocked
+                  ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                  : undefined
+              }
             />
           </div>
         </div>

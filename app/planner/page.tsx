@@ -917,6 +917,16 @@ function PlannerWizard() {
   ) {
     setScores((prev) => {
       const next = { ...prev };
+      if (
+        home === null &&
+        away === null &&
+        (homePenalty === null || homePenalty === undefined) &&
+        (awayPenalty === null || awayPenalty === undefined) &&
+        winner === null
+      ) {
+        delete next[matchId];
+        return next;
+      }
       next[matchId] = {
         home,
         away,

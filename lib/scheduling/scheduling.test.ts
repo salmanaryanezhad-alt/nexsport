@@ -4,7 +4,7 @@ import {
 } from "./index";
 import { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 import { buildGroups, calculateDefaultNumGroups } from "./groups";
-import { buildKnockout, computeKnockoutWithScores } from "./knockout";
+import { buildKnockout, computeKnockoutWithScores, findPlayedDownstreamMatch } from "./knockout";
 import { buildDoubleKnockout, computeDoubleKnockoutWithScores } from "./doubleKnockout";
 import { formatScheduleAsText, formatScheduleAsCsv } from "./export";
 import { calculateStandings } from "./standings";
@@ -1388,6 +1388,112 @@ test("دو حذفی ۵ تیمی: مدیریت صحیح استراحت‌های �
   assertEqual(computed.champion, "تیم ۱", "قهرمان مسابقات باید تیم ۱ باشد.");
   assertEqual(computed.runnerUp, "تیم ۵", "نایب‌قهرمان باید تیم ۵ باشد.");
   assertEqual(computed.thirdPlace, "تیم ۲", "مقام سوم باید تیم ۲ باشد.");
+});
+
+test("حذفی: لغو برنده (unselect) و بازگشت مسابقه بعدی به حالت در انتظار حریف", () => {
+  const teams = ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴"];
+  const ko = buildKnockout({ teams, seededTeams: teams });
+
+  // دور اول: م۱ بین تیم ۱ و تیم ۴، م۲ بین تیم ۳ و تیم ۲
+  const m1Id = ko.rounds[0].matches[0].id;
+  const m2Id = ko.rounds[0].matches[1].id;
+  const finalId = ko.rounds[1].matches[0].id;
+
+  const scores: Record<string, MatchScore> = {};
+
+  // ثبت برنده برای م۱ (تیم ۱ برنده شد)
+  scores[m1Id] = { home: null, away: null, winner: "تیم ۱" };
+  let computed = computeKnockoutWithScores(ko, scores);
+
+  assertEqual(computed.knockout.rounds[0].matches[0].winner, "تیم ۱", "تیم ۱ باید برنده بازی ۱ باشد.");
+  assertEqual(computed.knockout.rounds[1].matches[0].home, "تیم ۱", "تیم ۱ باید در فینال قرار گرفته باشد.");
+  assertEqual(computed.knockout.rounds[1].matches[0].away, null, "حریف دوم فینال هنوز مشخص نیست.");
+
+  // کاربر روی تیم ۱ دوباره کلیک می‌کند و برنده لغو می‌شود (unselect)
+  delete scores[m1Id];
+  computed = computeKnockoutWithScores(ko, scores);
+
+  assertEqual(computed.knockout.rounds[0].matches[0].winner, null, "پس از لغو، برنده بازی ۱ باید null شود.");
+  assertEqual(computed.knockout.rounds[1].matches[0].home, null, "پس از لغو، جایگاه فینال باید دوباره null و در انتظار حریف شود.");
+});
+
+test("حذفی: مسابقه رده‌بندی دارای sourceMatchHomeId و sourceMatchAwayId برای شناسایی وابستگی است", () => {
+  const teams = ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴"];
+  const ko = buildKnockout({ teams, seededTeams: teams, hasThirdPlace: true });
+
+  assert(Boolean(ko.thirdPlaceMatch), "مسابقه رده‌بندی باید وجود داشته باشد.");
+  const sf1Id = ko.rounds[0].matches[0].id;
+  const sf2Id = ko.rounds[0].matches[1].id;
+
+  assertEqual(ko.thirdPlaceMatch?.sourceMatchHomeId, sf1Id, "شناسه میزبان رده‌بندی باید نیمه‌نهایی ۱ باشد.");
+  assertEqual(ko.thirdPlaceMatch?.sourceMatchAwayId, sf2Id, "شناسه مهمان رده‌بندی باید نیمه‌نهایی ۲ باشد.");
+
+  const scores: Record<string, MatchScore> = {
+    [sf1Id]: { home: 2, away: 0, winner: "تیم ۱" },
+    [sf2Id]: { home: 1, away: 3, winner: "تیم ۲" },
+  };
+
+  const computed = computeKnockoutWithScores(ko, scores);
+  assertEqual(computed.knockout.thirdPlaceMatch?.sourceMatchHomeId, sf1Id, "پس از محاسبه، منبع میزبان باید حفظ شود.");
+  assertEqual(computed.knockout.thirdPlaceMatch?.sourceMatchAwayId, sf2Id, "پس از محاسبه، منبع مهمان باید حفظ شود.");
+  assertEqual(computed.knockout.thirdPlaceMatch?.home, "تیم ۴", "بازنده نیمه‌نهایی ۱ باید تیم ۴ باشد.");
+  assertEqual(computed.knockout.thirdPlaceMatch?.away, "تیم ۳", "بازنده نیمه‌نهایی ۲ باید تیم ۳ باشد.");
+});
+
+test("محافظت از براکت: findPlayedDownstreamMatch مانع تغییر برنده در صورت ثبت نتیجه مرحله بعد می‌شود", () => {
+  const teams = ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴"];
+  const ko = buildKnockout({ teams, seededTeams: teams });
+  const allMatches = [...ko.rounds[0].matches, ...ko.rounds[1].matches];
+
+  const m1Id = ko.rounds[0].matches[0].id;
+  const finalId = ko.rounds[1].matches[0].id;
+
+  const scores: Record<string, MatchScore> = {};
+
+  // وقتی هیچ مسابقه‌ای ثبت نشده باشد
+  assertEqual(findPlayedDownstreamMatch(m1Id, allMatches, scores), null, "وقتی مرحله بعد بازی نشده، باید null برگردد.");
+
+  // وقتی برنده م۱ ثبت شده ولی فینال بازی نشده
+  scores[m1Id] = { home: null, away: null, winner: "تیم ۱" };
+  assertEqual(findPlayedDownstreamMatch(m1Id, allMatches, scores), null, "هنوز فینال ثبت نشده، پس باید null برگردد و امکان لغو باشد.");
+
+  // حالا نتیجه فینال ثبت می‌شود
+  scores[finalId] = { home: 2, away: 1, winner: "تیم ۱" };
+  const blocked = findPlayedDownstreamMatch(m1Id, allMatches, scores);
+  assert(Boolean(blocked), "وقتی نتیجه فینال ثبت شده، باید مانع تغییر دور قبل شود.");
+  assertEqual(blocked.id, finalId, "مسابقه بعدی مسدودکننده باید همان فینال باشد.");
+
+  // اگر نتیجه فینال پاک شود
+  delete scores[finalId];
+  assertEqual(findPlayedDownstreamMatch(m1Id, allMatches, scores), null, "پس از پاک کردن نتیجه فینال، قفل باید باز شود.");
+});
+
+test("دو حذفی: محافظت از براکت در صورت ثبت نتیجه در جدول برندگان یا بازندگان", () => {
+  const dk = buildDoubleKnockout({
+    teams: ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴"],
+    seededTeams: ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴"],
+  });
+
+  const allMatches = [
+    ...dk.winnersBracket.flatMap((r) => r.matches),
+    ...dk.losersBracket.flatMap((r) => r.matches),
+    dk.grandFinal,
+    ...(dk.bracketResetMatch ? [dk.bracketResetMatch] : []),
+  ];
+
+  const wb1Id = dk.winnersBracket[0].matches[0].id;
+  const scores: Record<string, MatchScore> = {};
+
+  // وقتی هیچ نتیجه‌ای ثبت نشده
+  assertEqual(findPlayedDownstreamMatch(wb1Id, allMatches, scores), null, "در ابتدا وابستگی بازی‌شده‌ای وجود ندارد.");
+
+  // ثبت نتیجه در مسابقه بازندگان (LB-R1)
+  const lb1Id = dk.losersBracket[0].matches[0].id;
+  scores[lb1Id] = { home: 1, away: 0, winner: "تیم ۴" };
+
+  const blockedByLb = findPlayedDownstreamMatch(wb1Id, allMatches, scores);
+  assert(Boolean(blockedByLb), "ثبت نتیجه در جدول بازندگان باید مانع تغییر مسابقه مبدا در جدول برندگان شود.");
+  assertEqual(blockedByLb.id, lb1Id, "مسابقه مسدودکننده باید بازی LB-R1 باشد.");
 });
 
 /* =========================================================
