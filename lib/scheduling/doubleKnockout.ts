@@ -295,6 +295,7 @@ export function computeDoubleKnockoutWithScores(
   const matchWinners = new Map<string, string | null>();
   const matchLosers = new Map<string, string | null>();
   const matchCodes = new Map<string, string>();
+  const resolvedLbMatches = new Set<string>();
 
   // Collect all matchCodes for friendly placeholder formatting
   for (const r of doubleKnockout.winnersBracket) {
@@ -352,7 +353,7 @@ export function computeDoubleKnockoutWithScores(
     }
   }
 
-  // 2. Process Losers Bracket
+  // 2. Process Losers Bracket with Robust Bye & Feeder Propagation
   const losersBracket: BracketRound[] = doubleKnockout.losersBracket.map((round) => ({
     round: round.round,
     label: round.label,
@@ -365,6 +366,8 @@ export function computeDoubleKnockoutWithScores(
     for (const match of round.matches) {
       let homeFeederCode = "";
       let awayFeederCode = "";
+      let homeIsBye = false;
+      let awayIsBye = false;
 
       // Resolve home participant
       if (match.sourceMatchHomeId) {
@@ -372,11 +375,40 @@ export function computeDoubleKnockoutWithScores(
         homeFeederCode = matchCodes.get(match.sourceMatchHomeId) || match.sourceMatchHomeId.toUpperCase();
 
         if (isFromWb) {
-          match.home = matchLosers.get(match.sourceMatchHomeId) ?? null;
-          match.homePlaceholder = match.home ?? `بازنده بازی ${homeFeederCode}`;
+          const isResolved = matchWinners.has(match.sourceMatchHomeId);
+          if (isResolved) {
+            const loser = matchLosers.get(match.sourceMatchHomeId);
+            if (loser) {
+              match.home = loser;
+              match.homePlaceholder = loser;
+            } else {
+              // Match was a Bye in WB, no team dropped
+              homeIsBye = true;
+              match.home = null;
+              match.homePlaceholder = `استراحت (بدون بازنده در بازی ${homeFeederCode})`;
+            }
+          } else {
+            match.home = null;
+            match.homePlaceholder = `بازنده بازی ${homeFeederCode}`;
+          }
         } else {
-          match.home = matchWinners.get(match.sourceMatchHomeId) ?? null;
-          match.homePlaceholder = match.home ?? `برنده بازی ${homeFeederCode}`;
+          // From earlier LB match
+          const isResolved = resolvedLbMatches.has(match.sourceMatchHomeId);
+          if (isResolved) {
+            const winner = matchWinners.get(match.sourceMatchHomeId);
+            if (winner) {
+              match.home = winner;
+              match.homePlaceholder = winner;
+            } else {
+              // Feeder LB match was an empty double-bye
+              homeIsBye = true;
+              match.home = null;
+              match.homePlaceholder = `استراحت (صعود مستقیم دور قبل)`;
+            }
+          } else {
+            match.home = null;
+            match.homePlaceholder = `برنده بازی ${homeFeederCode}`;
+          }
         }
       }
 
@@ -386,63 +418,108 @@ export function computeDoubleKnockoutWithScores(
         awayFeederCode = matchCodes.get(match.sourceMatchAwayId) || match.sourceMatchAwayId.toUpperCase();
 
         if (isFromWb) {
-          match.away = matchLosers.get(match.sourceMatchAwayId) ?? null;
-          match.awayPlaceholder = match.away ?? `بازنده بازی ${awayFeederCode}`;
+          const isResolved = matchWinners.has(match.sourceMatchAwayId);
+          if (isResolved) {
+            const loser = matchLosers.get(match.sourceMatchAwayId);
+            if (loser) {
+              match.away = loser;
+              match.awayPlaceholder = loser;
+            } else {
+              // Match was a Bye in WB, no team dropped
+              awayIsBye = true;
+              match.away = null;
+              match.awayPlaceholder = `استراحت (بدون بازنده در بازی ${awayFeederCode})`;
+            }
+          } else {
+            match.away = null;
+            match.awayPlaceholder = `بازنده بازی ${awayFeederCode}`;
+          }
         } else {
-          match.away = matchWinners.get(match.sourceMatchAwayId) ?? null;
-          match.awayPlaceholder = match.away ?? `برنده بازی ${awayFeederCode}`;
+          // From earlier LB match
+          const isResolved = resolvedLbMatches.has(match.sourceMatchAwayId);
+          if (isResolved) {
+            const winner = matchWinners.get(match.sourceMatchAwayId);
+            if (winner) {
+              match.away = winner;
+              match.awayPlaceholder = winner;
+            } else {
+              // Feeder LB match was an empty double-bye
+              awayIsBye = true;
+              match.away = null;
+              match.awayPlaceholder = `استراحت (صعود مستقیم دور قبل)`;
+            }
+          } else {
+            match.away = null;
+            match.awayPlaceholder = `برنده بازی ${awayFeederCode}`;
+          }
         }
       }
 
-      // Handle automatic advance in Losers Bracket ONLY when one side was an actual Bye in WB
+      // Determine match state and automatic advance
       let autoAdvance: string | null = null;
       let isBye = false;
 
-      // Case 1: Away slot was a Bye in WB (match finished with no loser)
-      if (match.sourceMatchAwayId?.startsWith("wb-")) {
-        const wbAwayFinished = matchWinners.has(match.sourceMatchAwayId);
-        const wbAwayLoser = matchLosers.get(match.sourceMatchAwayId);
-        if (wbAwayFinished && wbAwayLoser === null) {
-          // Away slot is a Bye!
-          match.awayPlaceholder = `استراحت (بدون بازنده در بازی ${awayFeederCode})`;
-          if (match.home) {
-            autoAdvance = match.home;
-            isBye = true;
-          }
+      if (homeIsBye && awayIsBye) {
+        // Both feeder slots produced Byes (empty match)
+        isBye = true;
+        autoAdvance = null;
+        match.isBye = true;
+        match.autoAdvance = null;
+        match.winner = null;
+        resolvedLbMatches.add(match.id);
+        matchWinners.set(match.id, null);
+        matchLosers.set(match.id, null);
+      } else if (homeIsBye && match.away) {
+        // Home feeder was a Bye, away participant auto-advances
+        isBye = true;
+        autoAdvance = match.away;
+        match.isBye = true;
+        match.autoAdvance = match.away;
+        match.winner = match.away;
+        resolvedLbMatches.add(match.id);
+        matchWinners.set(match.id, match.away);
+      } else if (awayIsBye && match.home) {
+        // Away feeder was a Bye, home participant auto-advances
+        isBye = true;
+        autoAdvance = match.home;
+        match.isBye = true;
+        match.autoAdvance = match.home;
+        match.winner = match.home;
+        resolvedLbMatches.add(match.id);
+        matchWinners.set(match.id, match.home);
+      } else if (match.home && match.away) {
+        // Standard match ready to play
+        match.isBye = false;
+        match.autoAdvance = null;
+
+        const sc = scores[match.id];
+        if (sc) {
+          match.homeScore = sc.home;
+          match.awayScore = sc.away;
+          match.homePenalty = sc.homePenalty;
+          match.awayPenalty = sc.awayPenalty;
         }
-      }
 
-      // Case 2: Home slot was a Bye in WB
-      if (match.sourceMatchHomeId?.startsWith("wb-")) {
-        const wbHomeFinished = matchWinners.has(match.sourceMatchHomeId);
-        const wbHomeLoser = matchLosers.get(match.sourceMatchHomeId);
-        if (wbHomeFinished && wbHomeLoser === null) {
-          match.homePlaceholder = `استراحت (بدون بازنده در بازی ${homeFeederCode})`;
-          if (match.away) {
-            autoAdvance = match.away;
-            isBye = true;
-          }
-        }
-      }
+        match.winner = resolveWinner(match.home, match.away, sc, null);
 
-      match.isBye = isBye;
-      match.autoAdvance = autoAdvance;
-
-      const sc = scores[match.id];
-      if (sc) {
-        match.homeScore = sc.home;
-        match.awayScore = sc.away;
-        match.homePenalty = sc.homePenalty;
-        match.awayPenalty = sc.awayPenalty;
-      }
-
-      match.winner = resolveWinner(match.home, match.away, sc, autoAdvance);
-
-      if (match.winner) {
-        matchWinners.set(match.id, match.winner);
-        if (match.home && match.away && !isBye) {
+        if (match.winner) {
+          matchWinners.set(match.id, match.winner);
+          resolvedLbMatches.add(match.id);
           const loser = match.winner === match.home ? match.away : match.home;
           matchLosers.set(match.id, loser);
+        }
+      } else {
+        // Match is still pending one or both participants
+        match.isBye = homeIsBye || awayIsBye; // Flag if one side is already known as Bye
+        match.autoAdvance = null;
+        match.winner = null;
+
+        const sc = scores[match.id];
+        if (sc) {
+          match.homeScore = sc.home;
+          match.awayScore = sc.away;
+          match.homePenalty = sc.homePenalty;
+          match.awayPenalty = sc.awayPenalty;
         }
       }
     }

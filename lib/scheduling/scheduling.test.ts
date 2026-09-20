@@ -1313,6 +1313,83 @@ test("دو حذفی: کدهای مسابقه و عدم امکان تعیین ب�
   assertEqual(lbR1.winner, null, "T4 نباید برنده شود تا زمانی که حریفش مشخص شود.");
 });
 
+test("دو حذفی ۵ تیمی: مدیریت صحیح استراحت‌های جدول بازندگان (Byes) و رسیدن به فینال نهایی بدون توقف", () => {
+  const teams = ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴", "تیم ۵"];
+  const dk = buildDoubleKnockout({ teams, seededTeams: teams });
+
+  // 1. شبیه‌سازی پایان جدول برندگان
+  // دور اول: W1 استراحت (تیم ۱ صعود)، W2 تیم ۴ تیم ۵ را می‌برد (تیم ۵ می‌بازد)، W3 استراحت (تیم ۲)، W4 استراحت (تیم ۳)
+  const wbR1M2 = dk.winnersBracket[0].matches[1].id;
+  const wbR2M1 = dk.winnersBracket[1].matches[0].id;
+  const wbR2M2 = dk.winnersBracket[1].matches[1].id;
+  const wbFinal = dk.winnersBracket[2].matches[0].id;
+
+  const scores: Record<string, any> = {
+    [wbR1M2]: { home: 2, away: 0, winner: "تیم ۴" }, // W2: تیم ۴ برد، تیم ۵ باخت
+    [wbR2M1]: { home: 1, away: 0, winner: "تیم ۱" }, // W5: تیم ۱ تیم ۴ را برد (تیم ۴ باخت)
+    [wbR2M2]: { home: 2, away: 1, winner: "تیم ۲" }, // W6: تیم ۲ تیم ۳ را برد (تیم ۳ باخت)
+    [wbFinal]: { home: 1, away: 0, winner: "تیم ۱" }, // W-Final: تیم ۱ تیم ۲ را برد (تیم ۲ باخت)
+  };
+
+  let computed = computeDoubleKnockoutWithScores(dk, scores);
+
+  // در جدول بازندگان:
+  // L1: باید استراحت داشته باشد و تیم ۵ مستقیماً صعود کند
+  const lb1 = computed.doubleKnockout.losersBracket[0].matches[0];
+  assert(lb1.isBye, "مسابقه L1 باید دارای وضعیت استراحت (Bye) باشد.");
+  assertEqual(lb1.winner, "تیم ۵", "تیم ۵ باید به صورت خودکار از L1 صعود کند.");
+
+  // L2: هر دو طرف استراحت بوده‌اند، پس این مسابقه یک مسابقه خالی است
+  const lb2 = computed.doubleKnockout.losersBracket[0].matches[1];
+  assert(lb2.isBye, "مسابقه L2 باید به عنوان استراحت دوطرفه ثبت شود.");
+  assertEqual(lb2.winner, null, "مسابقه L2 نباید برنده‌ای داشته باشد چون تیمی در آن نبوده.");
+
+  // دور دوم بازندگان:
+  // L3: تیم ۵ مقابل تیم ۳ (هر دو حاضرند)
+  const lb3 = computed.doubleKnockout.losersBracket[1].matches[0];
+  assertEqual(lb3.home, "تیم ۵", "تیم ۵ باید در L3 حاضر باشد.");
+  assertEqual(lb3.away, "تیم ۳", "تیم ۳ باید در L3 حاضر باشد.");
+
+  // L4: حریف L2 استراحت بوده است؛ پس تیم ۴ باید با استراحت (Bye) به دور بعد صعود کند
+  const lb4 = computed.doubleKnockout.losersBracket[1].matches[1];
+  assert(lb4.isBye, "مسابقه L4 باید به دلیل نبود حریف از L2 قرعه استراحت دریافت کند.");
+  assertEqual(lb4.winner, "تیم ۴", "تیم ۴ باید مستقیماً با استراحت از دور ۲ شانس مجدد صعود کند.");
+
+  // بازی L3 برگزار می‌شود: تیم ۵ پیروز می‌شود
+  scores[lb3.id] = { home: 2, away: 1, winner: "تیم ۵" };
+  computed = computeDoubleKnockoutWithScores(dk, scores);
+
+  // نیمه‌نهایی بازندگان (دور ۳): L5 بین تیم ۵ و تیم ۴
+  const lb5 = computed.doubleKnockout.losersBracket[2].matches[0];
+  assertEqual(lb5.home, "تیم ۵", "میزبان نیمه‌نهایی بازندگان تیم ۵ است.");
+  assertEqual(lb5.away, "تیم ۴", "مهمان نیمه‌نهایی بازندگان تیم ۴ است.");
+
+  // بازی L5 برگزار می‌شود: تیم ۵ پیروز می‌شود
+  scores[lb5.id] = { home: 1, away: 0, winner: "تیم ۵" };
+  computed = computeDoubleKnockoutWithScores(dk, scores);
+
+  // فینال بازندگان (دور ۴): L-Final بین تیم ۵ و تیم ۲
+  const lbFinal = computed.doubleKnockout.losersBracket[3].matches[0];
+  assertEqual(lbFinal.home, "تیم ۵", "تیم ۵ باید در فینال بازندگان باشد.");
+  assertEqual(lbFinal.away, "تیم ۲", "تیم ۲ (بازنده فینال برندگان) باید در فینال بازندگان باشد.");
+
+  // بازی فینال بازندگان برگزار می‌شود: تیم ۵ پیروز می‌شود
+  scores[lbFinal.id] = { home: 2, away: 1, winner: "تیم ۵" };
+  computed = computeDoubleKnockoutWithScores(dk, scores);
+
+  // فینال نهایی (Grand Final): تیم ۱ مقابل تیم ۵
+  const gf = computed.doubleKnockout.grandFinal;
+  assertEqual(gf.home, "تیم ۱", "میزبان فینال نهایی باید قهرمان برندگان باشد.");
+  assertEqual(gf.away, "تیم ۵", "مهمان فینال نهایی باید قهرمان بازندگان باشد.");
+
+  // پایان فینال نهایی
+  scores[gf.id] = { home: 3, away: 1, winner: "تیم ۱" };
+  computed = computeDoubleKnockoutWithScores(dk, scores);
+  assertEqual(computed.champion, "تیم ۱", "قهرمان مسابقات باید تیم ۱ باشد.");
+  assertEqual(computed.runnerUp, "تیم ۵", "نایب‌قهرمان باید تیم ۵ باشد.");
+  assertEqual(computed.thirdPlace, "تیم ۲", "مقام سوم باید تیم ۲ باشد.");
+});
+
 /* =========================================================
    نتیجه نهایی
    ========================================================= */

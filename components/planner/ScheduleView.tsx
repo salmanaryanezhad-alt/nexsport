@@ -995,6 +995,25 @@ function InteractiveDoubleKnockoutBracket({
     [originalDoubleKnockout, scores]
   );
 
+  const activeLbRoundLabel = useMemo(() => {
+    for (const r of doubleKnockout.losersBracket) {
+      const hasUnfinishedPlayable = r.matches.some(
+        (m) =>
+          !m.isBye &&
+          !m.autoAdvance &&
+          m.home &&
+          m.away &&
+          m.home !== "BYE" &&
+          m.away !== "BYE" &&
+          !m.winner
+      );
+      if (hasUnfinishedPlayable) {
+        return r.label;
+      }
+    }
+    return null;
+  }, [doubleKnockout.losersBracket]);
+
   return (
     <div className="space-y-8">
       {/* Celebration Podium */}
@@ -1167,6 +1186,25 @@ function InteractiveDoubleKnockoutBracket({
             </span>
           </div>
 
+          {/* Guide & Active Round Indicator */}
+          <div className="rounded-lg border border-amber-300/80 bg-amber-100/70 p-3 text-xs text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-start gap-2">
+              <span className="text-base mt-0.5">💡</span>
+              <div className="space-y-0.5 leading-relaxed">
+                <span className="font-bold">راهنمای نحوه برگزاری جدول شانس مجدد: </span>
+                <span>
+                  مسابقات دور به دور برگزار می‌شوند. برای مشخص شدن رقبای دور ۲ و دورهای بعدی، ابتدا نتایج بازی‌های دور قبل شانس مجدد (دور ۱) را ثبت کنید.
+                </span>
+              </div>
+            </div>
+            {activeLbRoundLabel && (
+              <div className="shrink-0 flex items-center gap-1.5 bg-white border border-amber-400 rounded-lg px-2.5 py-1 text-xs font-bold text-amber-900 shadow-2xs">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>دور فعال جهت ثبت نتیجه: {activeLbRoundLabel}</span>
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-6 overflow-x-auto pb-4 pt-2">
             {doubleKnockout.losersBracket.map((round, rIdx) => {
               const isFinal = rIdx === doubleKnockout.losersBracket.length - 1;
@@ -1288,18 +1326,24 @@ function MatchBracketCard({
   };
 
   // 1. Status classification:
-  // Bye: One team advances automatically due to odd teams / seeding
-  const isBye = Boolean(m.isBye || m.autoAdvance);
+  // Empty double-bye match: Neither side had participants due to byes on both feeder sides
+  const isEmptyDoubleBye = Boolean(m.isBye && !m.autoAdvance && !m.home && !m.away);
+
+  // Single team Bye: One team advances automatically due to odd teams / seeding / opponent bye
+  const isSingleBye = Boolean((m.isBye || m.autoAdvance) && !isEmptyDoubleBye);
 
   // Real teams:
   const isHomeReal = Boolean(m.home && m.home !== "BYE");
   const isAwayReal = Boolean(m.away && m.away !== "BYE");
 
   // Ready to play: Both teams are known and it's NOT a Bye
-  const isReadyToPlay = !isBye && isHomeReal && isAwayReal;
+  const isReadyToPlay = !isEmptyDoubleBye && !isSingleBye && isHomeReal && isAwayReal;
 
   // Pending: Still waiting for one or both teams to arrive from previous match
-  const isPending = !isBye && (!isHomeReal || !isAwayReal);
+  const isPending = !isEmptyDoubleBye && !isSingleBye && (!isHomeReal || !isAwayReal);
+  const isPartiallyKnown = isPending && ((isHomeReal && !isAwayReal) || (!isHomeReal && isAwayReal));
+  const knownTeam = isHomeReal ? m.home : isAwayReal ? m.away : null;
+  const missingPlaceholder = !isHomeReal ? m.homePlaceholder : m.awayPlaceholder;
 
   const isHomeWinner = m.winner && isHomeReal && m.winner === m.home;
   const isAwayWinner = m.winner && isAwayReal && m.winner === m.away;
@@ -1320,9 +1364,11 @@ function MatchBracketCard({
       className={
         "rounded-lg border shadow-xs transition-all overflow-hidden print-avoid-break " +
         (isFilteredTeam ? "ring-2 ring-gold border-gold bg-gold/5 " : "") +
-        (isPending
+        (isEmptyDoubleBye
+          ? "border-slate-200 bg-slate-50/40 opacity-75"
+          : isPending
           ? "border-amber-200/90 bg-amber-50/20"
-          : isBye
+          : isSingleBye
           ? "border-emerald-200 bg-emerald-50/15"
           : isFinal
           ? "border-gold/80 bg-white"
@@ -1333,9 +1379,11 @@ function MatchBracketCard({
       <div
         className={
           "flex items-center justify-between border-b px-3 py-1.5 text-[11px] " +
-          (isPending
+          (isEmptyDoubleBye
+            ? "border-slate-200 bg-slate-100/70 text-slate-700"
+            : isPending
             ? "border-amber-200/80 bg-amber-50/60 text-amber-900"
-            : isBye
+            : isSingleBye
             ? "border-emerald-200 bg-emerald-50/60 text-emerald-900"
             : "border-line/60 bg-chalk/70 text-ink/70")
         }
@@ -1350,14 +1398,24 @@ function MatchBracketCard({
         </div>
 
         {/* State Badges */}
-        {isBye && (
-          <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold border border-emerald-300">
-            🟢 استراحت (Bye)
+        {isEmptyDoubleBye && (
+          <span className="rounded bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold border border-slate-300">
+            🟢 استراحت دوطرفه (بدون بازی)
           </span>
         )}
-        {isPending && (
+        {isSingleBye && (
+          <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold border border-emerald-300">
+            🟢 صعود مستقیم (Bye)
+          </span>
+        )}
+        {isPartiallyKnown && (
           <span className="rounded bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold border border-amber-300">
-            ⏳ در انتظار حریف
+            ⏳ در انتظار مشخص شدن حریف دوم
+          </span>
+        )}
+        {isPending && !isPartiallyKnown && (
+          <span className="rounded bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold border border-amber-300">
+            ⏳ در انتظار مشخص شدن تیم‌ها
           </span>
         )}
         {isReadyToPlay && m.winner && (
@@ -1373,16 +1431,34 @@ function MatchBracketCard({
       </div>
 
       {/* Pending / Bye explanation banner */}
-      {isPending && (
-        <div className="bg-amber-100/40 border-b border-amber-200/50 px-3 py-1 text-[10px] text-amber-900 flex items-center gap-1.5">
-          <span>🔒</span>
-          <span>امکان ثبت نتیجه پس از پایان بازی قبلی و مشخص شدن هر دو تیم فعال می‌شود.</span>
+      {isEmptyDoubleBye && (
+        <div className="bg-slate-100/60 border-b border-slate-200 px-3 py-1 text-[10px] text-slate-700 flex items-center gap-1.5">
+          <span>⚡</span>
+          <span>این مسابقه به دلیل قرعه استراحت نیازی به برگزاری ندارد.</span>
         </div>
       )}
-      {isBye && (
+      {isSingleBye && (
         <div className="bg-emerald-100/40 border-b border-emerald-200/50 px-3 py-1 text-[10px] text-emerald-900 flex items-center gap-1.5">
           <span>⚡</span>
-          <span>این تیم با قرعه استراحت و بدون نیاز به بازی مستقیماً صعود کرد.</span>
+          <span>
+            {m.autoAdvance
+              ? `تیم «${m.autoAdvance}» با قرعه استراحت مستقیماً به دور بعد صعود کرد.`
+              : "این مسابقه با قرعه استراحت مستقیم سپری شد."}
+          </span>
+        </div>
+      )}
+      {isPartiallyKnown && (
+        <div className="bg-amber-100/40 border-b border-amber-200/50 px-3 py-1 text-[10px] text-amber-900 flex items-center gap-1.5">
+          <span>🔒</span>
+          <span>
+            تیم «{knownTeam}» آماده است و منتظر مشخص شدن {missingPlaceholder || "حریف مقابل"} می‌باشد.
+          </span>
+        </div>
+      )}
+      {isPending && !isPartiallyKnown && (
+        <div className="bg-amber-100/40 border-b border-amber-200/50 px-3 py-1 text-[10px] text-amber-900 flex items-center gap-1.5">
+          <span>🔒</span>
+          <span>هر دو حریف این مسابقه پس از پایان بازی‌های دور قبل مشخص خواهند شد.</span>
         </div>
       )}
 
@@ -1422,14 +1498,14 @@ function MatchBracketCard({
               }
             >
               <span>{m.home}</span>
-              {isBye && m.autoAdvance === m.home && (
+              {isSingleBye && m.autoAdvance === m.home && (
                 <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
                   ✓ صعود مستقیم
                 </span>
               )}
-              {isPending && !isAwayReal && (
+              {isPartiallyKnown && isHomeReal && (
                 <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
-                  منتظر حریف مقابل
+                  حضور قطعی
                 </span>
               )}
             </button>
@@ -1461,7 +1537,7 @@ function MatchBracketCard({
               />
             )}
           </div>
-        ) : isBye ? (
+        ) : isEmptyDoubleBye || (isSingleBye && !isHomeReal) ? (
           <div className="flex items-center justify-between flex-1 py-0.5 text-ink/40 italic text-xs">
             <span>— قرعه استراحت (بدون بازی) —</span>
           </div>
@@ -1510,14 +1586,14 @@ function MatchBracketCard({
               }
             >
               <span>{m.away}</span>
-              {isBye && m.autoAdvance === m.away && (
+              {isSingleBye && m.autoAdvance === m.away && (
                 <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
                   ✓ صعود مستقیم
                 </span>
               )}
-              {isPending && !isHomeReal && (
+              {isPartiallyKnown && isAwayReal && (
                 <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
-                  منتظر حریف مقابل
+                  حضور قطعی
                 </span>
               )}
             </button>
@@ -1549,7 +1625,7 @@ function MatchBracketCard({
               />
             )}
           </div>
-        ) : isBye ? (
+        ) : isEmptyDoubleBye || (isSingleBye && !isAwayReal) ? (
           <div className="flex items-center justify-between flex-1 py-0.5 text-ink/40 italic text-xs">
             <span>— قرعه استراحت (بدون بازی) —</span>
           </div>
