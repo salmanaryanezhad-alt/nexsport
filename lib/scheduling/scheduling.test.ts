@@ -1240,6 +1240,79 @@ test("خروجی متنی و CSV شامل زمان، زمین و آدرس وب�
   assert(csvExport.includes("زمین شماره ۱"), "خروجی CSV باید شامل نام زمین باشد.");
 });
 
+test("حذفی: مسابقه‌ای که هنوز حریف آن مشخص نشده نباید برنده داشته باشد", () => {
+  const teams = ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴"];
+  const ko = buildKnockout({ teams, seededTeams: [] });
+
+  // فینال در ابتدا هیچ تیمی ندارد
+  const finalMatchId = ko.rounds[1].matches[0].id;
+
+  // اگر کسی سعی کند برای بازی فینال نتیجه یا برنده دستی ست کند، نباید برنده داشته باشد
+  const computed = computeKnockoutWithScores(ko, {
+    [finalMatchId]: { home: 2, away: 1, winner: "تیم ۱" },
+  });
+
+  const finalMatch = computed.knockout.rounds[1].matches[0];
+  assertEqual(finalMatch.home, null, "تیم میزبان فینال قبل از نیمه‌نهایی باید null باشد.");
+  assertEqual(finalMatch.away, null, "تیم میهمان فینال قبل از نیمه‌نهایی باید null باشد.");
+  assertEqual(finalMatch.winner, null, "مسابقه‌ای که حریفان آن مشخص نیست هرگز نباید برنده داشته باشد.");
+  assertEqual(computed.champion, null, "قهرمان تورنمنت نباید قبل از برگزاری بازی‌ها مشخص شود.");
+});
+
+test("حذفی: تفکیک دقیق استراحت (Bye) از مسابقات نیازمند برگزاری", () => {
+  const teams = ["تیم الف", "تیم ب", "تیم ج"]; // ۳ تیم در براکت ۴ -> ۱ استراحت
+  const ko = buildKnockout({ teams, seededTeams: ["تیم الف"] });
+
+  const r1Matches = ko.rounds[0].matches;
+  const byeMatch = r1Matches.find((m) => m.isBye);
+  const regularMatch = r1Matches.find((m) => !m.isBye);
+
+  assert(byeMatch !== undefined, "باید یک مسابقه استراحت (Bye) وجود داشته باشد.");
+  assertEqual(byeMatch?.autoAdvance, "تیم الف", "تیم دارای استراحت باید صعود خودکار داشته باشد.");
+
+  assert(regularMatch !== undefined, "باید یک مسابقه عادی بین تیم ب و تیم ج وجود داشته باشد.");
+  assertEqual(regularMatch?.isBye, false, "مسابقه بین دو تیم واقعی نباید استراحت باشد.");
+
+  // محاسبه بدون ثبت نتیجه
+  const computed = computeKnockoutWithScores(ko, {});
+  const r2Final = computed.knockout.rounds[1].matches[0];
+
+  // در فینال: تیم الف صعود کرده، اما حریف هنوز مشخص نیست
+  assertEqual(r2Final.home, "تیم الف", "تیم الف با استراحت به فینال رسیده است.");
+  assertEqual(r2Final.away, null, "حریف تیم الف هنوز از مسابقه عادی مشخص نشده است.");
+  assertEqual(r2Final.winner, null, "تیم الف نباید برنده فینال شود تا زمانی که حریف مشخص شود.");
+});
+
+test("دو حذفی: کدهای مسابقه و عدم امکان تعیین برنده تا زمان حضور هر دو رقیب", () => {
+  const teams = ["T1", "T2", "T3", "T4"];
+  const dk = buildDoubleKnockout({ teams, seededTeams: teams });
+
+  // بررسی کدهای مسابقات
+  const wb1 = dk.winnersBracket[0].matches[0];
+  const wb2 = dk.winnersBracket[0].matches[1];
+  assertEqual(wb1.matchCode, "W1", "کد مسابقه اول برندگان باید W1 باشد.");
+  assertEqual(wb2.matchCode, "W2", "کد مسابقه دوم برندگان باید W2 باشد.");
+
+  const lb1 = dk.losersBracket[0].matches[0];
+  assertEqual(lb1.matchCode, "L1", "کد مسابقه اول بازندگان باید L1 باشد.");
+
+  // فینال برندگان و بازندگان نباید برنده داشته باشند تا مسابقات قبل تمام شوند
+  // W1 بین T1 و T4 است: T1 برنده می‌شود، T4 می‌بازد
+  const computed = computeDoubleKnockoutWithScores(dk, {
+    [wb1.id]: { home: 1, away: 0 },
+  });
+
+  const wbFinal = computed.doubleKnockout.winnersBracket[1].matches[0];
+  assertEqual(wbFinal.home, "T1", "T1 باید به فینال برندگان صعود کرده باشد.");
+  assertEqual(wbFinal.away, null, "حریف T1 هنوز مشخص نشده است.");
+  assertEqual(wbFinal.winner, null, "فینال برندگان نباید برنده داشته باشد تا حریف دوم مشخص شود.");
+
+  const lbR1 = computed.doubleKnockout.losersBracket[0].matches[0];
+  assertEqual(lbR1.home, "T4", "T4 به عنوان بازنده W1 به جدول شانس مجدد رفته است.");
+  assertEqual(lbR1.away, null, "حریف T4 هنوز از بازی W2 نیامده است.");
+  assertEqual(lbR1.winner, null, "T4 نباید برنده شود تا زمانی که حریفش مشخص شود.");
+});
+
 /* =========================================================
    نتیجه نهایی
    ========================================================= */

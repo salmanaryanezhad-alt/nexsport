@@ -665,6 +665,14 @@ function PlannerWizard() {
   }
 
   function handleGenerate(isRedraw = false) {
+    if (result && Object.keys(scores).length > 0) {
+      const confirmed = window.confirm(
+        "⚠️ توجه: شما قبلاً نتایجی برای این مسابقات ثبت کرده‌اید.\nبا تولید مجدد برنامه، تمامی گل‌ها و نتایج ثبت‌شده پاک خواهند شد.\n\nآیا از ادامه مطمئن هستید؟"
+      );
+      if (!confirmed) return;
+      setScores({});
+    }
+
     setError(null);
     try {
       if (!format) throw new ScheduleValidationError("نوع مسابقه انتخاب نشده است.");
@@ -2399,14 +2407,6 @@ function PlannerWizard() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                className={btnGhost}
-                onClick={() => handleGenerate(true)}
-                title="تولید قرعه‌کشی جدید با همین تیم‌ها و تنظیمات"
-              >
-                🎲 قرعه‌کشی مجدد
-              </button>
-
               <button
                 className={btnGhost}
                 onClick={handleCopyText}
