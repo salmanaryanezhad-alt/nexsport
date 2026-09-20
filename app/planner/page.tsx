@@ -951,6 +951,9 @@ function PlannerWizard() {
     downloadCsvFile(csv, `nexsport-${safeTitle}.csv`);
   }
 
+  const tournamentCount = FORMAT_OPTIONS.filter((f) => f.category === "tournament").length;
+  const leagueCount = FORMAT_OPTIONS.filter((f) => f.category === "league").length;
+
   const displayedFormats =
     formatCategory === "all"
       ? FORMAT_OPTIONS
@@ -1038,7 +1041,7 @@ function PlannerWizard() {
                     : "bg-white border border-line text-ink/70 hover:border-pitch/40"
                 }`}
               >
-                🏆 جام‌ها و مسابقات حذفی (۲)
+                🏆 جام‌ها و مسابقات حذفی ({tournamentCount})
               </button>
               <button
                 type="button"
@@ -1049,7 +1052,7 @@ function PlannerWizard() {
                     : "bg-white border border-line text-ink/70 hover:border-pitch/40"
                 }`}
               >
-                ⚽ لیگ و دوره‌ای (۳)
+                ⚽ لیگ و دوره‌ای ({leagueCount})
               </button>
             </div>
 
