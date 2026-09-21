@@ -22,6 +22,7 @@ import {
 import { Stepper } from "@/components/planner/Stepper";
 import { ScheduleView } from "@/components/planner/ScheduleView";
 import { NexSportIcon } from "@/components/NexSportLogo";
+import { AuthHeaderNav } from "@/components/auth/AuthHeaderNav";
 
 const STORAGE_KEY = "nexsport_wizard_state_v4";
 
@@ -989,6 +990,7 @@ function PlannerWizard() {
         </div>
 
         <div className="flex items-center gap-3">
+          <AuthHeaderNav />
           {(step > 0 || result) && (
             <button
               onClick={handleReset}

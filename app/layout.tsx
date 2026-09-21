@@ -90,6 +90,9 @@ export const metadata: Metadata = {
   },
 };
 
+import { AuthProvider } from "@/components/auth/AuthContext";
+import { AuthModal } from "@/components/auth/AuthModal";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fa" dir="rtl">
@@ -109,7 +112,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="googlebot" content="noindex, nofollow, noarchive" />
       </head>
       <body className="min-h-screen font-sans antialiased bg-chalk text-ink selection:bg-gold selection:text-ink">
-        {children}
+        <AuthProvider>
+          {children}
+          <AuthModal />
+        </AuthProvider>
       </body>
     </html>
   );

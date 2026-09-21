@@ -7,16 +7,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "npx tsx lib/scheduling/scheduling.test.ts"
+    "test": "npx tsx lib/scheduling/scheduling.test.ts && npx tsx lib/auth/auth.test.ts"
   },
   "dependencies": {
     "next": "14.2.15",
+    "pg": "^8.23.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "20.14.2",
+    "@types/pg": "^8.23.1",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
     "autoprefixer": "10.4.20",

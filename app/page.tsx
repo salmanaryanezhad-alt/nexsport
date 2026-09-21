@@ -1,6 +1,7 @@
 import Link from "next/link";
 import React from "react";
 import { NexSportIcon } from "@/components/NexSportLogo";
+import { AuthHeaderNav } from "@/components/auth/AuthHeaderNav";
 
 function BracketSvgIcon({ className = "w-6 h-6" }: { className?: string }) {
   return (
@@ -226,13 +227,16 @@ export default function HomePage() {
             </a>
           </nav>
 
-          <Link
-            href="/planner"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-pitch px-4 py-2 text-sm font-bold text-chalk shadow-sm hover:bg-pitch-light transition-colors"
-          >
-            <span>شروع برنامه‌ریزی</span>
-            <span className="text-gold">←</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <AuthHeaderNav />
+            <Link
+              href="/planner"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-pitch px-4 py-2 text-sm font-bold text-chalk shadow-sm hover:bg-pitch-light transition-colors"
+            >
+              <span>شروع برنامه‌ریزی</span>
+              <span className="text-gold">←</span>
+            </Link>
+          </div>
         </div>
       </header>
 
