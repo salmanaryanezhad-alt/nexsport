@@ -12,9 +12,18 @@ export interface SendEmailResult {
 export async function sendVerificationEmail(
   toEmail: string,
   userName: string,
-  code: string
+  code: string,
+  type: "verify" | "reset" = "verify"
 ): Promise<SendEmailResult> {
   const resendApiKey = process.env.RESEND_API_KEY;
+  const subject =
+    type === "reset"
+      ? "کد بازیابی رمز عبور نکس‌اسپورت (NexSport)"
+      : "کد تایید حساب کاربری نکس‌اسپورت (NexSport)";
+  const description =
+    type === "reset"
+      ? "کد تایید شما برای بازیابی رمز عبور به شرح زیر است:"
+      : "کد تایید شما برای ورود و فعال‌سازی حساب کاربری به شرح زیر است:";
 
   if (resendApiKey) {
     try {
@@ -28,12 +37,12 @@ export async function sendVerificationEmail(
         body: JSON.stringify({
           from: fromEmail,
           to: toEmail,
-          subject: "کد تایید حساب کاربری نکس‌پورت (NexSport)",
+          subject,
           html: `
             <div dir="rtl" style="font-family: Tahoma, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #DAD5C6; border-radius: 12px; background-color: #F7F5EE; color: #16211C;">
-              <h2 style="color: #1B4332; margin-bottom: 16px;">سامانه ورزشی نکس‌پورت (NexSport)</h2>
+              <h2 style="color: #1B4332; margin-bottom: 16px;">سامانه ورزشی نکس‌اسپورت (NexSport)</h2>
               <p style="font-size: 14px; line-height: 1.6;">سلام <strong>${userName}</strong> عزیز،</p>
-              <p style="font-size: 14px; line-height: 1.6;">کد تایید شما برای ورود و فعال‌سازی حساب کاربری به شرح زیر است:</p>
+              <p style="font-size: 14px; line-height: 1.6;">${description}</p>
               <div style="text-align: center; margin: 24px 0;">
                 <span style="display: inline-block; font-size: 28px; font-weight: bold; letter-spacing: 6px; padding: 12px 24px; background-color: #1B4332; color: #FFFFFF; border-radius: 8px;">
                   ${code}

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     const code = generateVerificationCode();
     await db.savePasswordResetCode(user.id, cleanEmail, code, 15);
-    const emailResult = await sendVerificationEmail(cleanEmail, user.name, code);
+    const emailResult = await sendVerificationEmail(cleanEmail, user.name, code, "reset");
 
     return NextResponse.json({
       success: true,
