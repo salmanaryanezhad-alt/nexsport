@@ -23,6 +23,11 @@ import { Stepper } from "@/components/planner/Stepper";
 import { ScheduleView } from "@/components/planner/ScheduleView";
 import { NexSportIcon } from "@/components/NexSportLogo";
 import { AuthHeaderNav } from "@/components/auth/AuthHeaderNav";
+import { useAuth } from "@/components/auth/AuthContext";
+import {
+  SavedTournamentsModal,
+  SavedTournamentItem,
+} from "@/components/planner/SavedTournamentsModal";
 
 const STORAGE_KEY = "nexsport_wizard_state_v4";
 
@@ -270,6 +275,12 @@ function PlannerWizard() {
   const [copiedText, setCopiedText] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Cloud Tournament Storage & Auth Integration
+  const { user, openAuthModal } = useAuth();
+  const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
+  const [savedModalOpen, setSavedModalOpen] = useState(false);
+  const [savedModalMode, setSavedModalMode] = useState<"save" | "list">("list");
+
   // Bulk input & file input refs
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkText, setBulkText] = useState("");
@@ -325,6 +336,14 @@ function PlannerWizard() {
         if (parsed.result) setResult(parsed.result);
         if (parsed.scores) setScores(parsed.scores);
         if (parsed.matchDetails) setMatchDetails(parsed.matchDetails);
+        if (typeof parsed.currentSavedId === "string")
+          setCurrentSavedId(parsed.currentSavedId);
+      }
+
+      // If user came with ?open=saved, open the saved tournaments modal
+      if (searchParams.get("open") === "saved") {
+        setSavedModalMode("list");
+        setSavedModalOpen(true);
       }
 
       // If user selected a format on the homepage (e.g. /planner?format=knockout), jump directly to that format!
@@ -353,6 +372,7 @@ function PlannerWizard() {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
+          currentSavedId,
           step,
           format,
           teamCount,
@@ -380,6 +400,7 @@ function PlannerWizard() {
     }
   }, [
     isLoaded,
+    currentSavedId,
     step,
     format,
     teamCount,
@@ -781,6 +802,7 @@ function PlannerWizard() {
       setMatchDetails({});
       setResult(null);
       setScores({});
+      setCurrentSavedId(null);
       setError(null);
       setInfoMessage(null);
     }
@@ -807,6 +829,79 @@ function PlannerWizard() {
       }
       return { ...prev, [matchId]: detail };
     });
+  }
+
+  function handleOpenSaveCloud() {
+    if (!user) {
+      openAuthModal("login");
+      return;
+    }
+    setSavedModalMode("save");
+    setSavedModalOpen(true);
+  }
+
+  function handleOpenSavedList() {
+    if (!user) {
+      openAuthModal("login");
+      return;
+    }
+    setSavedModalMode("list");
+    setSavedModalOpen(true);
+  }
+
+  function handleLoadCloudTournament(t: SavedTournamentItem) {
+    try {
+      const s = t.state;
+      if (!s) return;
+
+      if (typeof s.step === "number") setStep(s.step);
+      else setStep(4);
+
+      if (s.format) setFormat(s.format);
+      if (typeof s.teamCount === "number") {
+        setTeamCount(s.teamCount);
+        setTeamCountInput(String(s.teamCount));
+      }
+      if (Array.isArray(s.teamNames)) setTeamNames(s.teamNames);
+      if (typeof s.numGroups === "number") setNumGroups(s.numGroups);
+      if (typeof s.qualifiersPerGroup === "number")
+        setQualifiersPerGroup(s.qualifiersPerGroup);
+      if (Array.isArray(s.seededTeams)) setSeededTeams(s.seededTeams);
+      if (Array.isArray(s.pot2Teams)) setPot2Teams(s.pot2Teams);
+      if (Array.isArray(s.pot3Teams)) setPot3Teams(s.pot3Teams);
+      if (Array.isArray(s.pot4Teams)) setPot4Teams(s.pot4Teams);
+      if (Array.isArray(s.avoidPairs)) setAvoidPairs(s.avoidPairs);
+      if (typeof s.hasThirdPlace === "boolean")
+        setHasThirdPlace(s.hasThirdPlace);
+      if (typeof s.hasResetFinal === "boolean")
+        setHasResetFinal(s.hasResetFinal);
+      if (typeof s.independentSecondLeg === "boolean")
+        setIndependentSecondLeg(s.independentSecondLeg);
+      if (typeof s.advanceBestThirds === "boolean")
+        setAdvanceBestThirds(s.advanceBestThirds);
+      if (s.pointsRule) setPointsRule(s.pointsRule);
+      if (s.metadata) setMetadata(s.metadata);
+      else setMetadata({ title: t.title, venue: "" });
+      if (s.result) setResult(s.result);
+      if (s.scores) setScores(s.scores);
+      if (s.matchDetails) setMatchDetails(s.matchDetails);
+
+      setCurrentSavedId(t.id);
+      setInfoMessage(`☁️ مسابقه «${t.title}» با موفقیت از فضای ابری بارگذاری شد.`);
+      setTimeout(() => setInfoMessage(null), 4000);
+    } catch (err) {
+      console.error("Error loading tournament:", err);
+      alert("خطا در بارگذاری مسابقه از فضای ابری.");
+    }
+  }
+
+  function handleCloudSaveSuccess(t: SavedTournamentItem) {
+    setCurrentSavedId(t.id);
+    if (!metadata.title) {
+      setMetadata((prev) => ({ ...prev, title: t.title }));
+    }
+    setInfoMessage(`☁️ مسابقه «${t.title}» با موفقیت در فضای ابری ذخیره شد.`);
+    setTimeout(() => setInfoMessage(null), 4000);
   }
 
   function handleExportJson() {
@@ -989,15 +1084,38 @@ function PlannerWizard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={handleOpenSavedList}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/20 bg-white px-2.5 py-1.5 text-xs font-bold text-pitch shadow-2xs hover:bg-pitch hover:text-white transition-all cursor-pointer"
+            title="مشاهده و بارگذاری مسابقات ذخیره شده من در فضای ابری"
+          >
+            <span>📂</span>
+            <span className="hidden sm:inline">مسابقات من</span>
+          </button>
+
+          {(step > 0 || result) && (
+            <button
+              type="button"
+              onClick={handleOpenSaveCloud}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 bg-gold/10 px-2.5 py-1.5 text-xs font-bold text-gold-dark hover:bg-gold hover:text-white transition-all cursor-pointer"
+              title="ذخیره مسابقه جاری در حساب ابری"
+            >
+              <span>☁️</span>
+              <span className="hidden sm:inline">ذخیره ابری</span>
+            </button>
+          )}
+
           <AuthHeaderNav />
+
           {(step > 0 || result) && (
             <button
               onClick={handleReset}
               className="inline-flex items-center gap-1.5 rounded-lg border border-brick/30 bg-brick/5 px-3 py-1.5 text-xs font-bold text-brick hover:bg-brick hover:text-white transition-colors"
             >
               <span>🔄</span>
-              <span>شروع مسابقه جدید</span>
+              <span className="hidden sm:inline">شروع مسابقه جدید</span>
             </button>
           )}
         </div>
@@ -2509,6 +2627,22 @@ function PlannerWizard() {
 
             <div className="flex flex-wrap items-center gap-2">
               <button
+                className="inline-flex items-center justify-center rounded-md border border-gold/40 bg-gold/15 px-3.5 py-2 text-sm font-bold text-gold-dark transition-colors hover:bg-gold hover:text-white cursor-pointer"
+                onClick={handleOpenSaveCloud}
+                title="ذخیره این مسابقه و نتایج آن در فضای ابری حساب کاربری"
+              >
+                ☁️ ذخیره ابری
+              </button>
+
+              <button
+                className={btnGhost}
+                onClick={handleOpenSavedList}
+                title="مشاهده و بارگذاری مسابقات ذخیره شده در حساب کاربری"
+              >
+                📂 مسابقات من
+              </button>
+
+              <button
                 className={btnGhost}
                 onClick={handleCopyText}
                 title="کپی متن کامل برنامه برای پیام‌رسان‌ها (تلگرام و واتس‌اپ)"
@@ -2566,6 +2700,50 @@ function PlannerWizard() {
           />
         </section>
       )}
+
+      {/* Cloud Tournament Save / Load Modal */}
+      <SavedTournamentsModal
+        isOpen={savedModalOpen}
+        mode={savedModalMode}
+        onClose={() => setSavedModalOpen(false)}
+        currentTournament={
+          format
+            ? {
+                id: currentSavedId,
+                title:
+                  metadata.title ||
+                  FORMAT_OPTIONS.find((f) => f.key === format)?.title ||
+                  "مسابقه ورزشی",
+                format: format,
+                teamCount: teamCount,
+                state: {
+                  step,
+                  format,
+                  teamCount,
+                  teamNames,
+                  numGroups,
+                  qualifiersPerGroup,
+                  seededTeams,
+                  pot2Teams,
+                  pot3Teams,
+                  pot4Teams,
+                  avoidPairs,
+                  hasThirdPlace,
+                  hasResetFinal,
+                  independentSecondLeg,
+                  advanceBestThirds,
+                  pointsRule,
+                  metadata,
+                  result,
+                  scores,
+                  matchDetails,
+                },
+              }
+            : undefined
+        }
+        onLoadTournament={handleLoadCloudTournament}
+        onSavedSuccess={handleCloudSaveSuccess}
+      />
     </main>
   );
 }

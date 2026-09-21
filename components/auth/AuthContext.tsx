@@ -15,16 +15,23 @@ interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   isAuthModalOpen: boolean;
-  modalTab: "login" | "register" | "verify";
+  isProfileModalOpen: boolean;
+  modalTab: "login" | "register" | "verify" | "forgot" | "reset";
   pendingEmail: string | null;
   demoVerificationCode: string | null;
-  openAuthModal: (tab?: "login" | "register") => void;
+  openAuthModal: (tab?: "login" | "register" | "forgot") => void;
   closeAuthModal: () => void;
+  openProfileModal: () => void;
+  closeProfileModal: () => void;
   setPendingVerification: (email: string, demoCode?: string | null) => void;
   login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string; requiresVerification?: boolean; email?: string; demoCode?: string }>;
   register: (name: string, email: string, mobile: string, password: string) => Promise<{ success: boolean; error?: string; requiresVerification?: boolean; email?: string; demoCode?: string }>;
   verifyEmail: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
   resendCode: (email: string) => Promise<{ success: boolean; error?: string; demoCode?: string }>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; error?: string; demoCode?: string }>;
+  resetPassword: (email: string, code: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (name: string) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -34,7 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [modalTab, setModalTab] = useState<"login" | "register" | "verify">("login");
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [demoVerificationCode, setDemoVerificationCode] = useState<string | null>(null);
 
@@ -55,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkMe();
   }, []);
 
-  function openAuthModal(tab: "login" | "register" = "login") {
+  function openAuthModal(tab: "login" | "register" | "forgot" = "login") {
     setModalTab(tab);
     setDemoVerificationCode(null);
     setIsAuthModalOpen(true);
@@ -64,6 +72,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function closeAuthModal() {
     setIsAuthModalOpen(false);
     setDemoVerificationCode(null);
+  }
+
+  function openProfileModal() {
+    setIsProfileModalOpen(true);
+  }
+
+  function closeProfileModal() {
+    setIsProfileModalOpen(false);
   }
 
   function setPendingVerification(email: string, demoCode?: string | null) {
@@ -103,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(data.user);
       closeAuthModal();
       return { success: true };
-    } catch (err) {
+    } catch {
       return { success: false, error: "خطای ارتباط با سرور" };
     }
   }
@@ -133,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: data.email,
         demoCode: data.demoCode,
       };
-    } catch (err) {
+    } catch {
       return { success: false, error: "خطای ارتباط با سرور" };
     }
   }
@@ -154,7 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(data.user);
       closeAuthModal();
       return { success: true };
-    } catch (err) {
+    } catch {
       return { success: false, error: "خطای ارتباط با سرور" };
     }
   }
@@ -174,7 +190,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data.demoCode) setDemoVerificationCode(data.demoCode);
       return { success: true, demoCode: data.demoCode };
-    } catch (err) {
+    } catch {
+      return { success: false, error: "خطای ارتباط با سرور" };
+    }
+  }
+
+  async function forgotPassword(email: string) {
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        return { success: false, error: data.error || "خطا در درخواست بازیابی رمز" };
+      }
+
+      setPendingEmail(email);
+      if (data.demoCode) setDemoVerificationCode(data.demoCode);
+      setModalTab("reset");
+      return { success: true, demoCode: data.demoCode };
+    } catch {
+      return { success: false, error: "خطای ارتباط با سرور" };
+    }
+  }
+
+  async function resetPassword(email: string, code: string, newPassword: string) {
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code, newPassword }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        return { success: false, error: data.error || "کد بازیابی نامعتبر است" };
+      }
+
+      setUser(data.user);
+      closeAuthModal();
+      return { success: true };
+    } catch {
+      return { success: false, error: "خطای ارتباط با سرور" };
+    }
+  }
+
+  async function updateProfile(name: string) {
+    try {
+      const res = await fetch("/api/auth/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        return { success: false, error: data.error || "خطا در به‌روزرسانی نام" };
+      }
+
+      setUser(data.user);
+      return { success: true };
+    } catch {
+      return { success: false, error: "خطای ارتباط با سرور" };
+    }
+  }
+
+  async function changePassword(currentPassword: string, newPassword: string) {
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        return { success: false, error: data.error || "خطا در تغییر رمز عبور" };
+      }
+
+      return { success: true };
+    } catch {
       return { success: false, error: "خطای ارتباط با سرور" };
     }
   }
@@ -193,16 +291,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         loading,
         isAuthModalOpen,
+        isProfileModalOpen,
         modalTab,
         pendingEmail,
         demoVerificationCode,
         openAuthModal,
         closeAuthModal,
+        openProfileModal,
+        closeProfileModal,
         setPendingVerification,
         login,
         register,
         verifyEmail,
         resendCode,
+        forgotPassword,
+        resetPassword,
+        updateProfile,
+        changePassword,
         logout,
       }}
     >

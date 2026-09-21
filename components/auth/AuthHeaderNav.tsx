@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "./AuthContext";
 
 export function AuthHeaderNav() {
-  const { user, loading, openAuthModal, logout } = useAuth();
+  const { user, loading, openAuthModal, openProfileModal, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +67,27 @@ export function AuthHeaderNav() {
               <span>ایمیل تایید شده</span>
             </div>
           </div>
+
+          <Link
+            href="/planner?open=saved"
+            onClick={() => setDropdownOpen(false)}
+            className="w-full text-right rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-chalk transition-colors flex items-center justify-between cursor-pointer mb-1"
+          >
+            <span>مسابقات ذخیره شده من</span>
+            <span>📂</span>
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => {
+              setDropdownOpen(false);
+              openProfileModal();
+            }}
+            className="w-full text-right rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-chalk transition-colors flex items-center justify-between cursor-pointer mb-1"
+          >
+            <span>مدیریت مشخصات و رمز عبور</span>
+            <span>⚙️</span>
+          </button>
 
           <button
             type="button"

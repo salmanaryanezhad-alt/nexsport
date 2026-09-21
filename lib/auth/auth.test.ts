@@ -141,6 +141,116 @@ async function run() {
     assertEqual(cleanMobileNumber(withSpaces), englishDigits, "پیش‌شماره +98 باید به 0 تبدیل شود.");
   });
 
+  await test("فراموشی رمز عبور: ایجاد کد بازیابی، اعتبارسنجی و به‌روزرسانی رمز عبور", async () => {
+    const email = "forgot@nexsport.ir";
+    const oldPassword = "oldPassword123";
+    const user = await db.createUser({
+      name: "کاربر بازیابی",
+      email,
+      mobile: "09124445566",
+      password_hash: hashPassword(oldPassword),
+      is_verified: true,
+    });
+
+    const resetCode = "654321";
+    await db.savePasswordResetCode(user.id, email, resetCode, 15);
+
+    // Verify invalid code
+    const invalidCheck = await db.verifyPasswordResetCode(email, "111111");
+    assertEqual(invalidCheck, null, "کد بازیابی اشتباه نباید تایید شود.");
+
+    // Verify valid code
+    const validCheck = await db.verifyPasswordResetCode(email, resetCode);
+    assert(Boolean(validCheck), "کد بازیابی صحیح باید تایید شود.");
+    assertEqual(validCheck?.user_id, user.id, "شناسه کاربر در کد بازیابی باید مطابقت داشته باشد.");
+
+    // Update password
+    const newPassword = "newPassword456";
+    await db.updateUserPassword(user.id, hashPassword(newPassword));
+    await db.deletePasswordResetCodesForUser(user.id);
+
+    // Verify user password was updated
+    const updated = await db.findUserById(user.id);
+    assert(Boolean(updated), "کاربر باید یافت شود.");
+    assert(verifyPassword(newPassword, updated!.password_hash), "رمز جدید باید تایید شود.");
+    assert(!verifyPassword(oldPassword, updated!.password_hash), "رمز قدیمی نباید تایید شود.");
+  });
+
+  await test("مدیریت حساب کاربری: ویرایش نام و پروفایل", async () => {
+    const email = "profile@nexsport.ir";
+    const user = await db.createUser({
+      name: "نام اولیه",
+      email,
+      mobile: "09125556677",
+      password_hash: hashPassword("pass123"),
+      is_verified: true,
+    });
+
+    const updated = await db.updateUserProfile(user.id, "نام ویرایش شده جدید");
+    assertEqual(updated?.name, "نام ویرایش شده جدید", "نام جدید باید در دیتابیس ثبت شده باشد.");
+  });
+
+  await test("ذخیره‌سازی ابری مسابقات: چرخه کامل ذخیره، لیست، فراخوانی و حذف", async () => {
+    const user = await db.createUser({
+      name: "مدیر تورنمنت",
+      email: "tournaments@nexsport.ir",
+      mobile: "09126667788",
+      password_hash: hashPassword("pass"),
+      is_verified: true,
+    });
+
+    // 1. Save new tournament
+    const t1 = await db.saveTournament({
+      userId: user.id,
+      title: "جام حذفی فوتبال ۱۴۰۵",
+      format: "knockout",
+      sport: "فوتبال",
+      teamCount: 8,
+      state: { step: 4, teams: ["A", "B", "C", "D"] },
+    });
+    assert(Boolean(t1.id), "شناسه تورنمنت باید اختصاص یابد.");
+    assertEqual(t1.title, "جام حذفی فوتبال ۱۴۰۵", "عنوان مسابقه باید تطابق داشته باشد.");
+
+    // 2. Save second tournament
+    const t2 = await db.saveTournament({
+      userId: user.id,
+      title: "لیگ فوتسال محلات",
+      format: "league-single",
+      sport: "فوتسال",
+      teamCount: 6,
+      state: { step: 4 },
+    });
+
+    // 3. List tournaments for user
+    const list = await db.listTournaments(user.id);
+    assertEqual(list.length, 2, "کاربر باید ۲ مسابقه ذخیره‌شده در فهرست داشته باشد.");
+
+    // 4. Update existing tournament
+    const updatedT1 = await db.saveTournament({
+      id: t1.id,
+      userId: user.id,
+      title: "جام حذفی فوتبال ۱۴۰۵ - نسخه نهایی",
+      format: "knockout",
+      sport: "فوتبال",
+      teamCount: 8,
+      state: { step: 4, champion: "A" },
+    });
+    assertEqual(updatedT1.title, "جام حذفی فوتبال ۱۴۰۵ - نسخه نهایی", "عنوان باید به‌روزرسانی شده باشد.");
+    assertEqual(updatedT1.id, t1.id, "شناسه در به‌روزرسانی باید حفظ شود.");
+
+    // 5. Get single tournament
+    const fetched = await db.getTournament(t1.id, user.id);
+    assertEqual(fetched?.state?.champion, "A", "اطلاعات بازیابی شده باید شامل فیلدهای ذخیره شده باشد.");
+
+    // 6. Delete tournament
+    const deleted = await db.deleteTournament(t1.id, user.id);
+    assert(deleted, "حذف تورنمنت باید موفقیت‌آمیز باشد.");
+
+    const listAfter = await db.listTournaments(user.id);
+    assertEqual(listAfter.length, 1, "پس از حذف، باید یک مسابقه در لیست بماند.");
+    assertEqual(listAfter[0].id, t2.id, "مسابقه باقی‌مانده باید دومین مسابقه باشد.");
+  });
+
   console.log("\n======================================");
   console.log(`تست‌های موفق: ${passed}`);
   console.log(`تست‌های ناموفق: ${failed}`);

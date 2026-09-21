@@ -92,6 +92,7 @@ export const metadata: Metadata = {
 
 import { AuthProvider } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { ProfileModal } from "@/components/auth/ProfileModal";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -115,6 +116,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           {children}
           <AuthModal />
+          <ProfileModal />
         </AuthProvider>
       </body>
     </html>
