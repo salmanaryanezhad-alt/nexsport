@@ -174,7 +174,7 @@ export function AuthModal() {
             <span className="font-bold text-base text-pitch">
               {modalTab === "forgot" || modalTab === "reset"
                 ? "بازیابی رمز عبور"
-                : "حساب کاربری نکس‌اسپورت"}
+                : "حساب کاربری NexSport"}
             </span>
           </div>
           <button

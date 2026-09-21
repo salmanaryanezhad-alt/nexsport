@@ -457,7 +457,7 @@ export function exportScheduleToCsv(
   }
 
   rows.push([]);
-  rows.push(["تولید شده توسط سامانه ورزشی نکس‌اسپورت", "https://nexsport.ir"]);
+  rows.push(["تولید شده توسط سامانه ورزشی NexSport", "https://nexsport.ir"]);
 
   // UTF-8 BOM + CSV escaping
   const csvBody = rows

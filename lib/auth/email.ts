@@ -18,8 +18,8 @@ export async function sendVerificationEmail(
   const resendApiKey = process.env.RESEND_API_KEY;
   const subject =
     type === "reset"
-      ? "کد بازیابی رمز عبور نکس‌اسپورت (NexSport)"
-      : "کد تایید حساب کاربری نکس‌اسپورت (NexSport)";
+      ? "کد بازیابی رمز عبور NexSport"
+      : "کد تایید حساب کاربری NexSport";
   const description =
     type === "reset"
       ? "کد تایید شما برای بازیابی رمز عبور به شرح زیر است:"
@@ -40,7 +40,7 @@ export async function sendVerificationEmail(
           subject,
           html: `
             <div dir="rtl" style="font-family: Tahoma, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #DAD5C6; border-radius: 12px; background-color: #F7F5EE; color: #16211C;">
-              <h2 style="color: #1B4332; margin-bottom: 16px;">سامانه ورزشی نکس‌اسپورت (NexSport)</h2>
+              <h2 style="color: #1B4332; margin-bottom: 16px;">سامانه ورزشی NexSport</h2>
               <p style="font-size: 14px; line-height: 1.6;">سلام <strong>${userName}</strong> عزیز،</p>
               <p style="font-size: 14px; line-height: 1.6;">${description}</p>
               <div style="text-align: center; margin: 24px 0;">

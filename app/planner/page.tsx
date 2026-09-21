@@ -976,7 +976,7 @@ function PlannerWizard() {
         const parsed = JSON.parse(content);
 
         if (!parsed.format || !Array.isArray(parsed.teamNames) || !parsed.result) {
-          throw new Error("فایل انتخاب شده ساختار معتبر مسابقات نکس‌اسپورت را ندارد.");
+          throw new Error("فایل انتخاب شده ساختار معتبر مسابقات NexSport را ندارد.");
         }
 
         if (parsed.format) setFormat(parsed.format);
@@ -1098,7 +1098,7 @@ function PlannerWizard() {
           <div className="h-4 w-px bg-line/80" />
           <div className="flex items-center gap-2">
             <NexSportIcon size={28} className="shrink-0 drop-shadow-2xs" />
-            <span className="text-sm font-black text-ink">برنامه‌ریز مسابقات نکس‌اسپورت</span>
+            <span className="text-sm font-black text-ink">برنامه‌ریز مسابقات NexSport</span>
           </div>
         </div>
 
@@ -2017,7 +2017,7 @@ function PlannerWizard() {
                         </span>
                       </div>
                       <p className="leading-relaxed text-ink/85">
-                        با صعود ۲ تیم اول هر گروه، مجموعاً <strong>{baseQualifiers} تیم</strong> صعود می‌کنند که توان ۲ نیست. برای تشکیل جدول استاندارد <strong>{targetBracketSize} تیمی</strong>، دقیقاً <strong>{missingForPowerOfTwo} تیم</strong> کم است. سیستم هوشمند نکس‌اسپورت مشابه مسابقات یورو، این {missingForPowerOfTwo} تیم را از میان <strong>برترین تیم‌های رتبه سوم گروه‌ها</strong> تکمیل می‌کند تا مرحله حذفی بدون استراحت و با نهایت هیجان برگزار شود.
+                        با صعود ۲ تیم اول هر گروه، مجموعاً <strong>{baseQualifiers} تیم</strong> صعود می‌کنند که توان ۲ نیست. برای تشکیل جدول استاندارد <strong>{targetBracketSize} تیمی</strong>، دقیقاً <strong>{missingForPowerOfTwo} تیم</strong> کم است. سیستم هوشمند NexSport مشابه مسابقات یورو، این {missingForPowerOfTwo} تیم را از میان <strong>برترین تیم‌های رتبه سوم گروه‌ها</strong> تکمیل می‌کند تا مرحله حذفی بدون استراحت و با نهایت هیجان برگزار شود.
                       </p>
                     </div>
                   ) : (
@@ -2636,7 +2636,7 @@ function PlannerWizard() {
           <div className="no-print mb-8 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-white/70 p-4 shadow-sm">
             <div>
               <h1 className="text-xl font-bold text-pitch">
-                {result.metadata?.title || "برنامه مسابقات نکس‌اسپورت"}
+                {result.metadata?.title || "برنامه مسابقات NexSport"}
               </h1>
               <p className="text-xs text-ink/60 mt-0.5">
                 ثبت نتایج، ضربات پنالتی، چاپ رسمی، خروجی اکسل یا اشتراک در پیام‌رسان‌ها.
