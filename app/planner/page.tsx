@@ -365,6 +365,24 @@ function PlannerWizard() {
     }
   }, [formatQuery]);
 
+  // Listen for open saved tournaments query or custom event
+  const openQuery = searchParams.get("open");
+  useEffect(() => {
+    if (openQuery === "saved") {
+      setSavedModalMode("list");
+      setSavedModalOpen(true);
+    }
+  }, [openQuery]);
+
+  useEffect(() => {
+    function handleOpenEvent() {
+      setSavedModalMode("list");
+      setSavedModalOpen(true);
+    }
+    window.addEventListener("open-saved-tournaments", handleOpenEvent);
+    return () => window.removeEventListener("open-saved-tournaments", handleOpenEvent);
+  }, []);
+
   // Save to LocalStorage whenever state changes
   useEffect(() => {
     if (!isLoaded) return;

@@ -76,6 +76,13 @@ export function SavedTournamentsModal({
   const [saveSport, setSaveSport] = useState("فوتبال");
   const [saveAsNew, setSaveAsNew] = useState(false);
 
+  function handleClose() {
+    if (typeof window !== "undefined" && window.location.search.includes("open=saved")) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    onClose();
+  }
+
   useEffect(() => {
     setMode(initialMode);
     setError(null);
@@ -135,7 +142,7 @@ export function SavedTournamentsModal({
           <div className="flex gap-2.5">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="flex-1 rounded-xl border border-line py-2.5 text-xs font-bold text-ink/70 hover:bg-chalk transition-colors cursor-pointer"
             >
               انصراف
@@ -143,7 +150,7 @@ export function SavedTournamentsModal({
             <button
               type="button"
               onClick={() => {
-                onClose();
+                handleClose();
                 openAuthModal("login");
               }}
               className="flex-1 rounded-xl bg-pitch py-2.5 text-xs font-bold text-white hover:bg-pitch-light shadow-sm transition-colors cursor-pointer"
@@ -189,7 +196,7 @@ export function SavedTournamentsModal({
         onSavedSuccess(data.tournament);
       }
       setTimeout(() => {
-        onClose();
+        handleClose();
       }, 1200);
     } catch (err: any) {
       setError(err?.message || "خطا در برقراری ارتباط با سرور.");
@@ -236,7 +243,7 @@ export function SavedTournamentsModal({
       }
 
       onLoadTournament(data.tournament);
-      onClose();
+      handleClose();
     } catch (err: any) {
       setError(err?.message || "خطا در بارگذاری مسابقه.");
     } finally {
@@ -307,7 +314,7 @@ export function SavedTournamentsModal({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded-lg p-1 text-ink/40 hover:bg-chalk hover:text-ink transition-colors cursor-pointer"
             >
               ✕
@@ -414,7 +421,7 @@ export function SavedTournamentsModal({
               <div className="pt-2 flex gap-2.5">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="flex-1 rounded-xl border border-line py-2.5 text-xs font-bold text-ink/70 hover:bg-chalk transition-colors cursor-pointer"
                 >
                   انصراف

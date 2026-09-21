@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import Link from "next/link";
 import { useAuth } from "./AuthContext";
 
 export function AuthHeaderNav() {
@@ -68,14 +67,21 @@ export function AuthHeaderNav() {
             </div>
           </div>
 
-          <Link
-            href="/planner?open=saved"
-            onClick={() => setDropdownOpen(false)}
+          <button
+            type="button"
+            onClick={() => {
+              setDropdownOpen(false);
+              if (typeof window !== "undefined" && window.location.pathname.startsWith("/planner")) {
+                window.dispatchEvent(new CustomEvent("open-saved-tournaments"));
+              } else if (typeof window !== "undefined") {
+                window.location.href = "/planner?open=saved";
+              }
+            }}
             className="w-full text-right rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-chalk transition-colors flex items-center justify-between cursor-pointer mb-1"
           >
             <span>مسابقات ذخیره شده من</span>
             <span>📂</span>
-          </Link>
+          </button>
 
           <button
             type="button"
