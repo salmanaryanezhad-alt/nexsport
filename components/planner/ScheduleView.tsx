@@ -746,6 +746,8 @@ function StandingsTable({
     [teams, allMatches, scores, pointsRule]
   );
 
+  const isVolleyball = pointsRule?.sport === "volleyball";
+
   return (
     <div className="overflow-x-auto rounded-lg border border-line bg-white shadow-sm print-avoid-break">
       <table className="w-full text-center text-sm">
@@ -754,12 +756,22 @@ function StandingsTable({
             <th className="py-2.5 px-3 text-center w-12">رتبه</th>
             <th className="py-2.5 px-4 text-right">تیم</th>
             <th className="py-2.5 px-2.5 w-12" title="تعداد بازی">بازی</th>
-            <th className="py-2.5 px-2.5 w-12 text-pitch" title="برد">برد</th>
-            <th className="py-2.5 px-2.5 w-12 text-ink/60" title="مساوی">مساوی</th>
+            <th className="py-2.5 px-2.5 w-12 text-pitch font-extrabold" title={isVolleyball ? "تعداد برد (معیار اصلی رده‌بندی والیبال)" : "برد"}>
+              {isVolleyball ? "برد ⭐️" : "برد"}
+            </th>
+            {!isVolleyball && (
+              <th className="py-2.5 px-2.5 w-12 text-ink/60" title="مساوی">مساوی</th>
+            )}
             <th className="py-2.5 px-2.5 w-12 text-brick" title="باخت">باخت</th>
-            <th className="py-2.5 px-2.5 w-14" title="گل زده">زده</th>
-            <th className="py-2.5 px-2.5 w-14" title="گل خورده">خورده</th>
-            <th className="py-2.5 px-2.5 w-14 font-semibold" title="تفاضل گل">تفاضل</th>
+            <th className="py-2.5 px-2.5 w-14" title={isVolleyball ? "ست‌های برده" : "گل زده"}>
+              {isVolleyball ? "ست+" : "زده"}
+            </th>
+            <th className="py-2.5 px-2.5 w-14" title={isVolleyball ? "ست‌های باخته" : "گل خورده"}>
+              {isVolleyball ? "ست-" : "خورده"}
+            </th>
+            <th className="py-2.5 px-2.5 w-14 font-semibold" title={isVolleyball ? "تفاضل ست" : "تفاضل گل"}>
+              {isVolleyball ? "تفاضل ست" : "تفاضل"}
+            </th>
             <th className="py-2.5 px-3 w-16 bg-pitch/5 font-extrabold text-pitch" title="امتیاز">امتیاز</th>
           </tr>
         </thead>
@@ -797,8 +809,10 @@ function StandingsTable({
                   )}
                 </td>
                 <td className="py-2.5 px-2.5 text-ink/80">{s.played}</td>
-                <td className="py-2.5 px-2.5 font-semibold text-pitch">{s.won}</td>
-                <td className="py-2.5 px-2.5 text-ink/60">{s.drawn}</td>
+                <td className="py-2.5 px-2.5 font-bold text-pitch">{s.won}</td>
+                {!isVolleyball && (
+                  <td className="py-2.5 px-2.5 text-ink/60">{s.drawn}</td>
+                )}
                 <td className="py-2.5 px-2.5 text-brick">{s.lost}</td>
                 <td className="py-2.5 px-2.5 text-ink/80">{s.goalsFor}</td>
                 <td className="py-2.5 px-2.5 text-ink/80">{s.goalsAgainst}</td>
@@ -824,9 +838,27 @@ function StandingsTable({
       </table>
 
       {pointsRule && (
-        <div className="px-3.5 py-1.5 bg-chalk/60 border-t border-line/60 text-[11px] text-ink/70 flex flex-wrap items-center justify-between gap-2">
+        <div className="px-3.5 py-2 bg-chalk/60 border-t border-line/60 text-[11px] text-ink/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
           <span>سیستم امتیازدهی: <strong>{pointsRule.name || "سفارشی"}</strong></span>
-          <span>(برد: {pointsRule.win} امتیاز | مساوی: {pointsRule.draw} | باخت: {pointsRule.loss})</span>
+          {isVolleyball ? (
+            <span className="text-[11px] text-pitch font-medium bg-pitch/5 px-2 py-0.5 rounded border border-pitch/15">
+              🏐 <b>قوانین رسمی FIVB:</b> برد ۳-۰ یا ۳-۱ (۳ امتیاز) | برد ۳-۲ (۲ امتیاز) | باخت ۳-۲ (۱ امتیاز) | اولویت اول جدول: <b>تعداد برد</b>
+            </span>
+          ) : pointsRule.sport === "basketball" ? (
+            <span className="text-[11px] text-pitch font-medium bg-pitch/5 px-2 py-0.5 rounded border border-pitch/15">
+              🏀 <b>قوانین رسمی FIBA:</b> برد (۲ امتیاز) | باخت در زمین (۱ امتیاز) | تساوی ندارد
+            </span>
+          ) : pointsRule.sport === "beach-soccer" ? (
+            <span className="text-[11px] text-pitch font-medium bg-pitch/5 px-2 py-0.5 rounded border border-pitch/15">
+              🏖️ <b>قوانین رسمی فوتبال ساحلی:</b> برد در وقت قانونی (۳ امتیاز) | وقت اضافه (۲ امتیاز) | ضربات پنالتی (۱ امتیاز)
+            </span>
+          ) : pointsRule.sport === "handball" ? (
+            <span className="text-[11px] text-pitch font-medium bg-pitch/5 px-2 py-0.5 rounded border border-pitch/15">
+              🤾 <b>قوانین رسمی هندبال:</b> برد (۲ امتیاز) | مساوی (۱ امتیاز) | باخت (۰ امتیاز)
+            </span>
+          ) : (
+            <span>(برد: {pointsRule.win} امتیاز | مساوی: {pointsRule.draw} | باخت: {pointsRule.loss})</span>
+          )}
         </div>
       )}
     </div>

@@ -1658,25 +1658,58 @@ function PlannerWizard() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
                 {[
                   {
                     id: "football",
-                    title: "فوتبال و فوتسال (استاندارد)",
+                    title: "⚽ فوتبال و فوتسال (FIFA)",
                     desc: "برد: ۳ امتیاز | مساوی: ۱ | باخت: ۰",
-                    rule: { win: 3, draw: 1, loss: 0, name: "استاندارد فوتبال (۳-۱-۰)" },
+                    rule: { sport: "football" as const, win: 3, draw: 1, loss: 0, name: "فوتبال و فوتسال (۳-۱-۰)" },
                   },
                   {
-                    id: "two-point",
-                    title: "والیبال، بسکتبال و هندبال",
-                    desc: "برد: ۲ امتیاز | باخت: ۱ | بدون بازی: ۰",
-                    rule: { win: 2, draw: 1, loss: 0, name: "سیستم ۲ امتیازی (۲-۱-۰)" },
+                    id: "volleyball",
+                    title: "🏐 والیبال (قوانین رسمی FIVB)",
+                    desc: "۳-۰/۳-۱ (۳ پوئن) | ۳-۲ (۲ برنده، ۱ بازنده) | اولویت اول: بردها",
+                    rule: {
+                      sport: "volleyball" as const,
+                      win: 3,
+                      draw: 0,
+                      loss: 0,
+                      rankByWinsFirst: true,
+                      name: "والیبال FIVB (محاسبه خودکار از ست‌ها)",
+                    },
+                  },
+                  {
+                    id: "basketball",
+                    title: "🏀 بسکتبال (FIBA)",
+                    desc: "برد: ۲ امتیاز | باخت: ۱ امتیاز | تساوی ندارد",
+                    rule: { sport: "basketball" as const, win: 2, draw: 0, loss: 1, name: "بسکتبال FIBA (۲-۱)" },
+                  },
+                  {
+                    id: "handball",
+                    title: "🤾 هندبال (IHF)",
+                    desc: "برد: ۲ امتیاز | مساوی: ۱ | باخت: ۰",
+                    rule: { sport: "handball" as const, win: 2, draw: 1, loss: 0, name: "هندبال IHF (۲-۱-۰)" },
+                  },
+                  {
+                    id: "beach-soccer",
+                    title: "🏖️ فوتبال ساحلی (FIFA)",
+                    desc: "برد قانونی: ۳ | وقت اضافه: ۲ | پنالتی: ۱ | باخت: ۰",
+                    rule: {
+                      sport: "beach-soccer" as const,
+                      win: 3,
+                      draw: 0,
+                      loss: 0,
+                      winExtraTime: 2,
+                      winPenalties: 1,
+                      name: "فوتبال ساحلی (۳-۲-۱-۰)",
+                    },
                   },
                   {
                     id: "chess",
-                    title: "شطرنج و انفرادی (پینگ‌پنگ)",
-                    desc: "برد: ۲ (یا ۱) | مساوی: ۱ (یا ۰.۵) | باخت: ۰",
-                    rule: { win: 2, draw: 1, loss: 0, name: "شطرنج و انفرادی (۲-۱-۰)" },
+                    title: "♟️ شطرنج و انفرادی (پینگ‌پنگ)",
+                    desc: "برد: ۲ | مساوی: ۱ | باخت: ۰",
+                    rule: { sport: "chess" as const, win: 2, draw: 1, loss: 0, name: "انفرادی و شطرنج (۲-۱-۰)" },
                   },
                 ].map((pts) => {
                   const isSelected = pointsRule.name === pts.rule.name;
@@ -1701,6 +1734,59 @@ function PlannerWizard() {
                   );
                 })}
               </div>
+
+              {/* Sport-specific rule details */}
+              {pointsRule.sport === "volleyball" && (
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-950 space-y-1.5">
+                  <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                    <span>🏐</span>
+                    <span>نحوه محاسبه خودکار امتیازات و رده‌بندی والیبال بر اساس قوانین رسمی فدراسیون جهانی (FIVB):</span>
+                  </div>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px] text-emerald-900/90 pr-2">
+                    <li><b>برد ۳-۰ یا ۳-۱:</b> تیم برنده ۳ امتیاز کامل کسب می‌کند و بازنده ۰ امتیاز.</li>
+                    <li><b>برد ۳-۲ (ست پنجم سرنوشت‌ساز):</b> برنده ۲ امتیاز و بازنده به پاداش مقاومت تا ست پنجم ۱ امتیاز می‌گیرد.</li>
+                    <li><b>قانون طلایی جدول رده‌بندی:</b> اولویت اول رتبه‌بندی در FIVB <b>«تعداد بردها»</b> است و در صورت برابری تعداد برد، امتیاز مسابقات و تفاضل ست محاسبه می‌شود.</li>
+                  </ul>
+                </div>
+              )}
+
+              {pointsRule.sport === "basketball" && (
+                <div className="rounded-lg bg-sky-50 border border-sky-200 p-3 text-xs text-sky-950 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-sky-900">
+                    <span>🏀</span>
+                    <span>قوانین امتیازدهی بسکتبال (FIBA):</span>
+                  </div>
+                  <p className="text-[11px] text-sky-900/90 pr-2">
+                    تیم برنده ۲ امتیاز و بازنده ۱ امتیاز دریافت می‌کند (تساوی وجود ندارد و بازی تا تعیین برنده در وقت‌های اضافه ۵ دقیقه‌ای ادامه می‌یابد). در صورت عدم حضور در زمین (باخت انضباطی)، ۰ امتیاز ثبت می‌شود.
+                  </p>
+                </div>
+              )}
+
+              {pointsRule.sport === "handball" && (
+                <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-3 text-xs text-indigo-950 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-indigo-900">
+                    <span>🤾</span>
+                    <span>قوانین امتیازدهی هندبال (IHF):</span>
+                  </div>
+                  <p className="text-[11px] text-indigo-900/90 pr-2">
+                    در مسابقات لیگ، برد دارای ۲ امتیاز، تساوی ۱ امتیاز و باخت ۰ امتیاز است. در مراحل حذفی بازی با وقت‌های اضافه و پنالتی ادامه می‌یابد.
+                  </p>
+                </div>
+              )}
+
+              {pointsRule.sport === "beach-soccer" && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-950 space-y-1.5">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                    <span>🏖️</span>
+                    <span>قوانین امتیازدهی فوتبال ساحلی (تساوی وجود ندارد):</span>
+                  </div>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-900/90 pr-2">
+                    <li><b>برد در وقت قانونی (۳۶ دقیقه):</b> ۳ امتیاز برای برنده | ۰ امتیاز برای بازنده</li>
+                    <li><b>برد در وقت اضافه (۳ دقیقه):</b> ۲ امتیاز برای برنده | ۰ امتیاز برای بازنده</li>
+                    <li><b>برد در ضربات پنالتی:</b> ۱ امتیاز برای برنده | ۰ امتیاز برای بازنده</li>
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

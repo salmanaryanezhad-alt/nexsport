@@ -68,27 +68,95 @@ export function calculateStandings(
         homeStats.goalDifference = homeStats.goalsFor - homeStats.goalsAgainst;
         awayStats.goalDifference = awayStats.goalsFor - awayStats.goalsAgainst;
 
-        if (hScore > aScore) {
-          homeStats.won += 1;
-          homeStats.points += pointsRule.win;
-          awayStats.lost += 1;
-          awayStats.points += pointsRule.loss;
-        } else if (aScore > hScore) {
-          awayStats.won += 1;
-          awayStats.points += pointsRule.win;
-          homeStats.lost += 1;
-          homeStats.points += pointsRule.loss;
+        if (pointsRule.sport === "volleyball") {
+          // FIVB Volleyball official rules:
+          // Win 3-0 or 3-1: Winner gets 3 pts, Loser gets 0 pts
+          // Win 3-2: Winner gets 2 pts, Loser gets 1 pt
+          const diff = Math.abs(hScore - aScore);
+          if (hScore > aScore) {
+            homeStats.won += 1;
+            awayStats.lost += 1;
+            if (diff >= 2) {
+              homeStats.points += 3;
+              awayStats.points += 0;
+            } else {
+              homeStats.points += 2;
+              awayStats.points += 1;
+            }
+          } else if (aScore > hScore) {
+            awayStats.won += 1;
+            homeStats.lost += 1;
+            if (diff >= 2) {
+              awayStats.points += 3;
+              homeStats.points += 0;
+            } else {
+              awayStats.points += 2;
+              homeStats.points += 1;
+            }
+          }
+        } else if (pointsRule.sport === "beach-soccer") {
+          // FIFA / BSWW Beach Soccer official rules:
+          // Regular time win: 3 pts, Loser 0
+          // Extra time win: 2 pts, Loser 0
+          // Penalty shootout win: 1 pt, Loser 0
+          if (hScore > aScore) {
+            homeStats.won += 1;
+            homeStats.points += pointsRule.win || 3;
+            awayStats.lost += 1;
+            awayStats.points += 0;
+          } else if (aScore > hScore) {
+            awayStats.won += 1;
+            awayStats.points += pointsRule.win || 3;
+            homeStats.lost += 1;
+            homeStats.points += 0;
+          } else {
+            const fullSc = m.id && scores ? (scores[m.id] as any) : null;
+            const hPen = fullSc?.homePenalty ? Number(fullSc.homePenalty) : 0;
+            const aPen = fullSc?.awayPenalty ? Number(fullSc.awayPenalty) : 0;
+            const winner = fullSc?.winner;
+
+            if (hPen > aPen || winner === m.home) {
+              homeStats.won += 1;
+              homeStats.points += pointsRule.winPenalties ?? 1;
+              awayStats.lost += 1;
+              awayStats.points += 0;
+            } else if (aPen > hPen || winner === m.away) {
+              awayStats.won += 1;
+              awayStats.points += pointsRule.winPenalties ?? 1;
+              homeStats.lost += 1;
+              homeStats.points += 0;
+            } else {
+              homeStats.drawn += 1;
+              awayStats.drawn += 1;
+            }
+          }
         } else {
-          homeStats.drawn += 1;
-          homeStats.points += pointsRule.draw;
-          awayStats.drawn += 1;
-          awayStats.points += pointsRule.draw;
+          if (hScore > aScore) {
+            homeStats.won += 1;
+            homeStats.points += pointsRule.win;
+            awayStats.lost += 1;
+            awayStats.points += pointsRule.loss;
+          } else if (aScore > hScore) {
+            awayStats.won += 1;
+            awayStats.points += pointsRule.win;
+            homeStats.lost += 1;
+            homeStats.points += pointsRule.loss;
+          } else {
+            homeStats.drawn += 1;
+            homeStats.points += pointsRule.draw;
+            awayStats.drawn += 1;
+            awayStats.points += pointsRule.draw;
+          }
         }
       }
     }
   }
 
   return Object.values(table).sort((a, b) => {
+    // FIVB Volleyball official rule: Priority #1 is MATCHES WON (تعداد بردها)
+    if (pointsRule.rankByWinsFirst || pointsRule.sport === "volleyball") {
+      if (b.won !== a.won) return b.won - a.won;
+    }
     if (b.points !== a.points) return b.points - a.points;
     if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
     if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;

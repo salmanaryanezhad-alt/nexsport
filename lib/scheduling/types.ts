@@ -115,11 +115,24 @@ export interface DoubleKnockoutScheduleInput {
   metadata?: TournamentMetadata;
 }
 
+export type SportType =
+  | "football"
+  | "volleyball"
+  | "basketball"
+  | "handball"
+  | "beach-soccer"
+  | "chess"
+  | "custom";
+
 export interface PointsRule {
+  sport?: SportType;
   win: number;
   draw: number;
   loss: number;
   name?: string;
+  rankByWinsFirst?: boolean;
+  winExtraTime?: number;
+  winPenalties?: number;
 }
 
 export interface MatchScheduleDetail {

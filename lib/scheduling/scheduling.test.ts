@@ -1496,6 +1496,100 @@ test("دو حذفی: محافظت از براکت در صورت ثبت نتیج�
   assertEqual(blockedByLb.id, lb1Id, "مسابقه مسدودکننده باید بازی LB-R1 باشد.");
 });
 
+test("والیبال FIVB: محاسبه دقیق امتیازات ست‌ها (۳-۰، ۳-۱، ۳-۲) و اولویت تعداد برد در رده‌بندی", () => {
+  const teams = ["ایران", "لهستان", "برزیل"];
+  const matches = [
+    // بازی ۱: ایران ۳ - ۰ لهستان (ایران ۳ امتیاز، لهستان ۰)
+    { id: "m1", round: 1, match: 1, home: "ایران", away: "لهستان", isBye: false },
+    // بازی ۲: لهستان ۳ - ۲ برزیل (لهستان ۲ امتیاز، برزیل ۱ امتیاز)
+    { id: "m2", round: 2, match: 1, home: "لهستان", away: "برزیل", isBye: false },
+    // بازی ۳: برزیل ۳ - ۲ ایران (برزیل ۲ امتیاز، ایران ۱ امتیاز)
+    { id: "m3", round: 3, match: 1, home: "برزیل", away: "ایران", isBye: false },
+  ];
+
+  const scores: Record<string, { home: number; away: number }> = {
+    m1: { home: 3, away: 0 },
+    m2: { home: 3, away: 2 },
+    m3: { home: 3, away: 2 },
+  };
+
+  const pointsRule = {
+    sport: "volleyball" as const,
+    win: 3,
+    draw: 0,
+    loss: 0,
+    rankByWinsFirst: true,
+  };
+
+  const standings = calculateStandings(teams, matches, scores, pointsRule);
+
+  // ایران: ۱ برد، ۱ باخت، ۴ امتیاز (۳ امتیاز از بازی ۱ + ۱ امتیاز از باخت ۳-۲ بازی ۳)
+  const iran = standings.find((s) => s.team === "ایران")!;
+  assertEqual(iran.won, 1, "ایران باید ۱ برد داشته باشد.");
+  assertEqual(iran.lost, 1, "ایران باید ۱ باخت داشته باشد.");
+  assertEqual(iran.points, 4, "ایران باید ۴ امتیاز داشته باشد (۳ از ۳-۰ + ۱ از باخت ۳-۲).");
+
+  // لهستان: ۱ برد، ۱ باخت، ۲ امتیاز (۲ امتیاز از برد ۳-۲، ۰ امتیاز از باخت ۳-۰)
+  const poland = standings.find((s) => s.team === "لهستان")!;
+  assertEqual(poland.won, 1, "لهستان باید ۱ برد داشته باشد.");
+  assertEqual(poland.points, 2, "لهستان باید ۲ امتیاز از برد ۳-۲ داشته باشد.");
+
+  // برزیل: ۱ برد، ۱ باخت، ۳ امتیاز (۲ امتیاز از برد ۳-۲، ۱ امتیاز از باخت ۳-۲)
+  const brazil = standings.find((s) => s.team === "برزیل")!;
+  assertEqual(brazil.won, 1, "برزیل باید ۱ برد داشته باشد.");
+  assertEqual(brazil.points, 3, "برزیل باید ۳ امتیاز داشته باشد.");
+
+  // تست اولویت تعداد برد: تیمی با برد بیشتر حتی با امتیاز کمتر بالاتر قرار می‌گیرد
+  const matches2 = [
+    // تیم الف با ۲ برد ۳-۲ (مجموعاً ۴ امتیاز)
+    { id: "g1", round: 1, match: 1, home: "الف", away: "ب", isBye: false },
+    { id: "g2", round: 2, match: 1, home: "الف", away: "ج", isBye: false },
+    // تیم ب با ۱ برد ۳-۰ و ۲ باخت ۳-۲ (مجموعاً ۵ امتیاز!)
+    { id: "g3", round: 3, match: 1, home: "ب", away: "ج", isBye: false },
+  ];
+
+  const scores2 = {
+    g1: { home: 3, away: 2 }, // الف ۲ امتیاز، ب ۱ امتیاز
+    g2: { home: 3, away: 2 }, // الف ۲ امتیاز، ج ۱ امتیاز
+    g3: { home: 3, away: 0 }, // ب ۳ امتیاز، ج ۰ امتیاز
+  };
+
+  const standings2 = calculateStandings(["الف", "ب", "ج"], matches2, scores2, pointsRule);
+  // الف: ۲ برد و ۴ امتیاز
+  // ب: ۱ برد و ۴ امتیاز + ۱ باخت ۳-۲ = مجموعاً ۴ امتیاز...
+  // در قوانین FIVB تیم الف به دلیل ۲ برد در رتبه ۱ قرار می‌گیرد حتی اگر ب مساوی یا بیشتر باشد
+  assertEqual(standings2[0].team, "الف", "تیم با ۲ برد باید در رتبه اول قرار گیرد.");
+});
+
+test("فوتبال ساحلی: ۳ امتیاز در وقت معمول و ۱ امتیاز در صورت پیروزی در ضربات پنالتی", () => {
+  const teams = ["تیم الف", "تیم ب", "تیم ج"];
+  const matches = [
+    { id: "b1", round: 1, match: 1, home: "تیم الف", away: "تیم ب", isBye: false },
+    { id: "b2", round: 2, match: 1, home: "تیم ب", away: "تیم ج", isBye: false },
+  ];
+
+  const scores: any = {
+    // بازی ۱: برد تیم الف در وقت قانونی (۴-۲) -> ۳ امتیاز
+    b1: { home: 4, away: 2 },
+    // بازی ۲: تساوی ۳-۳ و برد تیم ب در پنالتی (۵-۴) -> ۱ امتیاز
+    b2: { home: 3, away: 3, homePenalty: 5, awayPenalty: 4, winner: "تیم ب" },
+  };
+
+  const standings = calculateStandings(teams, matches, scores, {
+    sport: "beach-soccer",
+    win: 3,
+    draw: 0,
+    loss: 0,
+    winPenalties: 1,
+  });
+
+  const teamA = standings.find((s) => s.team === "تیم الف")!;
+  const teamB = standings.find((s) => s.team === "تیم ب")!;
+  assertEqual(teamA.points, 3, "برد وقت قانونی باید ۳ امتیاز داشته باشد.");
+  assertEqual(teamB.points, 1, "برد در پنالتی باید ۱ امتیاز داشته باشد.");
+  assertEqual(teamB.won, 1, "برد در پنالتی جزو بردهای تیم ثبت می‌شود.");
+});
+
 /* =========================================================
    نتیجه نهایی
    ========================================================= */
