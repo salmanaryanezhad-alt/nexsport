@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { cleanEmailAddress, toEnglishDigits } from "@/lib/auth/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cleanEmail = String(email).trim().toLowerCase();
-    const cleanCode = String(code).trim();
+    const cleanEmail = cleanEmailAddress(String(email));
+    const cleanCode = toEnglishDigits(String(code)).trim();
 
     const verification = await db.verifyCode(cleanEmail, cleanCode);
     if (!verification) {

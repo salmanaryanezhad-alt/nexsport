@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { hashPassword, verifyPassword } from "./password";
 import { generateVerificationCode } from "./email";
+import { cleanMobileNumber, toEnglishDigits } from "./utils";
 
 type TestFn = () => Promise<void> | void;
 
@@ -130,6 +131,14 @@ async function run() {
     await db.deleteSession(token);
     const expiredSession = await db.findSession(token);
     assertEqual(expiredSession, null, "پس از حذف نشست، باید null بازگردد.");
+  });
+
+  await test("نرمال‌سازی ارقام فارسی: تبدیل کیبورد موبایل به انگلیسی و پاکسازی شماره", () => {
+    const persianDigits = "۰۹۱۲۳۴۵۶۷۸۹";
+    const englishDigits = "09123456789";
+    const withSpaces = "+98 912 345 6789";
+    assertEqual(cleanMobileNumber(persianDigits), englishDigits, "اعداد فارسی باید به انگلیسی تبدیل شوند.");
+    assertEqual(cleanMobileNumber(withSpaces), englishDigits, "پیش‌شماره +98 باید به 0 تبدیل شود.");
   });
 
   console.log("\n======================================");

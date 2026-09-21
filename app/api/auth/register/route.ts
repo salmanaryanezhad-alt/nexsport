@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { generateVerificationCode, sendVerificationEmail } from "@/lib/auth/email";
+import { cleanEmailAddress, cleanMobileNumber } from "@/lib/auth/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -17,14 +18,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!email || typeof email !== "string" || !email.includes("@")) {
+    const cleanEmail = cleanEmailAddress(String(email || ""));
+    const cleanMobile = cleanMobileNumber(String(mobile || ""));
+
+    if (!cleanEmail || !cleanEmail.includes("@")) {
       return NextResponse.json(
         { error: "لطفاً یک آدرس ایمیل معتبر وارد نمایید." },
         { status: 400 }
       );
     }
 
-    if (!mobile || typeof mobile !== "string" || mobile.trim().length < 8) {
+    if (!cleanMobile || cleanMobile.length < 8) {
       return NextResponse.json(
         { error: "لطفاً شماره موبایل معتبر وارد نمایید." },
         { status: 400 }
@@ -37,9 +41,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanMobile = mobile.trim();
 
     // Check if email already exists
     const existingEmail = await db.findUserByEmail(cleanEmail);

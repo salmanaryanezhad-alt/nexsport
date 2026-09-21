@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { generateVerificationCode, sendVerificationEmail } from "@/lib/auth/email";
+import { cleanEmailAddress, cleanMobileNumber, toEnglishDigits } from "@/lib/auth/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +25,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cleanIdentifier = identifier.trim();
-    const user = await db.findUserByIdentifier(cleanIdentifier);
+    const raw = identifier.trim();
+    let user = null;
+    if (raw.includes("@")) {
+      user = await db.findUserByEmail(cleanEmailAddress(raw));
+    } else {
+      user = await db.findUserByMobile(cleanMobileNumber(raw));
+      if (!user) {
+        user = await db.findUserByEmail(cleanEmailAddress(raw));
+      }
+    }
 
     if (!user) {
       return NextResponse.json(
