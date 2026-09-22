@@ -3,8 +3,12 @@ import {
   BracketRound,
   KnockoutResult,
   ScheduleValidationError,
+  GroupResult,
+  PointsRule,
 } from "./types";
 import { shuffle } from "./shuffle";
+import { calculateStandings, getLockedRanksForGroup } from "./standings";
+import { toEnglishDigits } from "../auth/utils";
 
 const BYE = null;
 
@@ -44,16 +48,57 @@ export interface MatchScore {
   winner?: string | null;
 }
 
+export function isPlaceholderTeam(name: string | null | undefined): boolean {
+  if (!name) return true;
+  const t = name.trim();
+  if (t === "" || t === "BYE" || t === "استراحت") return true;
+  if (
+    t.startsWith("قهرمان ") ||
+    t.startsWith("نایب‌قهرمان ") ||
+    t.startsWith("تیم اول ") ||
+    t.startsWith("تیم دوم ") ||
+    t.startsWith("تیم سوم ") ||
+    t.startsWith("تیم ۴ ") ||
+    t.startsWith("تیم سوم برتر") ||
+    t.startsWith("تیم برتر سوم") ||
+    t.startsWith("برنده ") ||
+    t.startsWith("بازنده ") ||
+    t.startsWith("در انتظار") ||
+    t.startsWith("نامشخص") ||
+    t.startsWith("سید ")
+  ) {
+    return true;
+  }
+  if (
+    t.includes("گروه") &&
+    (t.includes("تیم") ||
+      t.includes("اول") ||
+      t.includes("دوم") ||
+      t.includes("سوم") ||
+      t.includes("قهرمان") ||
+      t.includes("نایب"))
+  ) {
+    return true;
+  }
+  if (/^سید\s*\d+/.test(t) || /^تیم\s*\d+\s+گروه/.test(t)) {
+    return true;
+  }
+  return false;
+}
+
 export function resolveWinner(
   home: string | null,
   away: string | null,
   sc?: MatchScore,
   autoAdvance?: string | null
 ): string | null {
-  if (autoAdvance) return autoAdvance;
+  if (autoAdvance) {
+    if (isPlaceholderTeam(autoAdvance)) return null;
+    return autoAdvance;
+  }
 
   // STRICT REQUIREMENT: If both competitors are not yet real resolved teams, NO WINNER CAN BE RESOLVED!
-  if (!home || !away || home === "BYE" || away === "BYE") {
+  if (!home || !away || isPlaceholderTeam(home) || isPlaceholderTeam(away)) {
     return null;
   }
 
@@ -139,9 +184,148 @@ export function findPlayedDownstreamMatch(
   return null;
 }
 
+export function resolveGroupsIntoKnockout(
+  rounds: BracketRound[],
+  groups: GroupResult[],
+  scores: Record<string, MatchScore>,
+  pointsRule?: PointsRule
+): void {
+  if (!rounds || rounds.length === 0 || !groups || groups.length === 0) return;
+
+  const groupLockedMap = new Map<string, Map<number, string>>();
+  const groupStandingsMap = new Map<string, any[]>();
+  let allGroupsCompleted = true;
+
+  for (const g of groups) {
+    const gMatches = g.rounds.flatMap((r) => r.matches).filter((m) => !m.isBye && m.home && m.away);
+    const lockedRanks = getLockedRanksForGroup(g.teams, gMatches, scores, pointsRule);
+    groupLockedMap.set(g.name, lockedRanks);
+
+    const standings = calculateStandings(g.teams, gMatches, scores, pointsRule);
+    groupStandingsMap.set(g.name, standings);
+
+    const playedCount = gMatches.filter((m) => {
+      const sc = m.id ? scores[m.id] : undefined;
+      return (
+        sc &&
+        sc.home !== null &&
+        sc.home !== undefined &&
+        sc.away !== null &&
+        sc.away !== undefined &&
+        !isNaN(Number(sc.home)) &&
+        !isNaN(Number(sc.away))
+      );
+    }).length;
+
+    if (playedCount < gMatches.length || gMatches.length === 0) {
+      allGroupsCompleted = false;
+    }
+  }
+
+  // Best 3rd-place teams (Euro-style)
+  const bestThirds: string[] = [];
+  if (allGroupsCompleted) {
+    const thirds: any[] = [];
+    for (const g of groups) {
+      const standings = groupStandingsMap.get(g.name);
+      if (standings && standings.length >= 3) {
+        thirds.push(standings[2]);
+      }
+    }
+    thirds.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+      if (b.won !== a.won) return b.won - a.won;
+      return a.team.localeCompare(b.team, "fa");
+    });
+    for (const t of thirds) {
+      bestThirds.push(t.team);
+    }
+  }
+
+  function resolveSlotString(slotText: string | null | undefined): { team: string | null; placeholder: string } {
+    if (!slotText) return { team: null, placeholder: "در انتظار حریف" };
+    const text = slotText.trim();
+
+    // Check Best 3rd pattern:
+    if (text.includes("تیم سوم برتر")) {
+      const match = text.match(/\d+/);
+      const idx = match ? parseInt(toEnglishDigits(match[0])) - 1 : 0;
+      if (allGroupsCompleted && idx >= 0 && idx < bestThirds.length) {
+        return { team: bestThirds[idx], placeholder: text };
+      }
+      return { team: null, placeholder: text };
+    }
+
+    // Check Group Winners / Runners-up / Specific Ranks:
+    for (const g of groups) {
+      if (text.includes(g.name)) {
+        const locked = groupLockedMap.get(g.name);
+        // Check 2nd place FIRST so "نایب‌قهرمان" is not mistakenly matched by "قهرمان"
+        if (
+          text.startsWith("نایب‌قهرمان") ||
+          text.startsWith("تیم دوم") ||
+          text.includes("نایب‌قهرمان") ||
+          text.includes("تیم دوم") ||
+          text.startsWith("دوم ")
+        ) {
+          const team = locked?.get(2) ?? null;
+          return { team, placeholder: `تیم دوم ${g.name}` };
+        }
+        if (
+          text.startsWith("قهرمان") ||
+          text.startsWith("تیم اول") ||
+          text.includes("قهرمان") ||
+          text.includes("تیم اول") ||
+          text.startsWith("اول ")
+        ) {
+          const team = locked?.get(1) ?? null;
+          return { team, placeholder: `تیم اول ${g.name}` };
+        }
+        const numMatch = text.match(/تیم\s*(\d+)/);
+        if (numMatch) {
+          const rank = parseInt(toEnglishDigits(numMatch[1]));
+          const team = locked?.get(rank) ?? null;
+          return { team, placeholder: `تیم ${rank} ${g.name}` };
+        }
+      }
+    }
+
+    // If already a real team name
+    if (!isPlaceholderTeam(text)) {
+      return { team: text, placeholder: text };
+    }
+
+    return { team: null, placeholder: text };
+  }
+
+  // Resolve Round 1 matches
+  const round1 = rounds[0];
+  if (round1) {
+    for (const m of round1.matches) {
+      if (m.isBye || m.autoAdvance) continue;
+
+      const rawHome = m.homePlaceholder || m.home;
+      const rawAway = m.awayPlaceholder || m.away;
+
+      const resHome = resolveSlotString(rawHome);
+      const resAway = resolveSlotString(rawAway);
+
+      m.home = resHome.team;
+      m.homePlaceholder = resHome.placeholder;
+
+      m.away = resAway.team;
+      m.awayPlaceholder = resAway.placeholder;
+    }
+  }
+}
+
 export function computeKnockoutWithScores(
   knockout: KnockoutResult,
-  scores: Record<string, MatchScore>
+  scores: Record<string, MatchScore>,
+  groups?: GroupResult[],
+  pointsRule?: PointsRule
 ): {
   knockout: KnockoutResult;
   champion: string | null;
@@ -154,6 +338,27 @@ export function computeKnockoutWithScores(
     matches: round.matches.map((m) => ({ ...m })),
   }));
 
+  // If this is groups-knockout, resolve round 1 slots from group standings
+  if (groups && groups.length > 0) {
+    resolveGroupsIntoKnockout(rounds, groups, scores, pointsRule);
+  } else {
+    // If groups not supplied, ensure round 1 matches with placeholder strings don't act as real teams
+    const round1 = rounds[0];
+    if (round1) {
+      for (const m of round1.matches) {
+        if (m.isBye || m.autoAdvance) continue;
+        if (m.home && isPlaceholderTeam(m.home)) {
+          m.homePlaceholder = m.home;
+          m.home = null;
+        }
+        if (m.away && isPlaceholderTeam(m.away)) {
+          m.awayPlaceholder = m.away;
+          m.away = null;
+        }
+      }
+    }
+  }
+
   for (let r = 0; r < rounds.length; r++) {
     const currentRound = rounds[r];
     const prevRound = r > 0 ? rounds[r - 1] : null;
@@ -165,27 +370,46 @@ export function computeKnockoutWithScores(
         const feederA = prevRound.matches[i * 2];
         const feederB = prevRound.matches[i * 2 + 1];
         if (feederA) {
-          match.home = feederA.winner ?? feederA.autoAdvance ?? null;
-          if (feederA.winner || feederA.autoAdvance) {
-            match.homePlaceholder = feederA.winner ?? feederA.autoAdvance ?? undefined;
+          const advA = feederA.winner ?? (feederA.autoAdvance && !isPlaceholderTeam(feederA.autoAdvance) ? feederA.autoAdvance : null);
+          match.home = advA;
+          if (advA) {
+            match.homePlaceholder = advA;
           }
         }
         if (feederB) {
-          match.away = feederB.winner ?? feederB.autoAdvance ?? null;
-          if (feederB.winner || feederB.autoAdvance) {
-            match.awayPlaceholder = feederB.winner ?? feederB.autoAdvance ?? undefined;
+          const advB = feederB.winner ?? (feederB.autoAdvance && !isPlaceholderTeam(feederB.autoAdvance) ? feederB.autoAdvance : null);
+          match.away = advB;
+          if (advB) {
+            match.awayPlaceholder = advB;
           }
         }
       }
 
+      const isAutoAdvance = Boolean(
+        match.autoAdvance && !isPlaceholderTeam(match.autoAdvance)
+      );
+      const isReadyToPlay =
+        Boolean(match.home && match.away) &&
+        !isPlaceholderTeam(match.home) &&
+        !isPlaceholderTeam(match.away);
+
       const sc = scores[match.id];
-      if (sc) {
+      if (sc && isReadyToPlay) {
         match.homeScore = sc.home;
         match.awayScore = sc.away;
         match.homePenalty = sc.homePenalty;
         match.awayPenalty = sc.awayPenalty;
+      } else {
+        match.homeScore = undefined;
+        match.awayScore = undefined;
+        match.homePenalty = undefined;
+        match.awayPenalty = undefined;
       }
-      match.winner = resolveWinner(match.home, match.away, sc, match.autoAdvance);
+      match.winner = isAutoAdvance
+        ? match.autoAdvance
+        : isReadyToPlay
+        ? (resolveWinner(match.home, match.away, sc, match.autoAdvance) ?? null)
+        : null;
     }
   }
 
@@ -224,6 +448,9 @@ export function computeKnockoutWithScores(
         : null;
 
     const sc = scores[knockout.thirdPlaceMatch.id];
+    const isTpReady = Boolean(
+      loser1 && loser2 && !isPlaceholderTeam(loser1) && !isPlaceholderTeam(loser2)
+    );
 
     thirdPlaceMatch = {
       ...knockout.thirdPlaceMatch,
@@ -232,11 +459,11 @@ export function computeKnockoutWithScores(
       away: loser2,
       homePlaceholder: loser1 ?? "بازنده نیمه‌نهایی ۱",
       awayPlaceholder: loser2 ?? "بازنده نیمه‌نهایی ۲",
-      homeScore: sc?.home ?? null,
-      awayScore: sc?.away ?? null,
-      homePenalty: sc?.homePenalty ?? null,
-      awayPenalty: sc?.awayPenalty ?? null,
-      winner: resolveWinner(loser1, loser2, sc, null),
+      homeScore: isTpReady ? sc?.home ?? null : null,
+      awayScore: isTpReady ? sc?.away ?? null : null,
+      homePenalty: isTpReady ? sc?.homePenalty ?? null : null,
+      awayPenalty: isTpReady ? sc?.awayPenalty ?? null : null,
+      winner: isTpReady ? (resolveWinner(loser1, loser2, sc, null) ?? null) : null,
       sourceMatchHomeId: sf1?.id,
       sourceMatchAwayId: sf2?.id,
     };

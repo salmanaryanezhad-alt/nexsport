@@ -7,6 +7,8 @@ import {
   GroupResult,
   MatchScore,
   calculateStandings,
+  calculateClinchStatuses,
+  isPlaceholderTeam,
   computeKnockoutWithScores,
   computeDoubleKnockoutWithScores,
   findPlayedDownstreamMatch,
@@ -252,12 +254,13 @@ export function ScheduleView({
                 <div className="border-t border-line pt-8 mb-6">
                   <h2 className="text-lg font-bold text-pitch">مرحله دوم: براکت حذفی صعودکننده‌ها</h2>
                   <p className="text-xs text-ink/60 mt-1">
-                    نتایج را در هر مسابقه وارد کنید تا برنده به طور خودکار به دور بعد صعود کند. در صورت
-                    تساوی، فیلد ضربات پنالتی نمایش داده می‌شود.
+                    با مسجل شدن وضعیت یا اتمام بازی‌های هر گروه، تیم‌های اول و دوم صعودکننده به صورت خودکار به جایگاه‌های خود در این براکت منتقل می‌شوند.
                   </p>
                 </div>
                 <InteractiveBracket
                   originalKnockout={result.knockout}
+                  groups={result.groups}
+                  pointsRule={meta?.pointsRule}
                   scores={scores}
                   onScoreChange={onScoreChange}
                   matchDetails={matchDetails}
@@ -745,6 +748,10 @@ function StandingsTable({
     () => calculateStandings(teams, allMatches, scores, pointsRule),
     [teams, allMatches, scores, pointsRule]
   );
+  const clinchMap = useMemo(
+    () => calculateClinchStatuses(teams, allMatches, scores, standings, qualifiersCount, pointsRule),
+    [teams, allMatches, scores, standings, qualifiersCount, pointsRule]
+  );
 
   const isVolleyball = pointsRule?.sport === "volleyball";
 
@@ -777,24 +784,31 @@ function StandingsTable({
         </thead>
         <tbody className="divide-y divide-line/60">
           {standings.map((s, idx) => {
-            const isQualifying = idx < qualifiersCount;
+            const clinch = clinchMap[s.team];
+            const isChampion = clinch?.isChampion;
+            const isClinched = clinch?.isClinched;
+
             return (
               <tr
                 key={s.team}
                 className={
                   "transition-colors " +
-                  (isQualifying ? "bg-gold/5 font-medium" : "hover:bg-chalk/30")
+                  (isChampion
+                    ? "bg-gold/15 font-bold"
+                    : isClinched
+                    ? "bg-emerald-50/50 font-semibold"
+                    : "hover:bg-chalk/30")
                 }
               >
                 <td className="py-2.5 px-3">
                   <span
                     className={
                       "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold " +
-                      (idx === 0
+                      (isChampion
                         ? "bg-gold text-ink"
-                        : isQualifying
-                        ? "bg-pitch/15 text-pitch"
-                        : "text-ink/50")
+                        : isClinched
+                        ? "bg-pitch text-chalk"
+                        : "bg-chalk text-ink/70 border border-line")
                     }
                   >
                     {idx + 1}
@@ -802,9 +816,14 @@ function StandingsTable({
                 </td>
                 <td className="py-2.5 px-4 text-right">
                   <span className="font-semibold text-ink">{s.team}</span>
-                  {isQualifying && (
-                    <span className="mr-2 rounded bg-gold/20 px-1.5 py-0.5 text-[10px] font-bold text-gold-dark">
-                      {idx === 0 && qualifiersCount === 1 ? "قهرمان" : qualifierLabel}
+                  {isChampion && (
+                    <span className="mr-2 rounded bg-gold/25 border border-gold/40 px-1.5 py-0.5 text-[10px] font-bold text-gold-dark">
+                      👑 قهرمان
+                    </span>
+                  )}
+                  {isClinched && !isChampion && (
+                    <span className="mr-2 rounded bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                      ✓ {clinch.isAllMatchesFinished ? qualifierLabel : "صعود قطعی"}
                     </span>
                   )}
                 </td>
@@ -875,6 +894,8 @@ function StandingsTable({
 
 function InteractiveBracket({
   originalKnockout,
+  groups,
+  pointsRule,
   scores,
   onScoreChange,
   matchDetails,
@@ -882,6 +903,8 @@ function InteractiveBracket({
   filterTeam,
 }: {
   originalKnockout: ScheduleResult extends { knockout: infer K } ? K : any;
+  groups?: GroupResult[];
+  pointsRule?: PointsRule;
   scores: Record<string, MatchScore>;
   onScoreChange: (
     matchId: string,
@@ -896,8 +919,8 @@ function InteractiveBracket({
   filterTeam?: string;
 }) {
   const { knockout, champion, runnerUp, thirdPlace } = useMemo(
-    () => computeKnockoutWithScores(originalKnockout, scores),
-    [originalKnockout, scores]
+    () => computeKnockoutWithScores(originalKnockout, scores, groups, pointsRule),
+    [originalKnockout, scores, groups, pointsRule]
   );
 
   const allMatches = useMemo(() => {
@@ -1425,9 +1448,9 @@ function MatchBracketCard({
   // Single team Bye: One team advances automatically due to odd teams / seeding / opponent bye
   const isSingleBye = Boolean((m.isBye || m.autoAdvance) && !isEmptyDoubleBye);
 
-  // Real teams:
-  const isHomeReal = Boolean(m.home && m.home !== "BYE");
-  const isAwayReal = Boolean(m.away && m.away !== "BYE");
+  // Real teams (must not be BYE, empty, or group/seed placeholder):
+  const isHomeReal = Boolean(m.home && !isPlaceholderTeam(m.home));
+  const isAwayReal = Boolean(m.away && !isPlaceholderTeam(m.away));
 
   // Ready to play: Both teams are known and it's NOT a Bye
   const isReadyToPlay = !isEmptyDoubleBye && !isSingleBye && isHomeReal && isAwayReal;
@@ -1809,7 +1832,7 @@ function MatchBracketCard({
         ) : (
           <div className="flex items-center justify-between flex-1 py-0.5 text-xs">
             <span className="rounded bg-amber-50/80 border border-dashed border-amber-300 px-2 py-0.5 text-[11px] text-amber-900 font-medium">
-              ⏳ {m.homePlaceholder || "در انتظار برنده بازی قبل"}
+              ⏳ {m.home || m.homePlaceholder || "در انتظار برنده بازی قبل"}
             </span>
           </div>
         )}
@@ -1902,7 +1925,7 @@ function MatchBracketCard({
         ) : (
           <div className="flex items-center justify-between flex-1 py-0.5 text-xs">
             <span className="rounded bg-amber-50/80 border border-dashed border-amber-300 px-2 py-0.5 text-[11px] text-amber-900 font-medium">
-              ⏳ {m.awayPlaceholder || "در انتظار برنده بازی قبل"}
+              ⏳ {m.away || m.awayPlaceholder || "در انتظار برنده بازی قبل"}
             </span>
           </div>
         )}

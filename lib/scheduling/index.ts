@@ -15,6 +15,7 @@ export {
   computeKnockoutWithScores,
   findPlayedDownstreamMatch,
   nextPowerOfTwo,
+  isPlaceholderTeam,
   type MatchScore,
 } from "./knockout";
 export {
@@ -23,7 +24,13 @@ export {
 } from "./doubleKnockout";
 export { buildGroups, calculateDefaultNumGroups } from "./groups";
 export { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
-export { calculateStandings, type TeamStanding } from "./standings";
+export {
+  calculateStandings,
+  calculateClinchStatuses,
+  getLockedRanksForGroup,
+  type TeamStanding,
+  type TeamClinchStatus,
+} from "./standings";
 export { formatScheduleAsText, exportScheduleToCsv, downloadCsvFile } from "./export";
 
 function assertUniqueNonEmptyTeams(teams: string[]) {

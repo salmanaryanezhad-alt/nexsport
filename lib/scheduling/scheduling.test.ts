@@ -1,6 +1,8 @@
 import {
   generateSchedule,
   ScheduleValidationError,
+  calculateClinchStatuses,
+  isPlaceholderTeam,
 } from "./index";
 import { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 import { buildGroups, calculateDefaultNumGroups } from "./groups";
@@ -1588,6 +1590,130 @@ test("فوتبال ساحلی: ۳ امتیاز در وقت معمول و ۱ ام
   assertEqual(teamA.points, 3, "برد وقت قانونی باید ۳ امتیاز داشته باشد.");
   assertEqual(teamB.points, 1, "برد در پنالتی باید ۱ امتیاز داشته باشد.");
   assertEqual(teamB.won, 1, "برد در پنالتی جزو بردهای تیم ثبت می‌شود.");
+});
+
+test("تشخیص تیم‌های موقت و جایگزین (isPlaceholderTeam)", () => {
+  // تیم‌های واقعی
+  assert(!isPlaceholderTeam("استقلال"), "استقلال تیم واقعی است");
+  assert(!isPlaceholderTeam("پرسپولیس"), "پرسپولیس تیم واقعی است");
+  assert(!isPlaceholderTeam("Team Alpha"), "Team Alpha تیم واقعی است");
+
+  // تیم‌های موقت / استراحت
+  assert(isPlaceholderTeam("BYE"), "BYE جایگزین است");
+  assert(isPlaceholderTeam("گروه A - تیم اول"), "گروه A - تیم اول جایگزین است");
+  assert(isPlaceholderTeam("گروه B - تیم دوم"), "گروه B - تیم دوم جایگزین است");
+  assert(isPlaceholderTeam("تیم برتر سوم ۱"), "تیم برتر سوم جایگزین است");
+  assert(isPlaceholderTeam("سید ۱"), "سید ۱ جایگزین است");
+  assert(isPlaceholderTeam("برنده بازی ۱"), "برنده بازی ۱ جایگزین است");
+  assert(isPlaceholderTeam(null), "null جایگزین است");
+  assert(isPlaceholderTeam(undefined), "undefined جایگزین است");
+});
+
+test("محاسبه وضعیت صعود و قهرمانی (clinch status): عدم نمایش قهرمان قبل از قطعیت ریاضی", () => {
+  const teams = ["تیم الف", "تیم ب", "تیم ج"];
+  const matches = [
+    { id: "m1", round: 1, match: 1, home: "تیم الف", away: "تیم ب", isBye: false },
+    { id: "m2", round: 2, match: 1, home: "تیم ب", away: "تیم ج", isBye: false },
+    { id: "m3", round: 3, match: 1, home: "تیم الف", away: "تیم ج", isBye: false },
+  ];
+
+  // حالت ۱: هیچ بازی برگزار نشده است
+  const emptyScores: Record<string, any> = {};
+  const standings1 = calculateStandings(teams, matches, emptyScores);
+  const clinchMap1 = calculateClinchStatuses(teams, matches, emptyScores, standings1, 1);
+
+  assert(!clinchMap1["تیم الف"].isChampion, "در ابتدای لیگ هیچ تیمی نباید قهرمان باشد.");
+  assert(!clinchMap1["تیم الف"].isClinched, "در ابتدای لیگ هیچ تیمی صعود قطعی ندارد.");
+  assert(!clinchMap1["تیم ب"].isChampion, "تیم ب نباید قهرمان باشد.");
+
+  // حالت ۲: بازی اول برگزار شده و تیم الف ۳ امتیاز گرفته، تیم ب ۰ امتیاز
+  const scores2: Record<string, any> = {
+    m1: { home: 3, away: 0 },
+  };
+  const standings2 = calculateStandings(teams, matches, scores2);
+  const clinchMap2 = calculateClinchStatuses(teams, matches, scores2, standings2, 1);
+
+  assert(!clinchMap2["تیم الف"].isChampion, "با یک برد و باقی ماندن بازی‌ها هنوز قهرمانی قطعی نیست.");
+
+  // حالت ۳: تیم الف هر دو بازی خود را می‌برد (۶ امتیاز). سایر تیم‌ها حداکثر می‌توانند ۳ امتیاز بگیرند.
+  const scores3: Record<string, any> = {
+    m1: { home: 3, away: 0 },
+    m3: { home: 2, away: 0 },
+  };
+  const standings3 = calculateStandings(teams, matches, scores3);
+  const clinchMap3 = calculateClinchStatuses(teams, matches, scores3, standings3, 1);
+
+  assert(clinchMap3["تیم الف"].isChampion, "تیم الف با ۶ امتیاز و حداکثر امتیاز ممکن رقبا (۳) باید قهرمانی‌اش قطعی باشد.");
+  assert(clinchMap3["تیم الف"].isClinched, "تیم الف صعود قطعی دارد.");
+});
+
+test("گروهی + حذفی: صعود خودکار تیم‌های سرگروه به براکت حذفی با پایان بازی‌ها", () => {
+  const sched = generateSchedule({
+    format: "groups-knockout",
+    teams: ["الف۱", "الف۲", "الف۳", "ب۱", "ب۲", "ب۳"],
+    numGroups: 2,
+    qualifiersPerGroup: 2,
+    hasThirdPlace: true,
+  });
+
+  assert(sched.format === "groups-knockout", "فرمت باید groups-knockout باشد");
+  if (sched.format !== "groups-knockout") return;
+
+  // براکت حذفی اولیه: رقبای دور اول جایگزین موقت هستند (قهرمان گروه A و ...)
+  const r1m1 = sched.knockout.rounds[0].matches[0];
+  assert(isPlaceholderTeam(r1m1.home), "میزبان بازی دور اول در ابتدا باید جایگاه گروهی باشد");
+  assert(isPlaceholderTeam(r1m1.away), "مهمان بازی دور اول در ابتدا باید جایگاه گروهی باشد");
+
+  // حال تمام بازی‌های گروه اول را ثبت می‌کنیم: تیم ۱ اول، تیم ۲ دوم، تیم ۳ سوم
+  const gA = sched.groups[0];
+  const [teamFirst, teamSecond, teamThird] = gA.teams;
+  const scores: Record<string, any> = {};
+
+  for (const m of gA.rounds.flatMap((r) => r.matches)) {
+    if (m.home === teamFirst) {
+      scores[m.id] = { home: 3, away: 0, winner: teamFirst };
+    } else if (m.away === teamFirst) {
+      scores[m.id] = { home: 0, away: 3, winner: teamFirst };
+    } else if (m.home === teamSecond) {
+      scores[m.id] = { home: 2, away: 1, winner: teamSecond };
+    } else if (m.away === teamSecond) {
+      scores[m.id] = { home: 1, away: 2, winner: teamSecond };
+    }
+  }
+
+  // براکت با در نظر گرفتن گروه‌ها محاسبه می‌شود
+  const computed = computeKnockoutWithScores(sched.knockout, scores, sched.groups);
+  const computedR1 = computed.knockout.rounds[0].matches;
+
+  // بررسی می‌کنیم که جایگاه‌های صعودکننده گروه A با تیم‌های واقعی teamFirst و teamSecond پر شده باشند
+  const hasFirst = computedR1.some((m) => m.home === teamFirst || m.away === teamFirst);
+  const hasSecond = computedR1.some((m) => m.home === teamSecond || m.away === teamSecond);
+
+  assert(hasFirst, `تیم قهرمان گروه (${teamFirst}) باید به طور خودکار در براکت حذفی قرار گیرد.`);
+  assert(hasSecond, `تیم نایب‌قهرمان گروه (${teamSecond}) باید به طور خودکار در براکت حذفی قرار گیرد.`);
+});
+
+test("حذفی: جلوگیری از ثبت نتیجه و برنده برای مسابقات دارای جایگاه موقت گروهی", () => {
+  const sched = generateSchedule({
+    format: "groups-knockout",
+    teams: ["الف۱", "الف۲", "ب۱", "ب۲"],
+    numGroups: 2,
+    qualifiersPerGroup: 1,
+  });
+
+  if (sched.format !== "groups-knockout") return;
+
+  const r1m1 = sched.knockout.rounds[0].matches[0];
+  // سعی در ثبت نتیجه یا برنده روی مسابقه‌ای که هنوز گروه‌ها تمام نشده و حریفان مشخص نیستند
+  const invalidScores = {
+    [r1m1.id]: { home: 2, away: 1, winner: r1m1.home },
+  };
+
+  const computed = computeKnockoutWithScores(sched.knockout, invalidScores, sched.groups);
+  const computedMatch = computed.knockout.rounds[0].matches[0];
+
+  assert(!computedMatch.homeScore, "امتیاز مسابقه‌ای که شرکت‌کنندگانش قطعی نیست نباید ثبت شود.");
+  assert(!computedMatch.winner, "برنده مسابقه‌ای که شرکت‌کنندگانش قطعی نیست نباید اعلام شود.");
 });
 
 /* =========================================================
