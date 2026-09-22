@@ -1,10 +1,12 @@
 import {
   generateSchedule,
   ScheduleValidationError,
+  calculateClinchStatuses,
+  isPlaceholderTeam,
 } from "./index";
 import { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 import { buildGroups, calculateDefaultNumGroups } from "./groups";
-import { buildKnockout, computeKnockoutWithScores } from "./knockout";
+import { buildKnockout, computeKnockoutWithScores, findPlayedDownstreamMatch } from "./knockout";
 import { buildDoubleKnockout, computeDoubleKnockoutWithScores } from "./doubleKnockout";
 import { formatScheduleAsText, formatScheduleAsCsv } from "./export";
 import { calculateStandings } from "./standings";
@@ -1311,6 +1313,407 @@ test("دو حذفی: کدهای مسابقه و عدم امکان تعیین ب�
   assertEqual(lbR1.home, "T4", "T4 به عنوان بازنده W1 به جدول شانس مجدد رفته است.");
   assertEqual(lbR1.away, null, "حریف T4 هنوز از بازی W2 نیامده است.");
   assertEqual(lbR1.winner, null, "T4 نباید برنده شود تا زمانی که حریفش مشخص شود.");
+});
+
+test("دو حذفی ۵ تیمی: مدیریت صحیح استراحت‌های جدول بازندگان (Byes) و رسیدن به فینال نهایی بدون توقف", () => {
+  const teams = ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴", "تیم ۵"];
+  const dk = buildDoubleKnockout({ teams, seededTeams: teams });
+
+  // 1. شبیه‌سازی پایان جدول برندگان
+  // دور اول: W1 استراحت (تیم ۱ صعود)، W2 تیم ۴ تیم ۵ را می‌برد (تیم ۵ می‌بازد)، W3 استراحت (تیم ۲)، W4 استراحت (تیم ۳)
+  const wbR1M2 = dk.winnersBracket[0].matches[1].id;
+  const wbR2M1 = dk.winnersBracket[1].matches[0].id;
+  const wbR2M2 = dk.winnersBracket[1].matches[1].id;
+  const wbFinal = dk.winnersBracket[2].matches[0].id;
+
+  const scores: Record<string, any> = {
+    [wbR1M2]: { home: 2, away: 0, winner: "تیم ۴" }, // W2: تیم ۴ برد، تیم ۵ باخت
+    [wbR2M1]: { home: 1, away: 0, winner: "تیم ۱" }, // W5: تیم ۱ تیم ۴ را برد (تیم ۴ باخت)
+    [wbR2M2]: { home: 2, away: 1, winner: "تیم ۲" }, // W6: تیم ۲ تیم ۳ را برد (تیم ۳ باخت)
+    [wbFinal]: { home: 1, away: 0, winner: "تیم ۱" }, // W-Final: تیم ۱ تیم ۲ را برد (تیم ۲ باخت)
+  };
+
+  let computed = computeDoubleKnockoutWithScores(dk, scores);
+
+  // در جدول بازندگان:
+  // L1: باید استراحت داشته باشد و تیم ۵ مستقیماً صعود کند
+  const lb1 = computed.doubleKnockout.losersBracket[0].matches[0];
+  assert(lb1.isBye, "مسابقه L1 باید دارای وضعیت استراحت (Bye) باشد.");
+  assertEqual(lb1.winner, "تیم ۵", "تیم ۵ باید به صورت خودکار از L1 صعود کند.");
+
+  // L2: هر دو طرف استراحت بوده‌اند، پس این مسابقه یک مسابقه خالی است
+  const lb2 = computed.doubleKnockout.losersBracket[0].matches[1];
+  assert(lb2.isBye, "مسابقه L2 باید به عنوان استراحت دوطرفه ثبت شود.");
+  assertEqual(lb2.winner, null, "مسابقه L2 نباید برنده‌ای داشته باشد چون تیمی در آن نبوده.");
+
+  // دور دوم بازندگان:
+  // L3: تیم ۵ مقابل تیم ۳ (هر دو حاضرند)
+  const lb3 = computed.doubleKnockout.losersBracket[1].matches[0];
+  assertEqual(lb3.home, "تیم ۵", "تیم ۵ باید در L3 حاضر باشد.");
+  assertEqual(lb3.away, "تیم ۳", "تیم ۳ باید در L3 حاضر باشد.");
+
+  // L4: حریف L2 استراحت بوده است؛ پس تیم ۴ باید با استراحت (Bye) به دور بعد صعود کند
+  const lb4 = computed.doubleKnockout.losersBracket[1].matches[1];
+  assert(lb4.isBye, "مسابقه L4 باید به دلیل نبود حریف از L2 قرعه استراحت دریافت کند.");
+  assertEqual(lb4.winner, "تیم ۴", "تیم ۴ باید مستقیماً با استراحت از دور ۲ شانس مجدد صعود کند.");
+
+  // بازی L3 برگزار می‌شود: تیم ۵ پیروز می‌شود
+  scores[lb3.id] = { home: 2, away: 1, winner: "تیم ۵" };
+  computed = computeDoubleKnockoutWithScores(dk, scores);
+
+  // نیمه‌نهایی بازندگان (دور ۳): L5 بین تیم ۵ و تیم ۴
+  const lb5 = computed.doubleKnockout.losersBracket[2].matches[0];
+  assertEqual(lb5.home, "تیم ۵", "میزبان نیمه‌نهایی بازندگان تیم ۵ است.");
+  assertEqual(lb5.away, "تیم ۴", "مهمان نیمه‌نهایی بازندگان تیم ۴ است.");
+
+  // بازی L5 برگزار می‌شود: تیم ۵ پیروز می‌شود
+  scores[lb5.id] = { home: 1, away: 0, winner: "تیم ۵" };
+  computed = computeDoubleKnockoutWithScores(dk, scores);
+
+  // فینال بازندگان (دور ۴): L-Final بین تیم ۵ و تیم ۲
+  const lbFinal = computed.doubleKnockout.losersBracket[3].matches[0];
+  assertEqual(lbFinal.home, "تیم ۵", "تیم ۵ باید در فینال بازندگان باشد.");
+  assertEqual(lbFinal.away, "تیم ۲", "تیم ۲ (بازنده فینال برندگان) باید در فینال بازندگان باشد.");
+
+  // بازی فینال بازندگان برگزار می‌شود: تیم ۵ پیروز می‌شود
+  scores[lbFinal.id] = { home: 2, away: 1, winner: "تیم ۵" };
+  computed = computeDoubleKnockoutWithScores(dk, scores);
+
+  // فینال نهایی (Grand Final): تیم ۱ مقابل تیم ۵
+  const gf = computed.doubleKnockout.grandFinal;
+  assertEqual(gf.home, "تیم ۱", "میزبان فینال نهایی باید قهرمان برندگان باشد.");
+  assertEqual(gf.away, "تیم ۵", "مهمان فینال نهایی باید قهرمان بازندگان باشد.");
+
+  // پایان فینال نهایی
+  scores[gf.id] = { home: 3, away: 1, winner: "تیم ۱" };
+  computed = computeDoubleKnockoutWithScores(dk, scores);
+  assertEqual(computed.champion, "تیم ۱", "قهرمان مسابقات باید تیم ۱ باشد.");
+  assertEqual(computed.runnerUp, "تیم ۵", "نایب‌قهرمان باید تیم ۵ باشد.");
+  assertEqual(computed.thirdPlace, "تیم ۲", "مقام سوم باید تیم ۲ باشد.");
+});
+
+test("حذفی: لغو برنده (unselect) و بازگشت مسابقه بعدی به حالت در انتظار حریف", () => {
+  const teams = ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴"];
+  const ko = buildKnockout({ teams, seededTeams: teams });
+
+  // دور اول: م۱ بین تیم ۱ و تیم ۴، م۲ بین تیم ۳ و تیم ۲
+  const m1Id = ko.rounds[0].matches[0].id;
+  const m2Id = ko.rounds[0].matches[1].id;
+  const finalId = ko.rounds[1].matches[0].id;
+
+  const scores: Record<string, MatchScore> = {};
+
+  // ثبت برنده برای م۱ (تیم ۱ برنده شد)
+  scores[m1Id] = { home: null, away: null, winner: "تیم ۱" };
+  let computed = computeKnockoutWithScores(ko, scores);
+
+  assertEqual(computed.knockout.rounds[0].matches[0].winner, "تیم ۱", "تیم ۱ باید برنده بازی ۱ باشد.");
+  assertEqual(computed.knockout.rounds[1].matches[0].home, "تیم ۱", "تیم ۱ باید در فینال قرار گرفته باشد.");
+  assertEqual(computed.knockout.rounds[1].matches[0].away, null, "حریف دوم فینال هنوز مشخص نیست.");
+
+  // کاربر روی تیم ۱ دوباره کلیک می‌کند و برنده لغو می‌شود (unselect)
+  delete scores[m1Id];
+  computed = computeKnockoutWithScores(ko, scores);
+
+  assertEqual(computed.knockout.rounds[0].matches[0].winner, null, "پس از لغو، برنده بازی ۱ باید null شود.");
+  assertEqual(computed.knockout.rounds[1].matches[0].home, null, "پس از لغو، جایگاه فینال باید دوباره null و در انتظار حریف شود.");
+});
+
+test("حذفی: مسابقه رده‌بندی دارای sourceMatchHomeId و sourceMatchAwayId برای شناسایی وابستگی است", () => {
+  const teams = ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴"];
+  const ko = buildKnockout({ teams, seededTeams: teams, hasThirdPlace: true });
+
+  assert(Boolean(ko.thirdPlaceMatch), "مسابقه رده‌بندی باید وجود داشته باشد.");
+  const sf1Id = ko.rounds[0].matches[0].id;
+  const sf2Id = ko.rounds[0].matches[1].id;
+
+  assertEqual(ko.thirdPlaceMatch?.sourceMatchHomeId, sf1Id, "شناسه میزبان رده‌بندی باید نیمه‌نهایی ۱ باشد.");
+  assertEqual(ko.thirdPlaceMatch?.sourceMatchAwayId, sf2Id, "شناسه مهمان رده‌بندی باید نیمه‌نهایی ۲ باشد.");
+
+  const scores: Record<string, MatchScore> = {
+    [sf1Id]: { home: 2, away: 0, winner: "تیم ۱" },
+    [sf2Id]: { home: 1, away: 3, winner: "تیم ۲" },
+  };
+
+  const computed = computeKnockoutWithScores(ko, scores);
+  assertEqual(computed.knockout.thirdPlaceMatch?.sourceMatchHomeId, sf1Id, "پس از محاسبه، منبع میزبان باید حفظ شود.");
+  assertEqual(computed.knockout.thirdPlaceMatch?.sourceMatchAwayId, sf2Id, "پس از محاسبه، منبع مهمان باید حفظ شود.");
+  assertEqual(computed.knockout.thirdPlaceMatch?.home, "تیم ۴", "بازنده نیمه‌نهایی ۱ باید تیم ۴ باشد.");
+  assertEqual(computed.knockout.thirdPlaceMatch?.away, "تیم ۳", "بازنده نیمه‌نهایی ۲ باید تیم ۳ باشد.");
+});
+
+test("محافظت از براکت: findPlayedDownstreamMatch مانع تغییر برنده در صورت ثبت نتیجه مرحله بعد می‌شود", () => {
+  const teams = ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴"];
+  const ko = buildKnockout({ teams, seededTeams: teams });
+  const allMatches = [...ko.rounds[0].matches, ...ko.rounds[1].matches];
+
+  const m1Id = ko.rounds[0].matches[0].id;
+  const finalId = ko.rounds[1].matches[0].id;
+
+  const scores: Record<string, MatchScore> = {};
+
+  // وقتی هیچ مسابقه‌ای ثبت نشده باشد
+  assertEqual(findPlayedDownstreamMatch(m1Id, allMatches, scores), null, "وقتی مرحله بعد بازی نشده، باید null برگردد.");
+
+  // وقتی برنده م۱ ثبت شده ولی فینال بازی نشده
+  scores[m1Id] = { home: null, away: null, winner: "تیم ۱" };
+  assertEqual(findPlayedDownstreamMatch(m1Id, allMatches, scores), null, "هنوز فینال ثبت نشده، پس باید null برگردد و امکان لغو باشد.");
+
+  // حالا نتیجه فینال ثبت می‌شود
+  scores[finalId] = { home: 2, away: 1, winner: "تیم ۱" };
+  const blocked = findPlayedDownstreamMatch(m1Id, allMatches, scores);
+  assert(Boolean(blocked), "وقتی نتیجه فینال ثبت شده، باید مانع تغییر دور قبل شود.");
+  assertEqual(blocked.id, finalId, "مسابقه بعدی مسدودکننده باید همان فینال باشد.");
+
+  // اگر نتیجه فینال پاک شود
+  delete scores[finalId];
+  assertEqual(findPlayedDownstreamMatch(m1Id, allMatches, scores), null, "پس از پاک کردن نتیجه فینال، قفل باید باز شود.");
+});
+
+test("دو حذفی: محافظت از براکت در صورت ثبت نتیجه در جدول برندگان یا بازندگان", () => {
+  const dk = buildDoubleKnockout({
+    teams: ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴"],
+    seededTeams: ["تیم ۱", "تیم ۲", "تیم ۳", "تیم ۴"],
+  });
+
+  const allMatches = [
+    ...dk.winnersBracket.flatMap((r) => r.matches),
+    ...dk.losersBracket.flatMap((r) => r.matches),
+    dk.grandFinal,
+    ...(dk.bracketResetMatch ? [dk.bracketResetMatch] : []),
+  ];
+
+  const wb1Id = dk.winnersBracket[0].matches[0].id;
+  const scores: Record<string, MatchScore> = {};
+
+  // وقتی هیچ نتیجه‌ای ثبت نشده
+  assertEqual(findPlayedDownstreamMatch(wb1Id, allMatches, scores), null, "در ابتدا وابستگی بازی‌شده‌ای وجود ندارد.");
+
+  // ثبت نتیجه در مسابقه بازندگان (LB-R1)
+  const lb1Id = dk.losersBracket[0].matches[0].id;
+  scores[lb1Id] = { home: 1, away: 0, winner: "تیم ۴" };
+
+  const blockedByLb = findPlayedDownstreamMatch(wb1Id, allMatches, scores);
+  assert(Boolean(blockedByLb), "ثبت نتیجه در جدول بازندگان باید مانع تغییر مسابقه مبدا در جدول برندگان شود.");
+  assertEqual(blockedByLb.id, lb1Id, "مسابقه مسدودکننده باید بازی LB-R1 باشد.");
+});
+
+test("والیبال FIVB: محاسبه دقیق امتیازات ست‌ها (۳-۰، ۳-۱، ۳-۲) و اولویت تعداد برد در رده‌بندی", () => {
+  const teams = ["ایران", "لهستان", "برزیل"];
+  const matches = [
+    // بازی ۱: ایران ۳ - ۰ لهستان (ایران ۳ امتیاز، لهستان ۰)
+    { id: "m1", round: 1, match: 1, home: "ایران", away: "لهستان", isBye: false },
+    // بازی ۲: لهستان ۳ - ۲ برزیل (لهستان ۲ امتیاز، برزیل ۱ امتیاز)
+    { id: "m2", round: 2, match: 1, home: "لهستان", away: "برزیل", isBye: false },
+    // بازی ۳: برزیل ۳ - ۲ ایران (برزیل ۲ امتیاز، ایران ۱ امتیاز)
+    { id: "m3", round: 3, match: 1, home: "برزیل", away: "ایران", isBye: false },
+  ];
+
+  const scores: Record<string, { home: number; away: number }> = {
+    m1: { home: 3, away: 0 },
+    m2: { home: 3, away: 2 },
+    m3: { home: 3, away: 2 },
+  };
+
+  const pointsRule = {
+    sport: "volleyball" as const,
+    win: 3,
+    draw: 0,
+    loss: 0,
+    rankByWinsFirst: true,
+  };
+
+  const standings = calculateStandings(teams, matches, scores, pointsRule);
+
+  // ایران: ۱ برد، ۱ باخت، ۴ امتیاز (۳ امتیاز از بازی ۱ + ۱ امتیاز از باخت ۳-۲ بازی ۳)
+  const iran = standings.find((s) => s.team === "ایران")!;
+  assertEqual(iran.won, 1, "ایران باید ۱ برد داشته باشد.");
+  assertEqual(iran.lost, 1, "ایران باید ۱ باخت داشته باشد.");
+  assertEqual(iran.points, 4, "ایران باید ۴ امتیاز داشته باشد (۳ از ۳-۰ + ۱ از باخت ۳-۲).");
+
+  // لهستان: ۱ برد، ۱ باخت، ۲ امتیاز (۲ امتیاز از برد ۳-۲، ۰ امتیاز از باخت ۳-۰)
+  const poland = standings.find((s) => s.team === "لهستان")!;
+  assertEqual(poland.won, 1, "لهستان باید ۱ برد داشته باشد.");
+  assertEqual(poland.points, 2, "لهستان باید ۲ امتیاز از برد ۳-۲ داشته باشد.");
+
+  // برزیل: ۱ برد، ۱ باخت، ۳ امتیاز (۲ امتیاز از برد ۳-۲، ۱ امتیاز از باخت ۳-۲)
+  const brazil = standings.find((s) => s.team === "برزیل")!;
+  assertEqual(brazil.won, 1, "برزیل باید ۱ برد داشته باشد.");
+  assertEqual(brazil.points, 3, "برزیل باید ۳ امتیاز داشته باشد.");
+
+  // تست اولویت تعداد برد: تیمی با برد بیشتر حتی با امتیاز کمتر بالاتر قرار می‌گیرد
+  const matches2 = [
+    // تیم الف با ۲ برد ۳-۲ (مجموعاً ۴ امتیاز)
+    { id: "g1", round: 1, match: 1, home: "الف", away: "ب", isBye: false },
+    { id: "g2", round: 2, match: 1, home: "الف", away: "ج", isBye: false },
+    // تیم ب با ۱ برد ۳-۰ و ۲ باخت ۳-۲ (مجموعاً ۵ امتیاز!)
+    { id: "g3", round: 3, match: 1, home: "ب", away: "ج", isBye: false },
+  ];
+
+  const scores2 = {
+    g1: { home: 3, away: 2 }, // الف ۲ امتیاز، ب ۱ امتیاز
+    g2: { home: 3, away: 2 }, // الف ۲ امتیاز، ج ۱ امتیاز
+    g3: { home: 3, away: 0 }, // ب ۳ امتیاز، ج ۰ امتیاز
+  };
+
+  const standings2 = calculateStandings(["الف", "ب", "ج"], matches2, scores2, pointsRule);
+  // الف: ۲ برد و ۴ امتیاز
+  // ب: ۱ برد و ۴ امتیاز + ۱ باخت ۳-۲ = مجموعاً ۴ امتیاز...
+  // در قوانین FIVB تیم الف به دلیل ۲ برد در رتبه ۱ قرار می‌گیرد حتی اگر ب مساوی یا بیشتر باشد
+  assertEqual(standings2[0].team, "الف", "تیم با ۲ برد باید در رتبه اول قرار گیرد.");
+});
+
+test("فوتبال ساحلی: ۳ امتیاز در وقت معمول و ۱ امتیاز در صورت پیروزی در ضربات پنالتی", () => {
+  const teams = ["تیم الف", "تیم ب", "تیم ج"];
+  const matches = [
+    { id: "b1", round: 1, match: 1, home: "تیم الف", away: "تیم ب", isBye: false },
+    { id: "b2", round: 2, match: 1, home: "تیم ب", away: "تیم ج", isBye: false },
+  ];
+
+  const scores: any = {
+    // بازی ۱: برد تیم الف در وقت قانونی (۴-۲) -> ۳ امتیاز
+    b1: { home: 4, away: 2 },
+    // بازی ۲: تساوی ۳-۳ و برد تیم ب در پنالتی (۵-۴) -> ۱ امتیاز
+    b2: { home: 3, away: 3, homePenalty: 5, awayPenalty: 4, winner: "تیم ب" },
+  };
+
+  const standings = calculateStandings(teams, matches, scores, {
+    sport: "beach-soccer",
+    win: 3,
+    draw: 0,
+    loss: 0,
+    winPenalties: 1,
+  });
+
+  const teamA = standings.find((s) => s.team === "تیم الف")!;
+  const teamB = standings.find((s) => s.team === "تیم ب")!;
+  assertEqual(teamA.points, 3, "برد وقت قانونی باید ۳ امتیاز داشته باشد.");
+  assertEqual(teamB.points, 1, "برد در پنالتی باید ۱ امتیاز داشته باشد.");
+  assertEqual(teamB.won, 1, "برد در پنالتی جزو بردهای تیم ثبت می‌شود.");
+});
+
+test("تشخیص تیم‌های موقت و جایگزین (isPlaceholderTeam)", () => {
+  // تیم‌های واقعی
+  assert(!isPlaceholderTeam("استقلال"), "استقلال تیم واقعی است");
+  assert(!isPlaceholderTeam("پرسپولیس"), "پرسپولیس تیم واقعی است");
+  assert(!isPlaceholderTeam("Team Alpha"), "Team Alpha تیم واقعی است");
+
+  // تیم‌های موقت / استراحت
+  assert(isPlaceholderTeam("BYE"), "BYE جایگزین است");
+  assert(isPlaceholderTeam("گروه A - تیم اول"), "گروه A - تیم اول جایگزین است");
+  assert(isPlaceholderTeam("گروه B - تیم دوم"), "گروه B - تیم دوم جایگزین است");
+  assert(isPlaceholderTeam("تیم برتر سوم ۱"), "تیم برتر سوم جایگزین است");
+  assert(isPlaceholderTeam("سید ۱"), "سید ۱ جایگزین است");
+  assert(isPlaceholderTeam("برنده بازی ۱"), "برنده بازی ۱ جایگزین است");
+  assert(isPlaceholderTeam(null), "null جایگزین است");
+  assert(isPlaceholderTeam(undefined), "undefined جایگزین است");
+});
+
+test("محاسبه وضعیت صعود و قهرمانی (clinch status): عدم نمایش قهرمان قبل از قطعیت ریاضی", () => {
+  const teams = ["تیم الف", "تیم ب", "تیم ج"];
+  const matches = [
+    { id: "m1", round: 1, match: 1, home: "تیم الف", away: "تیم ب", isBye: false },
+    { id: "m2", round: 2, match: 1, home: "تیم ب", away: "تیم ج", isBye: false },
+    { id: "m3", round: 3, match: 1, home: "تیم الف", away: "تیم ج", isBye: false },
+  ];
+
+  // حالت ۱: هیچ بازی برگزار نشده است
+  const emptyScores: Record<string, any> = {};
+  const standings1 = calculateStandings(teams, matches, emptyScores);
+  const clinchMap1 = calculateClinchStatuses(teams, matches, emptyScores, standings1, 1);
+
+  assert(!clinchMap1["تیم الف"].isChampion, "در ابتدای لیگ هیچ تیمی نباید قهرمان باشد.");
+  assert(!clinchMap1["تیم الف"].isClinched, "در ابتدای لیگ هیچ تیمی صعود قطعی ندارد.");
+  assert(!clinchMap1["تیم ب"].isChampion, "تیم ب نباید قهرمان باشد.");
+
+  // حالت ۲: بازی اول برگزار شده و تیم الف ۳ امتیاز گرفته، تیم ب ۰ امتیاز
+  const scores2: Record<string, any> = {
+    m1: { home: 3, away: 0 },
+  };
+  const standings2 = calculateStandings(teams, matches, scores2);
+  const clinchMap2 = calculateClinchStatuses(teams, matches, scores2, standings2, 1);
+
+  assert(!clinchMap2["تیم الف"].isChampion, "با یک برد و باقی ماندن بازی‌ها هنوز قهرمانی قطعی نیست.");
+
+  // حالت ۳: تیم الف هر دو بازی خود را می‌برد (۶ امتیاز). سایر تیم‌ها حداکثر می‌توانند ۳ امتیاز بگیرند.
+  const scores3: Record<string, any> = {
+    m1: { home: 3, away: 0 },
+    m3: { home: 2, away: 0 },
+  };
+  const standings3 = calculateStandings(teams, matches, scores3);
+  const clinchMap3 = calculateClinchStatuses(teams, matches, scores3, standings3, 1);
+
+  assert(clinchMap3["تیم الف"].isChampion, "تیم الف با ۶ امتیاز و حداکثر امتیاز ممکن رقبا (۳) باید قهرمانی‌اش قطعی باشد.");
+  assert(clinchMap3["تیم الف"].isClinched, "تیم الف صعود قطعی دارد.");
+});
+
+test("گروهی + حذفی: صعود خودکار تیم‌های سرگروه به براکت حذفی با پایان بازی‌ها", () => {
+  const sched = generateSchedule({
+    format: "groups-knockout",
+    teams: ["الف۱", "الف۲", "الف۳", "ب۱", "ب۲", "ب۳"],
+    numGroups: 2,
+    qualifiersPerGroup: 2,
+    hasThirdPlace: true,
+  });
+
+  assert(sched.format === "groups-knockout", "فرمت باید groups-knockout باشد");
+  if (sched.format !== "groups-knockout") return;
+
+  // براکت حذفی اولیه: رقبای دور اول جایگزین موقت هستند (قهرمان گروه A و ...)
+  const r1m1 = sched.knockout.rounds[0].matches[0];
+  assert(isPlaceholderTeam(r1m1.home), "میزبان بازی دور اول در ابتدا باید جایگاه گروهی باشد");
+  assert(isPlaceholderTeam(r1m1.away), "مهمان بازی دور اول در ابتدا باید جایگاه گروهی باشد");
+
+  // حال تمام بازی‌های گروه اول را ثبت می‌کنیم: تیم ۱ اول، تیم ۲ دوم، تیم ۳ سوم
+  const gA = sched.groups[0];
+  const [teamFirst, teamSecond, teamThird] = gA.teams;
+  const scores: Record<string, any> = {};
+
+  for (const m of gA.rounds.flatMap((r) => r.matches)) {
+    if (m.home === teamFirst) {
+      scores[m.id] = { home: 3, away: 0, winner: teamFirst };
+    } else if (m.away === teamFirst) {
+      scores[m.id] = { home: 0, away: 3, winner: teamFirst };
+    } else if (m.home === teamSecond) {
+      scores[m.id] = { home: 2, away: 1, winner: teamSecond };
+    } else if (m.away === teamSecond) {
+      scores[m.id] = { home: 1, away: 2, winner: teamSecond };
+    }
+  }
+
+  // براکت با در نظر گرفتن گروه‌ها محاسبه می‌شود
+  const computed = computeKnockoutWithScores(sched.knockout, scores, sched.groups);
+  const computedR1 = computed.knockout.rounds[0].matches;
+
+  // بررسی می‌کنیم که جایگاه‌های صعودکننده گروه A با تیم‌های واقعی teamFirst و teamSecond پر شده باشند
+  const hasFirst = computedR1.some((m) => m.home === teamFirst || m.away === teamFirst);
+  const hasSecond = computedR1.some((m) => m.home === teamSecond || m.away === teamSecond);
+
+  assert(hasFirst, `تیم قهرمان گروه (${teamFirst}) باید به طور خودکار در براکت حذفی قرار گیرد.`);
+  assert(hasSecond, `تیم نایب‌قهرمان گروه (${teamSecond}) باید به طور خودکار در براکت حذفی قرار گیرد.`);
+});
+
+test("حذفی: جلوگیری از ثبت نتیجه و برنده برای مسابقات دارای جایگاه موقت گروهی", () => {
+  const sched = generateSchedule({
+    format: "groups-knockout",
+    teams: ["الف۱", "الف۲", "ب۱", "ب۲"],
+    numGroups: 2,
+    qualifiersPerGroup: 1,
+  });
+
+  if (sched.format !== "groups-knockout") return;
+
+  const r1m1 = sched.knockout.rounds[0].matches[0];
+  // سعی در ثبت نتیجه یا برنده روی مسابقه‌ای که هنوز گروه‌ها تمام نشده و حریفان مشخص نیستند
+  const invalidScores = {
+    [r1m1.id]: { home: 2, away: 1, winner: r1m1.home },
+  };
+
+  const computed = computeKnockoutWithScores(sched.knockout, invalidScores, sched.groups);
+  const computedMatch = computed.knockout.rounds[0].matches[0];
+
+  assert(!computedMatch.homeScore, "امتیاز مسابقه‌ای که شرکت‌کنندگانش قطعی نیست نباید ثبت شود.");
+  assert(!computedMatch.winner, "برنده مسابقه‌ای که شرکت‌کنندگانش قطعی نیست نباید اعلام شود.");
 });
 
 /* =========================================================

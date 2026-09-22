@@ -91,6 +91,10 @@ export const metadata: Metadata = {
   },
 };
 
+import { AuthProvider } from "@/components/auth/AuthContext";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { ProfileModal } from "@/components/auth/ProfileModal";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fa" dir="rtl">
@@ -99,9 +103,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
+        <link
+          rel="preload"
+          href="/fonts/vazirmatn/Vazirmatn[wght].woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="min-h-screen font-sans antialiased bg-chalk text-ink selection:bg-gold selection:text-ink">
-        {children}
+        <AuthProvider>
+          {children}
+          <AuthModal />
+          <ProfileModal />
+        </AuthProvider>
       </body>
     </html>
   );

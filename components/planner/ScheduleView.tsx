@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   ScheduleResult,
   RoundRobinRound,
   GroupResult,
   MatchScore,
   calculateStandings,
+  calculateClinchStatuses,
+  isPlaceholderTeam,
   computeKnockoutWithScores,
   computeDoubleKnockoutWithScores,
+  findPlayedDownstreamMatch,
   DoubleKnockoutResult,
   TournamentMetadata,
   MatchScheduleDetail,
@@ -251,12 +254,13 @@ export function ScheduleView({
                 <div className="border-t border-line pt-8 mb-6">
                   <h2 className="text-lg font-bold text-pitch">مرحله دوم: براکت حذفی صعودکننده‌ها</h2>
                   <p className="text-xs text-ink/60 mt-1">
-                    نتایج را در هر مسابقه وارد کنید تا برنده به طور خودکار به دور بعد صعود کند. در صورت
-                    تساوی، فیلد ضربات پنالتی نمایش داده می‌شود.
+                    با مسجل شدن وضعیت یا اتمام بازی‌های هر گروه، تیم‌های اول و دوم صعودکننده به صورت خودکار به جایگاه‌های خود در این براکت منتقل می‌شوند.
                   </p>
                 </div>
                 <InteractiveBracket
                   originalKnockout={result.knockout}
+                  groups={result.groups}
+                  pointsRule={meta?.pointsRule}
                   scores={scores}
                   onScoreChange={onScoreChange}
                   matchDetails={matchDetails}
@@ -744,6 +748,12 @@ function StandingsTable({
     () => calculateStandings(teams, allMatches, scores, pointsRule),
     [teams, allMatches, scores, pointsRule]
   );
+  const clinchMap = useMemo(
+    () => calculateClinchStatuses(teams, allMatches, scores, standings, qualifiersCount, pointsRule),
+    [teams, allMatches, scores, standings, qualifiersCount, pointsRule]
+  );
+
+  const isVolleyball = pointsRule?.sport === "volleyball";
 
   return (
     <div className="overflow-x-auto rounded-lg border border-line bg-white shadow-sm print-avoid-break">
@@ -753,35 +763,52 @@ function StandingsTable({
             <th className="py-2.5 px-3 text-center w-12">رتبه</th>
             <th className="py-2.5 px-4 text-right">تیم</th>
             <th className="py-2.5 px-2.5 w-12" title="تعداد بازی">بازی</th>
-            <th className="py-2.5 px-2.5 w-12 text-pitch" title="برد">برد</th>
-            <th className="py-2.5 px-2.5 w-12 text-ink/60" title="مساوی">مساوی</th>
+            <th className="py-2.5 px-2.5 w-12 text-pitch font-extrabold" title={isVolleyball ? "تعداد برد (معیار اصلی رده‌بندی والیبال)" : "برد"}>
+              {isVolleyball ? "برد ⭐️" : "برد"}
+            </th>
+            {!isVolleyball && (
+              <th className="py-2.5 px-2.5 w-12 text-ink/60" title="مساوی">مساوی</th>
+            )}
             <th className="py-2.5 px-2.5 w-12 text-brick" title="باخت">باخت</th>
-            <th className="py-2.5 px-2.5 w-14" title="گل زده">زده</th>
-            <th className="py-2.5 px-2.5 w-14" title="گل خورده">خورده</th>
-            <th className="py-2.5 px-2.5 w-14 font-semibold" title="تفاضل گل">تفاضل</th>
+            <th className="py-2.5 px-2.5 w-14" title={isVolleyball ? "ست‌های برده" : "گل زده"}>
+              {isVolleyball ? "ست+" : "زده"}
+            </th>
+            <th className="py-2.5 px-2.5 w-14" title={isVolleyball ? "ست‌های باخته" : "گل خورده"}>
+              {isVolleyball ? "ست-" : "خورده"}
+            </th>
+            <th className="py-2.5 px-2.5 w-14 font-semibold" title={isVolleyball ? "تفاضل ست" : "تفاضل گل"}>
+              {isVolleyball ? "تفاضل ست" : "تفاضل"}
+            </th>
             <th className="py-2.5 px-3 w-16 bg-pitch/5 font-extrabold text-pitch" title="امتیاز">امتیاز</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line/60">
           {standings.map((s, idx) => {
-            const isQualifying = idx < qualifiersCount;
+            const clinch = clinchMap[s.team];
+            const isChampion = clinch?.isChampion;
+            const isClinched = clinch?.isClinched;
+
             return (
               <tr
                 key={s.team}
                 className={
                   "transition-colors " +
-                  (isQualifying ? "bg-gold/5 font-medium" : "hover:bg-chalk/30")
+                  (isChampion
+                    ? "bg-gold/15 font-bold"
+                    : isClinched
+                    ? "bg-emerald-50/50 font-semibold"
+                    : "hover:bg-chalk/30")
                 }
               >
                 <td className="py-2.5 px-3">
                   <span
                     className={
                       "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold " +
-                      (idx === 0
+                      (isChampion
                         ? "bg-gold text-ink"
-                        : isQualifying
-                        ? "bg-pitch/15 text-pitch"
-                        : "text-ink/50")
+                        : isClinched
+                        ? "bg-pitch text-chalk"
+                        : "bg-chalk text-ink/70 border border-line")
                     }
                   >
                     {idx + 1}
@@ -789,15 +816,22 @@ function StandingsTable({
                 </td>
                 <td className="py-2.5 px-4 text-right">
                   <span className="font-semibold text-ink">{s.team}</span>
-                  {isQualifying && (
-                    <span className="mr-2 rounded bg-gold/20 px-1.5 py-0.5 text-[10px] font-bold text-gold-dark">
-                      {idx === 0 && qualifiersCount === 1 ? "قهرمان" : qualifierLabel}
+                  {isChampion && (
+                    <span className="mr-2 rounded bg-gold/25 border border-gold/40 px-1.5 py-0.5 text-[10px] font-bold text-gold-dark">
+                      👑 قهرمان
+                    </span>
+                  )}
+                  {isClinched && !isChampion && (
+                    <span className="mr-2 rounded bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                      ✓ {clinch.isAllMatchesFinished ? qualifierLabel : "صعود قطعی"}
                     </span>
                   )}
                 </td>
                 <td className="py-2.5 px-2.5 text-ink/80">{s.played}</td>
-                <td className="py-2.5 px-2.5 font-semibold text-pitch">{s.won}</td>
-                <td className="py-2.5 px-2.5 text-ink/60">{s.drawn}</td>
+                <td className="py-2.5 px-2.5 font-bold text-pitch">{s.won}</td>
+                {!isVolleyball && (
+                  <td className="py-2.5 px-2.5 text-ink/60">{s.drawn}</td>
+                )}
                 <td className="py-2.5 px-2.5 text-brick">{s.lost}</td>
                 <td className="py-2.5 px-2.5 text-ink/80">{s.goalsFor}</td>
                 <td className="py-2.5 px-2.5 text-ink/80">{s.goalsAgainst}</td>
@@ -823,9 +857,27 @@ function StandingsTable({
       </table>
 
       {pointsRule && (
-        <div className="px-3.5 py-1.5 bg-chalk/60 border-t border-line/60 text-[11px] text-ink/70 flex flex-wrap items-center justify-between gap-2">
+        <div className="px-3.5 py-2 bg-chalk/60 border-t border-line/60 text-[11px] text-ink/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
           <span>سیستم امتیازدهی: <strong>{pointsRule.name || "سفارشی"}</strong></span>
-          <span>(برد: {pointsRule.win} امتیاز | مساوی: {pointsRule.draw} | باخت: {pointsRule.loss})</span>
+          {isVolleyball ? (
+            <span className="text-[11px] text-pitch font-medium bg-pitch/5 px-2 py-0.5 rounded border border-pitch/15">
+              🏐 <b>قوانین رسمی FIVB:</b> برد ۳-۰ یا ۳-۱ (۳ امتیاز) | برد ۳-۲ (۲ امتیاز) | باخت ۳-۲ (۱ امتیاز) | اولویت اول جدول: <b>تعداد برد</b>
+            </span>
+          ) : pointsRule.sport === "basketball" ? (
+            <span className="text-[11px] text-pitch font-medium bg-pitch/5 px-2 py-0.5 rounded border border-pitch/15">
+              🏀 <b>قوانین رسمی FIBA:</b> برد (۲ امتیاز) | باخت در زمین (۱ امتیاز) | تساوی ندارد
+            </span>
+          ) : pointsRule.sport === "beach-soccer" ? (
+            <span className="text-[11px] text-pitch font-medium bg-pitch/5 px-2 py-0.5 rounded border border-pitch/15">
+              🏖️ <b>قوانین رسمی فوتبال ساحلی:</b> برد در وقت قانونی (۳ امتیاز) | وقت اضافه (۲ امتیاز) | ضربات پنالتی (۱ امتیاز)
+            </span>
+          ) : pointsRule.sport === "handball" ? (
+            <span className="text-[11px] text-pitch font-medium bg-pitch/5 px-2 py-0.5 rounded border border-pitch/15">
+              🤾 <b>قوانین رسمی هندبال:</b> برد (۲ امتیاز) | مساوی (۱ امتیاز) | باخت (۰ امتیاز)
+            </span>
+          ) : (
+            <span>(برد: {pointsRule.win} امتیاز | مساوی: {pointsRule.draw} | باخت: {pointsRule.loss})</span>
+          )}
         </div>
       )}
     </div>
@@ -833,11 +885,17 @@ function StandingsTable({
 }
 
 /* =========================================================
+   DOWNSTREAM PLAYED CHECKER (PROTECTS BRACKET INTEGRITY)
+   ========================================================= */
+
+/* =========================================================
    INTERACTIVE KNOCKOUT BRACKET WITH PENALTIES & 3RD PLACE
    ========================================================= */
 
 function InteractiveBracket({
   originalKnockout,
+  groups,
+  pointsRule,
   scores,
   onScoreChange,
   matchDetails,
@@ -845,6 +903,8 @@ function InteractiveBracket({
   filterTeam,
 }: {
   originalKnockout: ScheduleResult extends { knockout: infer K } ? K : any;
+  groups?: GroupResult[];
+  pointsRule?: PointsRule;
   scores: Record<string, MatchScore>;
   onScoreChange: (
     matchId: string,
@@ -859,8 +919,28 @@ function InteractiveBracket({
   filterTeam?: string;
 }) {
   const { knockout, champion, runnerUp, thirdPlace } = useMemo(
-    () => computeKnockoutWithScores(originalKnockout, scores),
-    [originalKnockout, scores]
+    () => computeKnockoutWithScores(originalKnockout, scores, groups, pointsRule),
+    [originalKnockout, scores, groups, pointsRule]
+  );
+
+  const allMatches = useMemo(() => {
+    const list: any[] = [];
+    if (knockout?.rounds) {
+      for (const r of knockout.rounds) {
+        if (r.matches) list.push(...r.matches);
+      }
+    }
+    if (knockout?.thirdPlaceMatch) {
+      list.push(knockout.thirdPlaceMatch);
+    }
+    return list;
+  }, [knockout]);
+
+  const checkDownstreamPlayed = useCallback(
+    (matchId: string) => {
+      return findPlayedDownstreamMatch(matchId, allMatches, scores);
+    },
+    [allMatches, scores]
   );
 
   return (
@@ -926,6 +1006,7 @@ function InteractiveBracket({
                     matchDetails={matchDetails}
                     onOpenEditModal={onOpenEditModal}
                     filterTeam={filterTeam}
+                    checkDownstreamPlayed={checkDownstreamPlayed}
                   />
                 ))}
               </div>
@@ -958,6 +1039,7 @@ function InteractiveBracket({
               matchDetails={matchDetails}
               onOpenEditModal={onOpenEditModal}
               filterTeam={filterTeam}
+              checkDownstreamPlayed={checkDownstreamPlayed}
             />
           </div>
         </div>
@@ -993,6 +1075,53 @@ function InteractiveDoubleKnockoutBracket({
   const { doubleKnockout, champion, runnerUp, thirdPlace } = useMemo(
     () => computeDoubleKnockoutWithScores(originalDoubleKnockout, scores),
     [originalDoubleKnockout, scores]
+  );
+
+  const activeLbRoundLabel = useMemo(() => {
+    for (const r of doubleKnockout.losersBracket) {
+      const hasUnfinishedPlayable = r.matches.some(
+        (m) =>
+          !m.isBye &&
+          !m.autoAdvance &&
+          m.home &&
+          m.away &&
+          m.home !== "BYE" &&
+          m.away !== "BYE" &&
+          !m.winner
+      );
+      if (hasUnfinishedPlayable) {
+        return r.label;
+      }
+    }
+    return null;
+  }, [doubleKnockout.losersBracket]);
+
+  const allMatches = useMemo(() => {
+    const list: any[] = [];
+    if (doubleKnockout?.winnersBracket) {
+      for (const r of doubleKnockout.winnersBracket) {
+        if (r.matches) list.push(...r.matches);
+      }
+    }
+    if (doubleKnockout?.losersBracket) {
+      for (const r of doubleKnockout.losersBracket) {
+        if (r.matches) list.push(...r.matches);
+      }
+    }
+    if (doubleKnockout?.grandFinal) {
+      list.push(doubleKnockout.grandFinal);
+    }
+    if (doubleKnockout?.bracketResetMatch) {
+      list.push(doubleKnockout.bracketResetMatch);
+    }
+    return list;
+  }, [doubleKnockout]);
+
+  const checkDownstreamPlayed = useCallback(
+    (matchId: string) => {
+      return findPlayedDownstreamMatch(matchId, allMatches, scores);
+    },
+    [allMatches, scores]
   );
 
   return (
@@ -1139,6 +1268,7 @@ function InteractiveDoubleKnockoutBracket({
                         matchDetails={matchDetails}
                         onOpenEditModal={onOpenEditModal}
                         filterTeam={filterTeam}
+                        checkDownstreamPlayed={checkDownstreamPlayed}
                       />
                     ))}
                   </div>
@@ -1167,6 +1297,25 @@ function InteractiveDoubleKnockoutBracket({
             </span>
           </div>
 
+          {/* Guide & Active Round Indicator */}
+          <div className="rounded-lg border border-amber-300/80 bg-amber-100/70 p-3 text-xs text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-start gap-2">
+              <span className="text-base mt-0.5">💡</span>
+              <div className="space-y-0.5 leading-relaxed">
+                <span className="font-bold">راهنمای نحوه برگزاری جدول شانس مجدد: </span>
+                <span>
+                  مسابقات دور به دور برگزار می‌شوند. برای مشخص شدن رقبای دور ۲ و دورهای بعدی، ابتدا نتایج بازی‌های دور قبل شانس مجدد (دور ۱) را ثبت کنید.
+                </span>
+              </div>
+            </div>
+            {activeLbRoundLabel && (
+              <div className="shrink-0 flex items-center gap-1.5 bg-white border border-amber-400 rounded-lg px-2.5 py-1 text-xs font-bold text-amber-900 shadow-2xs">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>دور فعال جهت ثبت نتیجه: {activeLbRoundLabel}</span>
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-6 overflow-x-auto pb-4 pt-2">
             {doubleKnockout.losersBracket.map((round, rIdx) => {
               const isFinal = rIdx === doubleKnockout.losersBracket.length - 1;
@@ -1190,6 +1339,7 @@ function InteractiveDoubleKnockoutBracket({
                         matchDetails={matchDetails}
                         onOpenEditModal={onOpenEditModal}
                         filterTeam={filterTeam}
+                        checkDownstreamPlayed={checkDownstreamPlayed}
                       />
                     ))}
                   </div>
@@ -1229,6 +1379,7 @@ function InteractiveDoubleKnockoutBracket({
                 matchDetails={matchDetails}
                 onOpenEditModal={onOpenEditModal}
                 filterTeam={filterTeam}
+                checkDownstreamPlayed={checkDownstreamPlayed}
               />
             </div>
 
@@ -1243,6 +1394,7 @@ function InteractiveDoubleKnockoutBracket({
                   matchDetails={matchDetails}
                   onOpenEditModal={onOpenEditModal}
                   filterTeam={filterTeam}
+                  checkDownstreamPlayed={checkDownstreamPlayed}
                 />
               </div>
             )}
@@ -1262,6 +1414,7 @@ function MatchBracketCard({
   matchDetails,
   onOpenEditModal,
   filterTeam,
+  checkDownstreamPlayed,
 }: {
   match: any;
   scores: Record<string, MatchScore>;
@@ -1278,6 +1431,7 @@ function MatchBracketCard({
   matchDetails?: Record<string, MatchScheduleDetail>;
   onOpenEditModal?: (id: string, home: string, away: string) => void;
   filterTeam?: string;
+  checkDownstreamPlayed?: (matchId: string) => any;
 }) {
   const sc = scores[m.id] || {
     home: m.homeScore ?? null,
@@ -1288,18 +1442,24 @@ function MatchBracketCard({
   };
 
   // 1. Status classification:
-  // Bye: One team advances automatically due to odd teams / seeding
-  const isBye = Boolean(m.isBye || m.autoAdvance);
+  // Empty double-bye match: Neither side had participants due to byes on both feeder sides
+  const isEmptyDoubleBye = Boolean(m.isBye && !m.autoAdvance && !m.home && !m.away);
 
-  // Real teams:
-  const isHomeReal = Boolean(m.home && m.home !== "BYE");
-  const isAwayReal = Boolean(m.away && m.away !== "BYE");
+  // Single team Bye: One team advances automatically due to odd teams / seeding / opponent bye
+  const isSingleBye = Boolean((m.isBye || m.autoAdvance) && !isEmptyDoubleBye);
+
+  // Real teams (must not be BYE, empty, or group/seed placeholder):
+  const isHomeReal = Boolean(m.home && !isPlaceholderTeam(m.home));
+  const isAwayReal = Boolean(m.away && !isPlaceholderTeam(m.away));
 
   // Ready to play: Both teams are known and it's NOT a Bye
-  const isReadyToPlay = !isBye && isHomeReal && isAwayReal;
+  const isReadyToPlay = !isEmptyDoubleBye && !isSingleBye && isHomeReal && isAwayReal;
 
   // Pending: Still waiting for one or both teams to arrive from previous match
-  const isPending = !isBye && (!isHomeReal || !isAwayReal);
+  const isPending = !isEmptyDoubleBye && !isSingleBye && (!isHomeReal || !isAwayReal);
+  const isPartiallyKnown = isPending && ((isHomeReal && !isAwayReal) || (!isHomeReal && isAwayReal));
+  const knownTeam = isHomeReal ? m.home : isAwayReal ? m.away : null;
+  const missingPlaceholder = !isHomeReal ? m.homePlaceholder : m.awayPlaceholder;
 
   const isHomeWinner = m.winner && isHomeReal && m.winner === m.home;
   const isAwayWinner = m.winner && isAwayReal && m.winner === m.away;
@@ -1315,14 +1475,156 @@ function MatchBracketCard({
     filterTeam !== "all" &&
     (m.home === filterTeam || m.away === filterTeam);
 
+  // Downstream dependency protection
+  const downstreamPlayed = checkDownstreamPlayed ? checkDownstreamPlayed(m.id) : null;
+  const isDownstreamBlocked = Boolean(downstreamPlayed);
+
+  const warnDownstreamPlayed = () => {
+    const nextCode =
+      downstreamPlayed?.matchCode ||
+      downstreamPlayed?.label ||
+      (downstreamPlayed?.slot !== undefined ? `بازی ${downstreamPlayed.slot + 1}` : "مرحله بعد");
+    alert(
+      `امکان تغییر یا لغو نتیجه این مسابقه وجود ندارد، زیرا نتیجه مسابقه مرحله بعد (${nextCode}) قبلاً ثبت شده است.\n\nلطفاً ابتدا نتیجه مسابقه مرحله بعد را پاک یا لغو نمایید.`
+    );
+  };
+
+  const handleHomeClick = () => {
+    if (!isReadyToPlay) return;
+
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+
+    if (isHomeWinner) {
+      // Toggle unselect winner and clear match result
+      onScoreChange(m.id, null, null, null, null, null);
+    } else {
+      // Select home team as winner
+      onScoreChange(
+        m.id,
+        sc.home,
+        sc.away,
+        sc.homePenalty ?? null,
+        sc.awayPenalty ?? null,
+        m.home
+      );
+    }
+  };
+
+  const handleAwayClick = () => {
+    if (!isReadyToPlay) return;
+
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+
+    if (isAwayWinner) {
+      // Toggle unselect winner and clear match result
+      onScoreChange(m.id, null, null, null, null, null);
+    } else {
+      // Select away team as winner
+      onScoreChange(
+        m.id,
+        sc.home,
+        sc.away,
+        sc.homePenalty ?? null,
+        sc.awayPenalty ?? null,
+        m.away
+      );
+    }
+  };
+
+  const handleHomeScoreInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+    const val =
+      e.target.value === ""
+        ? null
+        : Math.max(0, parseInt(e.target.value) || 0);
+    onScoreChange(
+      m.id,
+      val,
+      sc.away,
+      sc.homePenalty ?? null,
+      sc.awayPenalty ?? null,
+      undefined
+    );
+  };
+
+  const handleAwayScoreInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+    const val =
+      e.target.value === ""
+        ? null
+        : Math.max(0, parseInt(e.target.value) || 0);
+    onScoreChange(
+      m.id,
+      sc.home,
+      val,
+      sc.homePenalty ?? null,
+      sc.awayPenalty ?? null,
+      undefined
+    );
+  };
+
+  const handleHomePenaltyInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+    const val =
+      e.target.value === ""
+        ? null
+        : Math.max(0, parseInt(e.target.value) || 0);
+    onScoreChange(
+      m.id,
+      sc.home,
+      sc.away,
+      val,
+      sc.awayPenalty ?? null,
+      undefined
+    );
+  };
+
+  const handleAwayPenaltyInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDownstreamBlocked) {
+      warnDownstreamPlayed();
+      return;
+    }
+    const val =
+      e.target.value === ""
+        ? null
+        : Math.max(0, parseInt(e.target.value) || 0);
+    onScoreChange(
+      m.id,
+      sc.home,
+      sc.away,
+      sc.homePenalty ?? null,
+      val,
+      undefined
+    );
+  };
+    filterTeam !== "all" &&
+    (m.home === filterTeam || m.away === filterTeam);
+
   return (
     <div
       className={
         "rounded-lg border shadow-xs transition-all overflow-hidden print-avoid-break " +
         (isFilteredTeam ? "ring-2 ring-gold border-gold bg-gold/5 " : "") +
-        (isPending
+        (isEmptyDoubleBye
+          ? "border-slate-200 bg-slate-50/40 opacity-75"
+          : isPending
           ? "border-amber-200/90 bg-amber-50/20"
-          : isBye
+          : isSingleBye
           ? "border-emerald-200 bg-emerald-50/15"
           : isFinal
           ? "border-gold/80 bg-white"
@@ -1333,9 +1635,11 @@ function MatchBracketCard({
       <div
         className={
           "flex items-center justify-between border-b px-3 py-1.5 text-[11px] " +
-          (isPending
+          (isEmptyDoubleBye
+            ? "border-slate-200 bg-slate-100/70 text-slate-700"
+            : isPending
             ? "border-amber-200/80 bg-amber-50/60 text-amber-900"
-            : isBye
+            : isSingleBye
             ? "border-emerald-200 bg-emerald-50/60 text-emerald-900"
             : "border-line/60 bg-chalk/70 text-ink/70")
         }
@@ -1350,20 +1654,57 @@ function MatchBracketCard({
         </div>
 
         {/* State Badges */}
-        {isBye && (
-          <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold border border-emerald-300">
-            🟢 استراحت (Bye)
+        {isEmptyDoubleBye && (
+          <span className="rounded bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold border border-slate-300">
+            🟢 استراحت دوطرفه (بدون بازی)
           </span>
         )}
-        {isPending && (
+        {isSingleBye && (
+          <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold border border-emerald-300">
+            🟢 صعود مستقیم (Bye)
+          </span>
+        )}
+        {isPartiallyKnown && (
           <span className="rounded bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold border border-amber-300">
-            ⏳ در انتظار حریف
+            ⏳ در انتظار مشخص شدن حریف دوم
+          </span>
+        )}
+        {isPending && !isPartiallyKnown && (
+          <span className="rounded bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold border border-amber-300">
+            ⏳ در انتظار مشخص شدن تیم‌ها
           </span>
         )}
         {isReadyToPlay && m.winner && (
-          <span className="rounded bg-pitch/10 text-pitch px-2 py-0.5 text-[10px] font-bold">
+          <button
+            type="button"
+            onClick={() => {
+              if (isDownstreamBlocked) {
+                warnDownstreamPlayed();
+                return;
+              }
+              onScoreChange(m.id, null, null, null, null, null);
+            }}
+            className={
+              "rounded px-2 py-0.5 text-[10px] font-bold transition-all " +
+              (isDownstreamBlocked
+                ? "bg-amber-100 text-amber-900 border border-amber-300 cursor-not-allowed"
+                : "bg-pitch/10 text-pitch hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300 border border-pitch/20 cursor-pointer")
+            }
+            title={
+              isDownstreamBlocked
+                ? `امکان لغو یا تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
+                : "کلیک برای لغو برنده و پاک کردن نتیجه این مسابقه"
+            }
+          >
             ✓ برنده: {m.winner}
-          </span>
+            {!isDownstreamBlocked ? (
+              <span className="mr-1 text-[9px] opacity-75 font-normal">
+                (لغو ✕)
+              </span>
+            ) : (
+              <span className="mr-1 text-[9px] font-normal">🔒</span>
+            )}
+          </button>
         )}
         {isReadyToPlay && !m.winner && (
           <span className="rounded bg-sky-100 text-sky-800 px-2 py-0.5 text-[10px] font-bold border border-sky-300">
@@ -1373,16 +1714,34 @@ function MatchBracketCard({
       </div>
 
       {/* Pending / Bye explanation banner */}
-      {isPending && (
-        <div className="bg-amber-100/40 border-b border-amber-200/50 px-3 py-1 text-[10px] text-amber-900 flex items-center gap-1.5">
-          <span>🔒</span>
-          <span>امکان ثبت نتیجه پس از پایان بازی قبلی و مشخص شدن هر دو تیم فعال می‌شود.</span>
+      {isEmptyDoubleBye && (
+        <div className="bg-slate-100/60 border-b border-slate-200 px-3 py-1 text-[10px] text-slate-700 flex items-center gap-1.5">
+          <span>⚡</span>
+          <span>این مسابقه به دلیل قرعه استراحت نیازی به برگزاری ندارد.</span>
         </div>
       )}
-      {isBye && (
+      {isSingleBye && (
         <div className="bg-emerald-100/40 border-b border-emerald-200/50 px-3 py-1 text-[10px] text-emerald-900 flex items-center gap-1.5">
           <span>⚡</span>
-          <span>این تیم با قرعه استراحت و بدون نیاز به بازی مستقیماً صعود کرد.</span>
+          <span>
+            {m.autoAdvance
+              ? `تیم «${m.autoAdvance}» با قرعه استراحت مستقیماً به دور بعد صعود کرد.`
+              : "این مسابقه با قرعه استراحت مستقیم سپری شد."}
+          </span>
+        </div>
+      )}
+      {isPartiallyKnown && (
+        <div className="bg-amber-100/40 border-b border-amber-200/50 px-3 py-1 text-[10px] text-amber-900 flex items-center gap-1.5">
+          <span>🔒</span>
+          <span>
+            تیم «{knownTeam}» آماده است و منتظر مشخص شدن {missingPlaceholder || "حریف مقابل"} می‌باشد.
+          </span>
+        </div>
+      )}
+      {isPending && !isPartiallyKnown && (
+        <div className="bg-amber-100/40 border-b border-amber-200/50 px-3 py-1 text-[10px] text-amber-900 flex items-center gap-1.5">
+          <span>🔒</span>
+          <span>هر دو حریف این مسابقه پس از پایان بازی‌های دور قبل مشخص خواهند شد.</span>
         </div>
       )}
 
@@ -1397,39 +1756,47 @@ function MatchBracketCard({
           <div className="flex items-center justify-between flex-1 gap-2">
             <button
               type="button"
-              onClick={() => {
-                if (!isReadyToPlay) return;
-                onScoreChange(
-                  m.id,
-                  sc.home,
-                  sc.away,
-                  sc.homePenalty ?? null,
-                  sc.awayPenalty ?? null,
-                  m.home
-                );
-              }}
+              onClick={handleHomeClick}
               disabled={!isReadyToPlay}
               className={
                 "text-right flex-1 truncate text-xs font-semibold transition-colors " +
                 (isReadyToPlay
-                  ? "hover:text-pitch cursor-pointer"
+                  ? isDownstreamBlocked
+                    ? "cursor-not-allowed text-ink hover:text-amber-800"
+                    : isHomeWinner
+                    ? "text-pitch cursor-pointer hover:text-rose-700"
+                    : "hover:text-pitch cursor-pointer text-ink"
                   : "cursor-default text-ink")
               }
               title={
-                isReadyToPlay
-                  ? `کلیک برای انتخاب مستقیم ${m.home} به عنوان برنده`
-                  : "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+                !isReadyToPlay
+                  ? "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+                  : isDownstreamBlocked
+                  ? `امکان تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
+                  : isHomeWinner
+                  ? `کلیک برای لغو انتخاب ${m.home} به عنوان برنده`
+                  : `کلیک برای انتخاب مستقیم ${m.home} به عنوان برنده`
               }
             >
               <span>{m.home}</span>
-              {isBye && m.autoAdvance === m.home && (
+              {isHomeWinner && !isDownstreamBlocked && (
+                <span className="mr-1.5 inline-block text-[9px] text-pitch font-bold bg-pitch/10 border border-pitch/20 rounded px-1.5 py-0.2">
+                  ✓ برنده (کلیک برای لغو)
+                </span>
+              )}
+              {isHomeWinner && isDownstreamBlocked && (
+                <span className="mr-1.5 inline-block text-[9px] text-amber-900 font-bold bg-amber-100 border border-amber-300 rounded px-1.5 py-0.2">
+                  🔒 قفل‌شده
+                </span>
+              )}
+              {isSingleBye && m.autoAdvance === m.home && (
                 <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
                   ✓ صعود مستقیم
                 </span>
               )}
-              {isPending && !isAwayReal && (
+              {isPartiallyKnown && isHomeReal && (
                 <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
-                  منتظر حریف مقابل
+                  حضور قطعی
                 </span>
               )}
             </button>
@@ -1442,33 +1809,30 @@ function MatchBracketCard({
                 value={
                   sc.home !== null && sc.home !== undefined ? sc.home : ""
                 }
-                onChange={(e) => {
-                  const val =
-                    e.target.value === ""
-                      ? null
-                      : Math.max(0, parseInt(e.target.value) || 0);
-                  onScoreChange(
-                    m.id,
-                    val,
-                    sc.away,
-                    sc.homePenalty ?? null,
-                    sc.awayPenalty ?? null,
-                    undefined
-                  );
-                }}
+                onChange={handleHomeScoreInput}
                 placeholder="-"
-                className="w-9 h-7 text-center text-xs font-bold rounded border border-line bg-white focus:border-gold focus:outline-none"
+                className={
+                  "w-9 h-7 text-center text-xs font-bold rounded border bg-white focus:outline-none " +
+                  (isDownstreamBlocked
+                    ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                    : "border-line focus:border-gold")
+                }
+                title={
+                  isDownstreamBlocked
+                    ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                    : undefined
+                }
               />
             )}
           </div>
-        ) : isBye ? (
+        ) : isEmptyDoubleBye || (isSingleBye && !isHomeReal) ? (
           <div className="flex items-center justify-between flex-1 py-0.5 text-ink/40 italic text-xs">
             <span>— قرعه استراحت (بدون بازی) —</span>
           </div>
         ) : (
           <div className="flex items-center justify-between flex-1 py-0.5 text-xs">
             <span className="rounded bg-amber-50/80 border border-dashed border-amber-300 px-2 py-0.5 text-[11px] text-amber-900 font-medium">
-              ⏳ {m.homePlaceholder || "در انتظار برنده بازی قبل"}
+              ⏳ {m.home || m.homePlaceholder || "در انتظار برنده بازی قبل"}
             </span>
           </div>
         )}
@@ -1485,39 +1849,47 @@ function MatchBracketCard({
           <div className="flex items-center justify-between flex-1 gap-2">
             <button
               type="button"
-              onClick={() => {
-                if (!isReadyToPlay) return;
-                onScoreChange(
-                  m.id,
-                  sc.home,
-                  sc.away,
-                  sc.homePenalty ?? null,
-                  sc.awayPenalty ?? null,
-                  m.away
-                );
-              }}
+              onClick={handleAwayClick}
               disabled={!isReadyToPlay}
               className={
                 "text-right flex-1 truncate text-xs font-semibold transition-colors " +
                 (isReadyToPlay
-                  ? "hover:text-pitch cursor-pointer"
+                  ? isDownstreamBlocked
+                    ? "cursor-not-allowed text-ink hover:text-amber-800"
+                    : isAwayWinner
+                    ? "text-pitch cursor-pointer hover:text-rose-700"
+                    : "hover:text-pitch cursor-pointer text-ink"
                   : "cursor-default text-ink")
               }
               title={
-                isReadyToPlay
-                  ? `کلیک برای انتخاب مستقیم ${m.away} به عنوان برنده`
-                  : "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+                !isReadyToPlay
+                  ? "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+                  : isDownstreamBlocked
+                  ? `امکان تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
+                  : isAwayWinner
+                  ? `کلیک برای لغو انتخاب ${m.away} به عنوان برنده`
+                  : `کلیک برای انتخاب مستقیم ${m.away} به عنوان برنده`
               }
             >
               <span>{m.away}</span>
-              {isBye && m.autoAdvance === m.away && (
+              {isAwayWinner && !isDownstreamBlocked && (
+                <span className="mr-1.5 inline-block text-[9px] text-pitch font-bold bg-pitch/10 border border-pitch/20 rounded px-1.5 py-0.2">
+                  ✓ برنده (کلیک برای لغو)
+                </span>
+              )}
+              {isAwayWinner && isDownstreamBlocked && (
+                <span className="mr-1.5 inline-block text-[9px] text-amber-900 font-bold bg-amber-100 border border-amber-300 rounded px-1.5 py-0.2">
+                  🔒 قفل‌شده
+                </span>
+              )}
+              {isSingleBye && m.autoAdvance === m.away && (
                 <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
                   ✓ صعود مستقیم
                 </span>
               )}
-              {isPending && !isHomeReal && (
+              {isPartiallyKnown && isAwayReal && (
                 <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
-                  منتظر حریف مقابل
+                  حضور قطعی
                 </span>
               )}
             </button>
@@ -1530,33 +1902,30 @@ function MatchBracketCard({
                 value={
                   sc.away !== null && sc.away !== undefined ? sc.away : ""
                 }
-                onChange={(e) => {
-                  const val =
-                    e.target.value === ""
-                      ? null
-                      : Math.max(0, parseInt(e.target.value) || 0);
-                  onScoreChange(
-                    m.id,
-                    sc.home,
-                    val,
-                    sc.homePenalty ?? null,
-                    sc.awayPenalty ?? null,
-                    undefined
-                  );
-                }}
+                onChange={handleAwayScoreInput}
                 placeholder="-"
-                className="w-9 h-7 text-center text-xs font-bold rounded border border-line bg-white focus:border-gold focus:outline-none"
+                className={
+                  "w-9 h-7 text-center text-xs font-bold rounded border bg-white focus:outline-none " +
+                  (isDownstreamBlocked
+                    ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                    : "border-line focus:border-gold")
+                }
+                title={
+                  isDownstreamBlocked
+                    ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                    : undefined
+                }
               />
             )}
           </div>
-        ) : isBye ? (
+        ) : isEmptyDoubleBye || (isSingleBye && !isAwayReal) ? (
           <div className="flex items-center justify-between flex-1 py-0.5 text-ink/40 italic text-xs">
             <span>— قرعه استراحت (بدون بازی) —</span>
           </div>
         ) : (
           <div className="flex items-center justify-between flex-1 py-0.5 text-xs">
             <span className="rounded bg-amber-50/80 border border-dashed border-amber-300 px-2 py-0.5 text-[11px] text-amber-900 font-medium">
-              ⏳ {m.awayPlaceholder || "در انتظار برنده بازی قبل"}
+              ⏳ {m.away || m.awayPlaceholder || "در انتظار برنده بازی قبل"}
             </span>
           </div>
         )}
@@ -1578,22 +1947,19 @@ function MatchBracketCard({
                   ? sc.homePenalty
                   : ""
               }
-              onChange={(e) => {
-                const val =
-                  e.target.value === ""
-                    ? null
-                    : Math.max(0, parseInt(e.target.value) || 0);
-                onScoreChange(
-                  m.id,
-                  sc.home,
-                  sc.away,
-                  val,
-                  sc.awayPenalty ?? null,
-                  undefined
-                );
-              }}
+              onChange={handleHomePenaltyInput}
               placeholder="میزبان"
-              className="w-10 h-6 text-center text-xs font-bold rounded border border-gold/60 bg-white"
+              className={
+                "w-10 h-6 text-center text-xs font-bold rounded border bg-white " +
+                (isDownstreamBlocked
+                  ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                  : "border-gold/60")
+              }
+              title={
+                isDownstreamBlocked
+                  ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                  : undefined
+              }
             />
             <span className="text-gold-dark font-bold">:</span>
             <input
@@ -1605,22 +1971,19 @@ function MatchBracketCard({
                   ? sc.awayPenalty
                   : ""
               }
-              onChange={(e) => {
-                const val =
-                  e.target.value === ""
-                    ? null
-                    : Math.max(0, parseInt(e.target.value) || 0);
-                onScoreChange(
-                  m.id,
-                  sc.home,
-                  sc.away,
-                  sc.homePenalty ?? null,
-                  val,
-                  undefined
-                );
-              }}
+              onChange={handleAwayPenaltyInput}
               placeholder="میهمان"
-              className="w-10 h-6 text-center text-xs font-bold rounded border border-gold/60 bg-white"
+              className={
+                "w-10 h-6 text-center text-xs font-bold rounded border bg-white " +
+                (isDownstreamBlocked
+                  ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                  : "border-gold/60")
+              }
+              title={
+                isDownstreamBlocked
+                  ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                  : undefined
+              }
             />
           </div>
         </div>

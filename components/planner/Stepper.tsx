@@ -1,14 +1,15 @@
 export function Stepper({ labels, current }: { labels: string[]; current: number }) {
   return (
     <nav aria-label="مراحل برنامه‌ریزی مسابقات" className="w-full">
-      <ol className="flex items-center justify-between gap-1 sm:gap-2 bg-white/80 p-1.5 sm:p-2 rounded-2xl border border-line/80 shadow-xs backdrop-blur-sm">
+      <ol className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2 bg-white/80 p-1.5 sm:p-2 rounded-2xl border border-line/80 shadow-xs backdrop-blur-sm">
         {labels.map((label, i) => {
           const isDone = i < current;
           const isActive = i === current;
+
           return (
             <li
               key={label}
-              className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 px-1 sm:px-3 rounded-xl transition-all ${
+              className={`flex items-center justify-center gap-1 sm:gap-2 py-1.5 sm:py-2 px-1 sm:px-3 rounded-xl transition-all ${
                 isActive
                   ? "bg-pitch text-chalk font-bold shadow-sm"
                   : isDone
@@ -17,7 +18,7 @@ export function Stepper({ labels, current }: { labels: string[]; current: number
               }`}
             >
               <span
-                className={`flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full text-[11px] sm:text-xs font-bold shrink-0 transition-colors ${
+                className={`flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full text-[10px] sm:text-xs font-bold shrink-0 transition-colors ${
                   isActive
                     ? "bg-gold text-ink"
                     : isDone

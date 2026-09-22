@@ -1,6 +1,7 @@
 import Link from "next/link";
 import React from "react";
 import { NexSportIcon } from "@/components/NexSportLogo";
+import { AuthHeaderNav } from "@/components/auth/AuthHeaderNav";
 
 function BracketSvgIcon({ className = "w-6 h-6" }: { className?: string }) {
   return (
@@ -115,7 +116,7 @@ const FEATURES = [
 const FAQS = [
   {
     q: "آیا برای استفاده از برنامه‌ریز مسابقات NexSport باید ثبت‌نام کنم؟",
-    a: "خیر! در نسخه فعلی NexSport هیچ نیازی به ثبت‌نام، شماره موبایل، ایمیل یا پرداخت هزینه نیست. شما مستقیماً وارد سایت می‌شوید، نوع مسابقه و تعداد تیم‌ها را مشخص می‌کنید و برنامه مسابقات را فوری دریافت می‌کنید.",
+    a: "خیر! استفاده از تمامی امکانات NexSport (تولید برنامه مسابقات، جدول رده‌بندی، چاپ و خروجی اکسل) بدون نیاز به ثبت‌نام و کاملاً رایگان است. در عین حال با ایجاد حساب کاربری می‌توانید مسابقات خود را در فضای ابری ذخیره کرده و از هر دستگاهی به آنها دسترسی داشته باشید.",
   },
   {
     q: "چگونه مطمئن شوم هیچ مسابقه تکراری در لیگ ایجاد نمی‌شود؟",
@@ -206,9 +207,6 @@ export default function HomePage() {
           <Link href="/" className="flex items-center gap-2.5 text-pitch hover:opacity-90 transition-opacity">
             <NexSportIcon className="w-9 h-9 shrink-0 drop-shadow-xs" />
             <span className="text-xl font-black tracking-tight text-ink">NexSport</span>
-            <span className="rounded bg-gold/20 px-2 py-0.5 text-[11px] font-bold text-gold-dark">
-              نسخه ۱
-            </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-ink/75">
@@ -226,13 +224,9 @@ export default function HomePage() {
             </a>
           </nav>
 
-          <Link
-            href="/planner"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-pitch px-4 py-2 text-sm font-bold text-chalk shadow-sm hover:bg-pitch-light transition-colors"
-          >
-            <span>شروع برنامه‌ریزی</span>
-            <span className="text-gold">←</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <AuthHeaderNav />
+          </div>
         </div>
       </header>
 
