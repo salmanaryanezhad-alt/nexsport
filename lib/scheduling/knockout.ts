@@ -103,11 +103,8 @@ export function resolveWinner(
   }
 
   if (sc) {
-    // If a manual winner was selected, verify it matches one of the two active teams
-    if (sc.winner && (sc.winner === home || sc.winner === away)) {
-      return sc.winner;
-    }
-
+    // 1. STRICT REQUIREMENT: If real scores are entered, THE SCORE ALWAYS DETERMINES THE WINNER!
+    // A team with fewer goals can NEVER be declared winner over a team with more goals.
     if (
       sc.home !== null &&
       sc.away !== null &&
@@ -121,7 +118,7 @@ export function resolveWinner(
       if (h > a) return home;
       if (a > h) return away;
 
-      // Draw: check penalties
+      // Draw: check penalties first
       if (
         sc.homePenalty !== null &&
         sc.homePenalty !== undefined &&
@@ -135,6 +132,18 @@ export function resolveWinner(
         if (hp > ap) return home;
         if (ap > hp) return away;
       }
+
+      // If draw and penalties are equal or not entered, allow manual winner selection (e.g. shootout or coin toss)
+      if (sc.winner && (sc.winner === home || sc.winner === away)) {
+        return sc.winner;
+      }
+
+      return null;
+    }
+
+    // 2. If scores are not entered, manual winner selection (e.g. direct click, walkover) applies
+    if (sc.winner && (sc.winner === home || sc.winner === away)) {
+      return sc.winner;
     }
   }
   return null;

@@ -1489,11 +1489,25 @@ function MatchBracketCard({
     );
   };
 
+  const hasUnequalScore =
+    sc.home !== null &&
+    sc.away !== null &&
+    sc.home !== undefined &&
+    sc.away !== undefined &&
+    !isNaN(Number(sc.home)) &&
+    !isNaN(Number(sc.away)) &&
+    Number(sc.home) !== Number(sc.away);
+
   const handleHomeClick = () => {
     if (!isReadyToPlay) return;
 
     if (isDownstreamBlocked) {
       warnDownstreamPlayed();
+      return;
+    }
+
+    // When real scores are entered and unequal, the score strictly determines the winner!
+    if (hasUnequalScore) {
       return;
     }
 
@@ -1518,6 +1532,11 @@ function MatchBracketCard({
 
     if (isDownstreamBlocked) {
       warnDownstreamPlayed();
+      return;
+    }
+
+    // When real scores are entered and unequal, the score strictly determines the winner!
+    if (hasUnequalScore) {
       return;
     }
 
@@ -1757,12 +1776,16 @@ function MatchBracketCard({
             <button
               type="button"
               onClick={handleHomeClick}
-              disabled={!isReadyToPlay}
+              disabled={!isReadyToPlay || hasUnequalScore}
               className={
                 "text-right flex-1 truncate text-xs font-semibold transition-colors " +
                 (isReadyToPlay
                   ? isDownstreamBlocked
                     ? "cursor-not-allowed text-ink hover:text-amber-800"
+                    : hasUnequalScore
+                    ? isHomeWinner
+                      ? "text-pitch cursor-default font-bold"
+                      : "text-ink/60 cursor-default"
                     : isHomeWinner
                     ? "text-pitch cursor-pointer hover:text-rose-700"
                     : "hover:text-pitch cursor-pointer text-ink"
@@ -1773,6 +1796,8 @@ function MatchBracketCard({
                   ? "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
                   : isDownstreamBlocked
                   ? `امکان تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
+                  : hasUnequalScore
+                  ? `برنده مسابقه مستقیماً با نتیجه گل‌ها تعیین شده است`
                   : isHomeWinner
                   ? `کلیک برای لغو انتخاب ${m.home} به عنوان برنده`
                   : `کلیک برای انتخاب مستقیم ${m.home} به عنوان برنده`
@@ -1781,7 +1806,7 @@ function MatchBracketCard({
               <span>{m.home}</span>
               {isHomeWinner && !isDownstreamBlocked && (
                 <span className="mr-1.5 inline-block text-[9px] text-pitch font-bold bg-pitch/10 border border-pitch/20 rounded px-1.5 py-0.2">
-                  ✓ برنده (کلیک برای لغو)
+                  ✓ برنده {hasUnequalScore ? "" : "(کلیک برای لغو)"}
                 </span>
               )}
               {isHomeWinner && isDownstreamBlocked && (
@@ -1850,12 +1875,16 @@ function MatchBracketCard({
             <button
               type="button"
               onClick={handleAwayClick}
-              disabled={!isReadyToPlay}
+              disabled={!isReadyToPlay || hasUnequalScore}
               className={
                 "text-right flex-1 truncate text-xs font-semibold transition-colors " +
                 (isReadyToPlay
                   ? isDownstreamBlocked
                     ? "cursor-not-allowed text-ink hover:text-amber-800"
+                    : hasUnequalScore
+                    ? isAwayWinner
+                      ? "text-pitch cursor-default font-bold"
+                      : "text-ink/60 cursor-default"
                     : isAwayWinner
                     ? "text-pitch cursor-pointer hover:text-rose-700"
                     : "hover:text-pitch cursor-pointer text-ink"
@@ -1866,6 +1895,8 @@ function MatchBracketCard({
                   ? "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
                   : isDownstreamBlocked
                   ? `امکان تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
+                  : hasUnequalScore
+                  ? `برنده مسابقه مستقیماً با نتیجه گل‌ها تعیین شده است`
                   : isAwayWinner
                   ? `کلیک برای لغو انتخاب ${m.away} به عنوان برنده`
                   : `کلیک برای انتخاب مستقیم ${m.away} به عنوان برنده`
@@ -1874,7 +1905,7 @@ function MatchBracketCard({
               <span>{m.away}</span>
               {isAwayWinner && !isDownstreamBlocked && (
                 <span className="mr-1.5 inline-block text-[9px] text-pitch font-bold bg-pitch/10 border border-pitch/20 rounded px-1.5 py-0.2">
-                  ✓ برنده (کلیک برای لغو)
+                  ✓ برنده {hasUnequalScore ? "" : "(کلیک برای لغو)"}
                 </span>
               )}
               {isAwayWinner && isDownstreamBlocked && (

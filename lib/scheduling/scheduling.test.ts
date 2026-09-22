@@ -6,7 +6,7 @@ import {
 } from "./index";
 import { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 import { buildGroups, calculateDefaultNumGroups } from "./groups";
-import { buildKnockout, computeKnockoutWithScores, findPlayedDownstreamMatch } from "./knockout";
+import { buildKnockout, computeKnockoutWithScores, findPlayedDownstreamMatch, resolveWinner } from "./knockout";
 import { buildDoubleKnockout, computeDoubleKnockoutWithScores } from "./doubleKnockout";
 import { formatScheduleAsText, formatScheduleAsCsv } from "./export";
 import { calculateStandings } from "./standings";
@@ -1432,7 +1432,7 @@ test("حذفی: مسابقه رده‌بندی دارای sourceMatchHomeId و s
 
   const scores: Record<string, MatchScore> = {
     [sf1Id]: { home: 2, away: 0, winner: "تیم ۱" },
-    [sf2Id]: { home: 1, away: 3, winner: "تیم ۲" },
+    [sf2Id]: { home: 3, away: 1, winner: "تیم ۲" },
   };
 
   const computed = computeKnockoutWithScores(ko, scores);
@@ -1714,6 +1714,49 @@ test("حذفی: جلوگیری از ثبت نتیجه و برنده برای م�
 
   assert(!computedMatch.homeScore, "امتیاز مسابقه‌ای که شرکت‌کنندگانش قطعی نیست نباید ثبت شود.");
   assert(!computedMatch.winner, "برنده مسابقه‌ای که شرکت‌کنندگانش قطعی نیست نباید اعلام شود.");
+});
+
+test("حذفی: اولویت قطعی نتیجه گل‌ها بر انتخاب دستی برنده (جلوگیری از برنده شدن تیم بازنده با کلیک تصادفی)", () => {
+  const homeTeam = "تیم الف";
+  const awayTeam = "تیم ب";
+
+  // حالت ۱: بازی ۲-۰ به نفع تیم الف تمام شده، اما کاربر سهواً روی تیم ب کلیک کرده است
+  const scoreAWin = {
+    home: 2,
+    away: 0,
+    winner: awayTeam, // کلیک تصادفی روی تیم ب
+  };
+  const resolvedA = resolveWinner(homeTeam, awayTeam, scoreAWin);
+  assertEqual(resolvedA, homeTeam, "در صورت ثبت نتیجه ۲-۰، برنده باید حتماً تیم الف باشد و کلیک تصادفی روی تیم ب نباید اثر کند.");
+
+  // حالت ۲: بازی ۱-۳ به نفع تیم ب تمام شده، اما کلیک روی تیم الف بوده است
+  const scoreBWin = {
+    home: 1,
+    away: 3,
+    winner: homeTeam,
+  };
+  const resolvedB = resolveWinner(homeTeam, awayTeam, scoreBWin);
+  assertEqual(resolvedB, awayTeam, "در صورت ثبت نتیجه ۱-۳، برنده باید حتماً تیم ب باشد.");
+
+  // حالت ۳: بازی مساوی ۱-۱ در وقت معمول، پنالتی‌ها ۵-۴ به نفع تیم الف
+  const scoreTiePenalties = {
+    home: 1,
+    away: 1,
+    homePenalty: 5,
+    awayPenalty: 4,
+    winner: awayTeam, // کلیک تصادفی
+  };
+  const resolvedPen = resolveWinner(homeTeam, awayTeam, scoreTiePenalties);
+  assertEqual(resolvedPen, homeTeam, "در پنالتی ۵-۴، برنده باید تیم الف باشد.");
+
+  // حالت ۴: بازی مساوی بدون ثبت پنالتی، برنده با کلیک مستقیم یا پرتاب سکه
+  const scoreTieManual = {
+    home: 1,
+    away: 1,
+    winner: awayTeam,
+  };
+  const resolvedManual = resolveWinner(homeTeam, awayTeam, scoreTieManual);
+  assertEqual(resolvedManual, awayTeam, "در صورت تساوی بدون پنالتی، برنده انتخابی ملاک است.");
 });
 
 /* =========================================================
