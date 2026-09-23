@@ -13,15 +13,31 @@ export async function GET(req: NextRequest) {
 
     const session = await db.findSession(token);
     if (!session) {
-      return NextResponse.json({ user: null });
+      const response = NextResponse.json({ user: null, expired: true });
+      response.cookies.set("nexsport_token", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+      });
+      return response;
     }
 
     const user = await db.findUserById(session.user_id);
     if (!user) {
-      return NextResponse.json({ user: null });
+      const response = NextResponse.json({ user: null, expired: true });
+      response.cookies.set("nexsport_token", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+      });
+      return response;
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       user: {
         id: user.id,
         name: user.name,
@@ -31,6 +47,17 @@ export async function GET(req: NextRequest) {
         role: user.role,
       },
     });
+
+    // Refresh rolling cookie for 48 hours from this activity
+    response.cookies.set("nexsport_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 48 * 60 * 60,
+    });
+
+    return response;
   } catch (err: any) {
     console.error("[Me Error]", err);
     return NextResponse.json({ user: null });
