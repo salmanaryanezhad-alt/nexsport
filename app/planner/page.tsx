@@ -31,6 +31,19 @@ import {
 
 const STORAGE_KEY = "nexsport_wizard_state_v4";
 
+function formatGroupDistribution(teamCount: number, numGroups: number): string {
+  const G = Math.max(1, numGroups);
+  if (teamCount % G === 0) {
+    return `هر گروه ${teamCount / G} تیم`;
+  }
+  const rem = teamCount % G;
+  const floor = Math.floor(teamCount / G);
+  const ceil = floor + 1;
+  const ceilCount = rem;
+  const floorCount = G - rem;
+  return `${ceilCount} گروه ${ceil} تیمی و ${floorCount} گروه ${floor} تیمی`;
+}
+
 function BracketSvgIcon({ className = "w-7 h-7" }: { className?: string }) {
   return (
     <svg
@@ -1454,7 +1467,7 @@ function PlannerWizard() {
             </div>
             {format === "groups-knockout" && (
               <p className="leading-6 pr-6">
-                با <strong>{teamCount} تیم</strong>، مسابقات به صورت استاندارد در <strong>{numGroups} گروه</strong> ({Math.floor(teamCount / Math.max(1, numGroups))} تا {Math.ceil(teamCount / Math.max(1, numGroups))} تیم در هر گروه) آغاز می‌شود و سپس تیم‌های اول و دوم وارد جدول حذفی ضربدری خواهند شد.
+                با <strong>{teamCount} تیم</strong>، مسابقات در <strong>{numGroups} گروه</strong> ({formatGroupDistribution(teamCount, numGroups)}) آغاز می‌شود و سپس تیم‌های اول و دوم وارد جدول حذفی خواهند شد.
               </p>
             )}
             {format === "knockout" && (
@@ -1485,7 +1498,7 @@ function PlannerWizard() {
             )}
             {format === "groups" && (
               <p className="leading-6 pr-6">
-                تیم‌ها به <strong>{numGroups} گروه</strong> متوازن ({Math.floor(teamCount / Math.max(1, numGroups))} تا {Math.ceil(teamCount / Math.max(1, numGroups))} تیم در هر گروه) تقسیم شده و درون هر گروه جدول امتیازات اختصاصی محاسبه می‌شود.
+                تیم‌ها به <strong>{numGroups} گروه</strong> ({formatGroupDistribution(teamCount, numGroups)}) تقسیم شده و درون هر گروه جدول امتیازات اختصاصی محاسبه می‌شود.
               </p>
             )}
           </div>
@@ -1955,10 +1968,18 @@ function PlannerWizard() {
                     }
                     className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
                   />
-                  <p className="text-[11px] text-ink/50 mt-1">
-                    با {teamCount} تیم در {numGroups} گروه، هر گروه شامل{" "}
-                    {Math.floor(teamCount / Math.max(1, numGroups))} تا{" "}
-                    {Math.ceil(teamCount / Math.max(1, numGroups))} تیم خواهد بود (حداکثر ۴ تیم در حالت استاندارد).
+                  <p className="text-[11px] text-ink/60 mt-1">
+                    {teamCount % Math.max(1, numGroups) === 0 ? (
+                      <>
+                        با {teamCount} تیم در {numGroups} گروه، هر گروه شامل{" "}
+                        <strong className="text-pitch">{teamCount / Math.max(1, numGroups)} تیم</strong> خواهد بود.
+                      </>
+                    ) : (
+                      <>
+                        با {teamCount} تیم در {numGroups} گروه،{" "}
+                        <strong className="text-pitch">{formatGroupDistribution(teamCount, numGroups)}</strong> تشکیل خواهد شد.
+                      </>
+                    )}
                   </p>
                 </div>
                 {format === "groups-knockout" && (

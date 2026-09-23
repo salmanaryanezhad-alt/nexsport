@@ -28,8 +28,10 @@ export {
   calculateStandings,
   calculateClinchStatuses,
   getLockedRanksForGroup,
+  getBestThirdsRanking,
   type TeamStanding,
   type TeamClinchStatus,
+  type BestThirdStanding,
 } from "./standings";
 export { formatScheduleAsText, exportScheduleToCsv, downloadCsvFile } from "./export";
 

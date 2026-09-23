@@ -1,4 +1,4 @@
-import { Match, PointsRule } from "./types";
+import { Match, PointsRule, GroupResult } from "./types";
 
 export interface TeamStanding {
   team: string;
@@ -360,4 +360,70 @@ export function getLockedRanksForGroup(
   }
 
   return locked;
+}
+
+export interface BestThirdStanding {
+  team: string;
+  groupName: string;
+  standing: TeamStanding;
+}
+
+/**
+ * Ranks all 3rd-placed teams across groups according to official tournament tiebreaker rules.
+ * Used for Euro-style qualification to the knockout stage and for standings comparison.
+ */
+export function getBestThirdsRanking(
+  groups: GroupResult[],
+  scores?: Record<string, { home: number | null; away: number | null }>,
+  pointsRule?: PointsRule
+): {
+  allCompleted: boolean;
+  rankedThirds: BestThirdStanding[];
+} {
+  let allCompleted = true;
+  const thirds: BestThirdStanding[] = [];
+
+  for (const g of groups) {
+    const gMatches = g.rounds.flatMap((r) => r.matches).filter((m) => !m.isBye && m.home && m.away);
+    const playedCount = gMatches.filter((m) => {
+      const sc = m.id && scores ? scores[m.id] : undefined;
+      return (
+        sc &&
+        sc.home !== null &&
+        sc.home !== undefined &&
+        sc.away !== null &&
+        sc.away !== undefined &&
+        !isNaN(Number(sc.home)) &&
+        !isNaN(Number(sc.away))
+      );
+    }).length;
+
+    if (playedCount < gMatches.length || gMatches.length === 0) {
+      allCompleted = false;
+    }
+
+    const st = calculateStandings(g.teams, gMatches, scores, pointsRule);
+    if (st.length >= 3) {
+      thirds.push({
+        team: st[2].team,
+        groupName: g.name,
+        standing: st[2],
+      });
+    }
+  }
+
+  thirds.sort((a, b) => {
+    const sA = a.standing;
+    const sB = b.standing;
+    if (pointsRule?.rankByWinsFirst || pointsRule?.sport === "volleyball") {
+      if (sB.won !== sA.won) return sB.won - sA.won;
+    }
+    if (sB.points !== sA.points) return sB.points - sA.points;
+    if (sB.goalDifference !== sA.goalDifference) return sB.goalDifference - sA.goalDifference;
+    if (sB.goalsFor !== sA.goalsFor) return sB.goalsFor - sA.goalsFor;
+    if (sB.won !== sA.won) return sB.won - sA.won;
+    return a.team.localeCompare(b.team, "fa");
+  });
+
+  return { allCompleted, rankedThirds: thirds };
 }
