@@ -1851,6 +1851,61 @@ test("محاسبه و رده‌بندی مقایسه‌ای تیم‌های سو
   assertEqual(groupsRepresented.size, 3, "هر ۳ گروه باید یک نماینده در جدول تیم‌های سوم داشته باشند.");
 });
 
+test("فرمت جام جهانی (۴۸ تیمی / ۱۲ گروه): صعود ۲۴ تیم مستقیم + ۸ تیم برتر سوم = ۳۲ تیم حذفی کاملاً متمایز و بدون برخورد با هم‌گروهی", () => {
+  const teams = Array.from({ length: 48 }, (_, i) => `تیم ${i + 1}`);
+  const result = generateSchedule({
+    format: "groups-knockout",
+    teams,
+    numGroups: 12,
+    seededTeams: [],
+    qualifiersPerGroup: 2,
+    advanceBestThirds: true,
+  });
+
+  assertEqual(result.format, "groups-knockout", "فرمت خروجی باید groups-knockout باشد.");
+  if (result.format !== "groups-knockout") return;
+
+  assertEqual(result.knockout.bracketSize, 32, "براکت حذفی باید ۳۲ جایگاه (مرحله یک‌شانزدهم نهایی) داشته باشد.");
+  assertEqual(result.knockout.byes, 0, "فرمت جام جهانی نباید هیچ استراحتی (BYE) داشته باشد.");
+
+  const scores: Record<string, { home: number; away: number }> = {};
+  for (const g of result.groups) {
+    for (const r of g.rounds) {
+      for (const m of r.matches) {
+        if (m.id && m.home && m.away) {
+          scores[m.id] = { home: Math.floor(Math.random() * 3) + 1, away: Math.floor(Math.random() * 2) };
+        }
+      }
+    }
+  }
+
+  const computed = computeKnockoutWithScores(result.knockout, scores, result.groups);
+  const r1 = computed.knockout.rounds[0].matches;
+  assertEqual(r1.length, 16, "مرحله اول حذفی جام جهانی باید ۱۶ مسابقه داشته باشد.");
+
+  const participants = r1.flatMap((m) => [m.home, m.away]);
+  assert(participants.every((p) => p !== null && !isPlaceholderTeam(p)), "تمامی ۳۲ تیم صعودکننده به جدول حذفی باید نام واقعی داشته باشند.");
+
+  // بررسی یکتا بودن کامل ۳۲ تیم
+  const uniqueParticipants = new Set(participants);
+  assertEqual(uniqueParticipants.size, 32, "هر ۳۲ تیم حاضر در مرحله یک‌شانزدهم نهایی باید کاملاً متمایز و بدون تکرار باشند.");
+
+  // بررسی عدم برخورد با هم‌گروهی
+  const teamGroupMap: Record<string, string> = {};
+  for (const g of result.groups) {
+    for (const t of g.teams) {
+      teamGroupMap[t] = g.name;
+    }
+  }
+
+  for (let i = 0; i < r1.length; i++) {
+    const m = r1[i];
+    const groupHome = teamGroupMap[m.home!];
+    const groupAway = teamGroupMap[m.away!];
+    assert(groupHome !== groupAway, `مسابقه ${i + 1}: ${m.home} (${groupHome}) و ${m.away} (${groupAway}) نباید از یک گروه باشند.`);
+  }
+});
+
 /* =========================================================
    نتیجه نهایی
    ========================================================= */
