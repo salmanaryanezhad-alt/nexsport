@@ -8,6 +8,7 @@ import {
   MatchScore,
   calculateStandings,
   calculateClinchStatuses,
+  getBestThirdsRanking,
   isPlaceholderTeam,
   computeKnockoutWithScores,
   computeDoubleKnockoutWithScores,
@@ -94,6 +95,28 @@ export function ScheduleView({
     result.format === "groups-knockout";
 
   const meta = result.metadata;
+
+  const euroBestThirds = useMemo(() => {
+    if (result.format !== "groups-knockout" || !result.knockout) {
+      return null;
+    }
+    const baseQualifiers = result.groups.length * qualifiersPerGroup;
+    const bracketSize = result.knockout.bracketSize;
+    const extraNeeded = Math.max(0, bracketSize - baseQualifiers);
+    if (extraNeeded <= 0) return null;
+
+    const ranking = getBestThirdsRanking(result.groups, scores, meta?.pointsRule);
+    const qualifiedTeamNames = ranking.allCompleted
+      ? new Set(ranking.rankedThirds.slice(0, extraNeeded).map((t) => t.team))
+      : new Set<string>();
+
+    return {
+      extraNeeded,
+      allCompleted: ranking.allCompleted,
+      rankedThirds: ranking.rankedThirds,
+      qualifiedTeamNames,
+    };
+  }, [result, scores, qualifiersPerGroup, meta?.pointsRule]);
 
   return (
     <div id="print-area" className="space-y-6">
@@ -340,6 +363,7 @@ export function ScheduleView({
                     <span>{g.name}</span>
                     <span className="text-xs font-normal text-ink/50">
                       {qualifiersPerGroup} تیم برتر صعود می‌کنند
+                      {euroBestThirds && " (صعود مستقیم)"}
                     </span>
                   </h3>
                   <StandingsTable
@@ -349,9 +373,131 @@ export function ScheduleView({
                     qualifiersCount={qualifiersPerGroup}
                     qualifierLabel="صعود"
                     pointsRule={meta?.pointsRule}
+                    extraQualifiedTeams={euroBestThirds?.qualifiedTeamNames}
+                    extraQualifierLabel="صعود (تیم سوم برتر)"
                   />
                 </div>
               ))}
+
+              {/* Comparative table for 3rd-placed teams */}
+              {euroBestThirds && euroBestThirds.rankedThirds.length > 0 && (
+                <div className="rounded-lg border border-line p-5 bg-white shadow-sm print-avoid-break">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🏆</span>
+                      <h3 className="font-bold text-pitch text-base">
+                        جدول مقایسه تیم‌های رتبه سوم (صعود {euroBestThirds.extraNeeded} تیم برتر سوم به مرحله حذفی)
+                      </h3>
+                    </div>
+                    <span className="text-xs text-ink/60">
+                      {euroBestThirds.allCompleted
+                        ? `مسابقات مرحله گروهی پایان یافته است (${euroBestThirds.extraNeeded} تیم سوم صعود کردند)`
+                        : `در حال برگزاری مسابقات (${euroBestThirds.extraNeeded} تیم برتر در موقعیت صعود هستند)`}
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-lg border border-line">
+                    <table className="w-full text-center text-sm">
+                      <thead>
+                        <tr className="border-b border-line bg-chalk/80 text-xs font-bold text-ink/70">
+                          <th className="py-2.5 px-3 text-center w-12">رتبه</th>
+                          <th className="py-2.5 px-4 text-right">تیم</th>
+                          <th className="py-2.5 px-3 text-center w-24">گروه</th>
+                          <th className="py-2.5 px-2.5 w-12">بازی</th>
+                          <th className="py-2.5 px-2.5 w-12 text-pitch font-extrabold">برد</th>
+                          {meta?.pointsRule?.sport !== "volleyball" && <th className="py-2.5 px-2.5 w-12 text-ink/60">مساوی</th>}
+                          <th className="py-2.5 px-2.5 w-12 text-brick">باخت</th>
+                          <th className="py-2.5 px-2.5 w-14">{meta?.pointsRule?.sport === "volleyball" ? "ست+" : "زده"}</th>
+                          <th className="py-2.5 px-2.5 w-14">{meta?.pointsRule?.sport === "volleyball" ? "ست-" : "خورده"}</th>
+                          <th className="py-2.5 px-2.5 w-14 font-semibold">{meta?.pointsRule?.sport === "volleyball" ? "تفاضل ست" : "تفاضل"}</th>
+                          <th className="py-2.5 px-3 w-16 bg-pitch/5 font-extrabold text-pitch">امتیاز</th>
+                          <th className="py-2.5 px-3 w-36 text-center">وضعیت صعود</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-line/60">
+                        {euroBestThirds.rankedThirds.map((row, idx) => {
+                          const isTopRanked = idx < euroBestThirds.extraNeeded;
+                          const isFinal = euroBestThirds.allCompleted;
+                          return (
+                            <tr
+                              key={row.team}
+                              className={
+                                "transition-colors " +
+                                (isTopRanked
+                                  ? isFinal
+                                    ? "bg-emerald-50/60 font-semibold"
+                                    : "bg-amber-50/30"
+                                  : "hover:bg-chalk/30")
+                              }
+                            >
+                              <td className="py-2.5 px-3">
+                                <span
+                                  className={
+                                    "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold " +
+                                    (isTopRanked && isFinal
+                                      ? "bg-pitch text-chalk"
+                                      : isTopRanked
+                                      ? "bg-amber-500 text-white"
+                                      : "bg-chalk text-ink/70 border border-line")
+                                  }
+                                >
+                                  {idx + 1}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-4 text-right font-semibold text-ink">
+                                {row.team}
+                              </td>
+                              <td className="py-2.5 px-3 text-xs text-ink/70 font-medium">
+                                {row.groupName}
+                              </td>
+                              <td className="py-2.5 px-2.5 text-ink/80">{row.standing.played}</td>
+                              <td className="py-2.5 px-2.5 font-bold text-pitch">{row.standing.won}</td>
+                              {meta?.pointsRule?.sport !== "volleyball" && (
+                                <td className="py-2.5 px-2.5 text-ink/60">{row.standing.drawn}</td>
+                              )}
+                              <td className="py-2.5 px-2.5 text-brick">{row.standing.lost}</td>
+                              <td className="py-2.5 px-2.5 text-ink/80">{row.standing.goalsFor}</td>
+                              <td className="py-2.5 px-2.5 text-ink/80">{row.standing.goalsAgainst}</td>
+                              <td
+                                className={
+                                  "py-2.5 px-2.5 font-bold " +
+                                  (row.standing.goalDifference > 0
+                                    ? "text-pitch"
+                                    : row.standing.goalDifference < 0
+                                    ? "text-brick"
+                                    : "text-ink/50")
+                                }
+                              >
+                                {row.standing.goalDifference > 0 ? `+${row.standing.goalDifference}` : row.standing.goalDifference}
+                              </td>
+                              <td className="py-2.5 px-3 bg-pitch/5 font-extrabold text-pitch text-base">
+                                {row.standing.points}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                {isFinal ? (
+                                  isTopRanked ? (
+                                    <span className="rounded bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-xs font-bold text-emerald-800">
+                                      ✓ صعود به مرحله حذفی
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-ink/40">عدم صعود</span>
+                                  )
+                                ) : isTopRanked ? (
+                                  <span className="rounded bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                                    موقعیت صعود موقت
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-ink/50">-</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -735,6 +881,8 @@ function StandingsTable({
   qualifiersCount = 1,
   qualifierLabel = "صعود",
   pointsRule,
+  extraQualifiedTeams,
+  extraQualifierLabel = "صعود (تیم سوم برتر)",
 }: {
   teams: string[];
   rounds: RoundRobinRound[];
@@ -742,6 +890,8 @@ function StandingsTable({
   qualifiersCount?: number;
   qualifierLabel?: string;
   pointsRule?: PointsRule;
+  extraQualifiedTeams?: Set<string> | string[];
+  extraQualifierLabel?: string;
 }) {
   const allMatches = useMemo(() => rounds.flatMap((r) => r.matches), [rounds]);
   const standings = useMemo(
@@ -786,7 +936,14 @@ function StandingsTable({
           {standings.map((s, idx) => {
             const clinch = clinchMap[s.team];
             const isChampion = clinch?.isChampion;
-            const isClinched = clinch?.isClinched;
+            const isDirectClinched = clinch?.isClinched;
+            const isExtraQualified = extraQualifiedTeams instanceof Set
+              ? extraQualifiedTeams.has(s.team)
+              : Array.isArray(extraQualifiedTeams)
+              ? extraQualifiedTeams.includes(s.team)
+              : false;
+
+            const isClinched = isDirectClinched || isExtraQualified;
 
             return (
               <tr
@@ -821,9 +978,14 @@ function StandingsTable({
                       👑 قهرمان
                     </span>
                   )}
-                  {isClinched && !isChampion && (
+                  {isDirectClinched && !isChampion && (
                     <span className="mr-2 rounded bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
                       ✓ {clinch.isAllMatchesFinished ? qualifierLabel : "صعود قطعی"}
+                    </span>
+                  )}
+                  {!isDirectClinched && isExtraQualified && (
+                    <span className="mr-2 rounded bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                      ✓ {extraQualifierLabel}
                     </span>
                   )}
                 </td>

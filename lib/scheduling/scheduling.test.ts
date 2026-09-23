@@ -3,6 +3,7 @@ import {
   ScheduleValidationError,
   calculateClinchStatuses,
   isPlaceholderTeam,
+  getBestThirdsRanking,
 } from "./index";
 import { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 import { buildGroups, calculateDefaultNumGroups } from "./groups";
@@ -1757,6 +1758,97 @@ test("حذفی: اولویت قطعی نتیجه گل‌ها بر انتخاب �
   };
   const resolvedManual = resolveWinner(homeTeam, awayTeam, scoreTieManual);
   assertEqual(resolvedManual, awayTeam, "در صورت تساوی بدون پنالتی، برنده انتخابی ملاک است.");
+});
+
+test("گروهی + حذفی (۱۲ تیمی / ۳ گروه): تخصیص ۲ تیم سوم برتر متمایز بدون تکرار و بدون برخورد با هم‌گروهی در دور اول حذفی", () => {
+  const teams = Array.from({ length: 12 }, (_, i) => `تیم ${i + 1}`);
+  const result = generateSchedule({
+    format: "groups-knockout",
+    teams,
+    numGroups: 3,
+    seededTeams: [],
+    qualifiersPerGroup: 2,
+    advanceBestThirds: true,
+  });
+
+  assertEqual(result.format, "groups-knockout", "فرمت باید groups-knockout باشد.");
+  if (result.format !== "groups-knockout") return;
+
+  const scores: Record<string, { home: number; away: number }> = {};
+  for (const g of result.groups) {
+    for (const r of g.rounds) {
+      for (const m of r.matches) {
+        if (m.id && m.home && m.away) {
+          scores[m.id] = { home: 2, away: 1 };
+        }
+      }
+    }
+  }
+
+  const computed = computeKnockoutWithScores(result.knockout, scores, result.groups);
+  const r1 = computed.knockout.rounds[0].matches;
+  assertEqual(r1.length, 4, "مرحله یک‌چهارم نهایی باید ۴ مسابقه داشته باشد.");
+
+  const participants = r1.flatMap((m) => [m.home, m.away]);
+  // بررسی اینکه همه ۸ جایگاه پر شده‌اند
+  assert(participants.every((p) => p !== null && !isPlaceholderTeam(p)), "همه ۸ تیم صعودکننده باید نام واقعی و مشخص داشته باشند.");
+
+  // بررسی یکتا بودن هر ۸ تیم (هیچ تیمی نباید دو بار در جدول باشد)
+  const uniqueParticipants = new Set(participants);
+  assertEqual(uniqueParticipants.size, 8, "همه ۸ تیم صعودکننده به مرحله حذفی باید کاملاً متمایز و یکتا باشند.");
+
+  // بررسی عدم برخورد تیم‌های هم‌گروه در دور اول
+  const teamGroupMap: Record<string, string> = {};
+  for (const g of result.groups) {
+    for (const t of g.teams) {
+      teamGroupMap[t] = g.name;
+    }
+  }
+
+  for (let i = 0; i < r1.length; i++) {
+    const m = r1[i];
+    const groupHome = teamGroupMap[m.home!];
+    const groupAway = teamGroupMap[m.away!];
+    assert(groupHome !== groupAway, `مسابقه ${i + 1}: ${m.home} (${groupHome}) و ${m.away} (${groupAway}) نباید از یک گروه باشند.`);
+  }
+});
+
+test("محاسبه و رده‌بندی مقایسه‌ای تیم‌های سوم با معیار تفاضل و امتیازات (getBestThirdsRanking)", () => {
+  const teams = Array.from({ length: 12 }, (_, i) => `تیم ${i + 1}`);
+  const result = generateSchedule({
+    format: "groups-knockout",
+    teams,
+    numGroups: 3,
+    seededTeams: [],
+    qualifiersPerGroup: 2,
+    advanceBestThirds: true,
+  });
+
+  if (result.format !== "groups-knockout") return;
+
+  // ۱. قبل از ثبت نتایج: allCompleted باید false باشد
+  const initialRanking = getBestThirdsRanking(result.groups, {});
+  assertEqual(initialRanking.allCompleted, false, "قبل از پایان بازی‌ها، allCompleted باید false باشد.");
+
+  // ۲. ثبت نتایج همه بازی‌ها
+  const scores: Record<string, { home: number; away: number }> = {};
+  for (const g of result.groups) {
+    for (const r of g.rounds) {
+      for (const m of r.matches) {
+        if (m.id && m.home && m.away) {
+          scores[m.id] = { home: 1, away: 0 };
+        }
+      }
+    }
+  }
+
+  const finishedRanking = getBestThirdsRanking(result.groups, scores);
+  assertEqual(finishedRanking.allCompleted, true, "پس از ثبت نتیجه تمام مسابقات، allCompleted باید true باشد.");
+  assertEqual(finishedRanking.rankedThirds.length, 3, "باید ۳ تیم در جدول مقایسه رتبه سوم حضور داشته باشند.");
+
+  // هر ۳ تیم باید از گروه‌های مجزا باشند
+  const groupsRepresented = new Set(finishedRanking.rankedThirds.map((t) => t.groupName));
+  assertEqual(groupsRepresented.size, 3, "هر ۳ گروه باید یک نماینده در جدول تیم‌های سوم داشته باشند.");
 });
 
 /* =========================================================

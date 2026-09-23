@@ -7,7 +7,7 @@ import {
   PointsRule,
 } from "./types";
 import { shuffle } from "./shuffle";
-import { calculateStandings, getLockedRanksForGroup } from "./standings";
+import { calculateStandings, getLockedRanksForGroup, getBestThirdsRanking } from "./standings";
 import { toEnglishDigits } from "../auth/utils";
 
 const BYE = null;
@@ -51,6 +51,7 @@ export interface MatchScore {
 export function isPlaceholderTeam(name: string | null | undefined): boolean {
   if (!name) return true;
   const t = name.trim();
+  const eng = toEnglishDigits(t);
   if (t === "" || t === "BYE" || t === "استراحت") return true;
   if (
     t.startsWith("قهرمان ") ||
@@ -59,6 +60,7 @@ export function isPlaceholderTeam(name: string | null | undefined): boolean {
     t.startsWith("تیم دوم ") ||
     t.startsWith("تیم سوم ") ||
     t.startsWith("تیم ۴ ") ||
+    t.startsWith("تیم 4 ") ||
     t.startsWith("تیم سوم برتر") ||
     t.startsWith("تیم برتر سوم") ||
     t.startsWith("برنده ") ||
@@ -80,10 +82,40 @@ export function isPlaceholderTeam(name: string | null | undefined): boolean {
   ) {
     return true;
   }
-  if (/^سید\s*\d+/.test(t) || /^تیم\s*\d+\s+گروه/.test(t)) {
+  if (/^سید\s*\d+/.test(eng) || /^تیم\s*\d+\s+گروه/.test(eng)) {
     return true;
   }
   return false;
+}
+
+function isBestThirdSlot(text: string | null | undefined): boolean {
+  if (!text) return false;
+  const eng = toEnglishDigits(text);
+  return eng.includes("تیم سوم برتر") || eng.includes("تیم برتر سوم");
+}
+
+function getBestThirdSlotIndex(text: string | null | undefined): number {
+  if (!text) return 0;
+  const eng = toEnglishDigits(text);
+  const match = eng.match(/\d+/);
+  return match ? parseInt(match[0], 10) - 1 : 0;
+}
+
+function permuteIndices(k: number): number[][] {
+  if (k <= 1) return [[0]];
+  const arr = Array.from({ length: k }, (_, i) => i);
+  const res: number[][] = [];
+  function backtrack(curr: number[], remaining: number[]) {
+    if (remaining.length === 0) {
+      res.push(curr);
+      return;
+    }
+    for (let i = 0; i < remaining.length; i++) {
+      backtrack([...curr, remaining[i]], [...remaining.slice(0, i), ...remaining.slice(i + 1)]);
+    }
+  }
+  backtrack([], arr);
+  return res;
 }
 
 export function resolveWinner(
@@ -202,67 +234,29 @@ export function resolveGroupsIntoKnockout(
   if (!rounds || rounds.length === 0 || !groups || groups.length === 0) return;
 
   const groupLockedMap = new Map<string, Map<number, string>>();
-  const groupStandingsMap = new Map<string, any[]>();
-  let allGroupsCompleted = true;
+  const teamToGroupMap = new Map<string, string>();
 
   for (const g of groups) {
+    for (const t of g.teams) {
+      teamToGroupMap.set(t, g.name);
+    }
     const gMatches = g.rounds.flatMap((r) => r.matches).filter((m) => !m.isBye && m.home && m.away);
     const lockedRanks = getLockedRanksForGroup(g.teams, gMatches, scores, pointsRule);
     groupLockedMap.set(g.name, lockedRanks);
-
-    const standings = calculateStandings(g.teams, gMatches, scores, pointsRule);
-    groupStandingsMap.set(g.name, standings);
-
-    const playedCount = gMatches.filter((m) => {
-      const sc = m.id ? scores[m.id] : undefined;
-      return (
-        sc &&
-        sc.home !== null &&
-        sc.home !== undefined &&
-        sc.away !== null &&
-        sc.away !== undefined &&
-        !isNaN(Number(sc.home)) &&
-        !isNaN(Number(sc.away))
-      );
-    }).length;
-
-    if (playedCount < gMatches.length || gMatches.length === 0) {
-      allGroupsCompleted = false;
-    }
   }
 
-  // Best 3rd-place teams (Euro-style)
-  const bestThirds: string[] = [];
-  if (allGroupsCompleted) {
-    const thirds: any[] = [];
-    for (const g of groups) {
-      const standings = groupStandingsMap.get(g.name);
-      if (standings && standings.length >= 3) {
-        thirds.push(standings[2]);
-      }
-    }
-    thirds.sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points;
-      if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
-      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-      if (b.won !== a.won) return b.won - a.won;
-      return a.team.localeCompare(b.team, "fa");
-    });
-    for (const t of thirds) {
-      bestThirds.push(t.team);
-    }
-  }
+  const { allCompleted, rankedThirds } = getBestThirdsRanking(groups, scores, pointsRule);
 
   function resolveSlotString(slotText: string | null | undefined): { team: string | null; placeholder: string } {
     if (!slotText) return { team: null, placeholder: "در انتظار حریف" };
     const text = slotText.trim();
+    const engText = toEnglishDigits(text);
 
     // Check Best 3rd pattern:
-    if (text.includes("تیم سوم برتر")) {
-      const match = text.match(/\d+/);
-      const idx = match ? parseInt(toEnglishDigits(match[0])) - 1 : 0;
-      if (allGroupsCompleted && idx >= 0 && idx < bestThirds.length) {
-        return { team: bestThirds[idx], placeholder: text };
+    if (isBestThirdSlot(engText)) {
+      const idx = getBestThirdSlotIndex(engText);
+      if (allCompleted && idx >= 0 && idx < rankedThirds.length) {
+        return { team: rankedThirds[idx].team, placeholder: text };
       }
       return { team: null, placeholder: text };
     }
@@ -292,9 +286,9 @@ export function resolveGroupsIntoKnockout(
           const team = locked?.get(1) ?? null;
           return { team, placeholder: `تیم اول ${g.name}` };
         }
-        const numMatch = text.match(/تیم\s*(\d+)/);
+        const numMatch = engText.match(/تیم\s*(\d+)/);
         if (numMatch) {
-          const rank = parseInt(toEnglishDigits(numMatch[1]));
+          const rank = parseInt(numMatch[1], 10);
           const team = locked?.get(rank) ?? null;
           return { team, placeholder: `تیم ${rank} ${g.name}` };
         }
@@ -326,6 +320,99 @@ export function resolveGroupsIntoKnockout(
 
       m.away = resAway.team;
       m.awayPlaceholder = resAway.placeholder;
+    }
+
+    // Euro-style smart assignment for best 3rd-place slots to guarantee distinct teams and avoid same-group rematches
+    const thirdTargets: Array<{
+      match: BracketMatch;
+      side: "home" | "away";
+      opponentGroup: string | null;
+      rawSlot: string;
+      slotIndex: number;
+    }> = [];
+
+    function findOpponentGroup(team: string | null, placeholder: string | null | undefined): string | null {
+      if (team && teamToGroupMap.has(team)) {
+        return teamToGroupMap.get(team)!;
+      }
+      if (placeholder) {
+        for (const g of groups) {
+          if (placeholder.includes(g.name)) return g.name;
+        }
+      }
+      return null;
+    }
+
+    for (const m of round1.matches) {
+      if (m.isBye || m.autoAdvance) continue;
+      const rawHome = m.homePlaceholder || m.home || "";
+      const rawAway = m.awayPlaceholder || m.away || "";
+
+      if (isBestThirdSlot(rawHome)) {
+        thirdTargets.push({
+          match: m,
+          side: "home",
+          opponentGroup: findOpponentGroup(m.away, rawAway),
+          rawSlot: rawHome,
+          slotIndex: getBestThirdSlotIndex(rawHome),
+        });
+      }
+      if (isBestThirdSlot(rawAway)) {
+        thirdTargets.push({
+          match: m,
+          side: "away",
+          opponentGroup: findOpponentGroup(m.home, rawHome),
+          rawSlot: rawAway,
+          slotIndex: getBestThirdSlotIndex(rawAway),
+        });
+      }
+    }
+
+    if (thirdTargets.length > 0) {
+      if (allCompleted && rankedThirds.length >= thirdTargets.length) {
+        const K = thirdTargets.length;
+        const candidates = rankedThirds.slice(0, K);
+        const perms = permuteIndices(K);
+        let bestP = perms[0];
+        let minClashes = Infinity;
+
+        for (const p of perms) {
+          let clashes = 0;
+          for (let i = 0; i < K; i++) {
+            if (thirdTargets[i].opponentGroup && candidates[p[i]].groupName === thirdTargets[i].opponentGroup) {
+              clashes++;
+            }
+          }
+          if (clashes < minClashes) {
+            minClashes = clashes;
+            bestP = p;
+            if (clashes === 0) break;
+          }
+        }
+
+        for (let i = 0; i < K; i++) {
+          const target = thirdTargets[i];
+          const assigned = candidates[bestP[i]];
+          if (target.side === "home") {
+            target.match.home = assigned.team;
+            target.match.homePlaceholder = target.rawSlot;
+          } else {
+            target.match.away = assigned.team;
+            target.match.awayPlaceholder = target.rawSlot;
+          }
+        }
+      } else if (!allCompleted) {
+        // If not all groups are completed, reset placeholder slots to null team
+        for (const target of thirdTargets) {
+          if (target.side === "home") {
+            target.match.home = null;
+            target.match.homePlaceholder = target.rawSlot;
+          } else {
+            target.match.away = null;
+            target.match.awayPlaceholder = target.rawSlot;
+          }
+        }
+      }
     }
   }
 }
