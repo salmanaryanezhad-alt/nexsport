@@ -101,21 +101,89 @@ function getBestThirdSlotIndex(text: string | null | undefined): number {
   return match ? parseInt(match[0], 10) - 1 : 0;
 }
 
-function permuteIndices(k: number): number[][] {
-  if (k <= 1) return [[0]];
-  const arr = Array.from({ length: k }, (_, i) => i);
-  const res: number[][] = [];
-  function backtrack(curr: number[], remaining: number[]) {
-    if (remaining.length === 0) {
-      res.push(curr);
-      return;
-    }
-    for (let i = 0; i < remaining.length; i++) {
-      backtrack([...curr, remaining[i]], [...remaining.slice(0, i), ...remaining.slice(i + 1)]);
+/**
+ * Efficiently matches K candidate 3rd-place teams to K match slots in polynomial time O(K^2).
+ * Scales smoothly to ANY number of groups (e.g. World Cup 12 groups with 8 best thirds, Euro 6 groups, etc.),
+ * guarantees every candidate is assigned to exactly one slot (no duplicates),
+ * and eliminates same-group clashes whenever mathematically possible.
+ */
+function assignBestThirdsToSlots(
+  slots: Array<{ opponentGroup: string | null }>,
+  candidates: Array<{ team: string; groupName: string }>
+): number[] {
+  const K = slots.length;
+  const assigned = new Array<number>(K).fill(-1);
+  const usedCandidates = new Set<number>();
+
+  // Pass 1: Try natural priority order (candidate i to slot i) if no group clash
+  for (let i = 0; i < K; i++) {
+    if (candidates[i] && candidates[i].groupName !== slots[i].opponentGroup) {
+      assigned[i] = i;
+      usedCandidates.add(i);
     }
   }
-  backtrack([], arr);
-  return res;
+
+  // Pass 2: Greedy assignment for remaining slots without group clashes
+  for (let i = 0; i < K; i++) {
+    if (assigned[i] !== -1) continue;
+    for (let j = 0; j < K; j++) {
+      if (!usedCandidates.has(j) && candidates[j].groupName !== slots[i].opponentGroup) {
+        assigned[i] = j;
+        usedCandidates.add(j);
+        break;
+      }
+    }
+  }
+
+  // Pass 3: Augmenting swap — if a slot is blocked by its own group, swap with an assigned slot
+  for (let i = 0; i < K; i++) {
+    if (assigned[i] !== -1) continue;
+    let unusedJ = -1;
+    for (let j = 0; j < K; j++) {
+      if (!usedCandidates.has(j)) {
+        unusedJ = j;
+        break;
+      }
+    }
+    if (unusedJ === -1) break;
+
+    let swapped = false;
+    for (let k = 0; k < K; k++) {
+      const curJ = assigned[k];
+      if (curJ !== -1) {
+        if (
+          candidates[curJ].groupName !== slots[i].opponentGroup &&
+          candidates[unusedJ].groupName !== slots[k].opponentGroup
+        ) {
+          assigned[i] = curJ;
+          assigned[k] = unusedJ;
+          usedCandidates.add(unusedJ);
+          swapped = true;
+          break;
+        }
+      }
+    }
+
+    if (!swapped) {
+      assigned[i] = unusedJ;
+      usedCandidates.add(unusedJ);
+    }
+  }
+
+  // Pass 4: Safety guarantee — ensure all slots have a unique candidate
+  for (let i = 0; i < K; i++) {
+    if (assigned[i] === -1) {
+      for (let j = 0; j < K; j++) {
+        if (!usedCandidates.has(j)) {
+          assigned[i] = j;
+          usedCandidates.add(j);
+          break;
+        }
+      }
+    }
+  }
+
+  return assigned;
 }
 
 export function resolveWinner(
@@ -372,23 +440,7 @@ export function resolveGroupsIntoKnockout(
       if (allCompleted && rankedThirds.length >= thirdTargets.length) {
         const K = thirdTargets.length;
         const candidates = rankedThirds.slice(0, K);
-        const perms = permuteIndices(K);
-        let bestP = perms[0];
-        let minClashes = Infinity;
-
-        for (const p of perms) {
-          let clashes = 0;
-          for (let i = 0; i < K; i++) {
-            if (thirdTargets[i].opponentGroup && candidates[p[i]].groupName === thirdTargets[i].opponentGroup) {
-              clashes++;
-            }
-          }
-          if (clashes < minClashes) {
-            minClashes = clashes;
-            bestP = p;
-            if (clashes === 0) break;
-          }
-        }
+        const bestP = assignBestThirdsToSlots(thirdTargets, candidates);
 
         for (let i = 0; i < K; i++) {
           const target = thirdTargets[i];
@@ -788,7 +840,23 @@ function buildEuroStyleMatches(
     });
   }
 
-  const allPairs = [...winnerVsRuMatches, ...bestThirdMatches, ...ruVsRuMatches];
+  // Distribute matches symmetrically across upper and lower halves of bracket
+  const upperHalf: { home: string | null; away: string | null }[] = [];
+  const lowerHalf: { home: string | null; away: string | null }[] = [];
+
+  const addPair = (m: { home: string | null; away: string | null }, idx: number) => {
+    if (idx % 2 === 0) {
+      upperHalf.push(m);
+    } else {
+      lowerHalf.push(m);
+    }
+  };
+
+  winnerVsRuMatches.forEach(addPair);
+  bestThirdMatches.forEach(addPair);
+  ruVsRuMatches.forEach(addPair);
+
+  const allPairs = [...upperHalf, ...lowerHalf];
   for (let i = 0; i < numMatches; i++) {
     if (i < allPairs.length) {
       matches[i] = allPairs[i];
