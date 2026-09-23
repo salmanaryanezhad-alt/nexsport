@@ -33,6 +33,7 @@ interface AuthContextType {
   updateProfile: (name: string) => Promise<{ success: boolean; error?: string }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  handleSessionExpired: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,6 +47,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [demoVerificationCode, setDemoVerificationCode] = useState<string | null>(null);
 
+  function handleSessionExpired() {
+    setUser(null);
+    setIsProfileModalOpen(false);
+    try {
+      fetch("/api/auth/logout", { method: "POST" });
+    } catch {}
+  }
+
   useEffect(() => {
     async function checkMe() {
       try {
@@ -53,9 +62,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const data = await res.json();
           setUser(data.user || null);
+        } else {
+          setUser(null);
         }
       } catch (err) {
         console.error("Auth check failed:", err);
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -247,6 +259,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await res.json();
 
+      if (res.status === 401 || data.expired) {
+        handleSessionExpired();
+        return { success: false, error: "نشست شما منقضی شده است. لطفاً مجدداً وارد شوید." };
+      }
+
       if (!res.ok) {
         return { success: false, error: data.error || "خطا در به‌روزرسانی نام" };
       }
@@ -266,6 +283,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       const data = await res.json();
+
+      if (res.status === 401 || data.expired) {
+        handleSessionExpired();
+        return { success: false, error: "نشست شما منقضی شده است. لطفاً مجدداً وارد شوید." };
+      }
 
       if (!res.ok) {
         return { success: false, error: data.error || "خطا در تغییر رمز عبور" };
@@ -309,6 +331,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateProfile,
         changePassword,
         logout,
+        handleSessionExpired,
       }}
     >
       {children}

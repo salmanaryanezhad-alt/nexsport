@@ -61,7 +61,7 @@ export function SavedTournamentsModal({
   onLoadTournament,
   onSavedSuccess,
 }: SavedTournamentsModalProps) {
-  const { user, openAuthModal } = useAuth();
+  const { user, openAuthModal, handleSessionExpired } = useAuth();
 
   const [mode, setMode] = useState<"save" | "list">(initialMode);
   const [tournaments, setTournaments] = useState<SavedTournamentItem[]>([]);
@@ -108,6 +108,8 @@ export function SavedTournamentsModal({
         if (isMounted) {
           if (res.ok) {
             setTournaments(data.tournaments || []);
+          } else if (res.status === 401 || data.expired) {
+            handleSessionExpired();
           } else {
             setError(data.error || "خطا در بارگذاری فهرست مسابقات.");
           }
@@ -123,7 +125,7 @@ export function SavedTournamentsModal({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, user, mode]);
+  }, [isOpen, user, mode, handleSessionExpired]);
 
   if (!isOpen) return null;
 
@@ -187,6 +189,10 @@ export function SavedTournamentsModal({
       });
 
       const data = await res.json();
+      if (res.status === 401 || data.expired) {
+        handleSessionExpired();
+        throw new Error("نشست شما منقضی شده است. لطفاً مجدداً وارد شوید.");
+      }
       if (!res.ok) {
         throw new Error(data.error || "خطا در ذخیره مسابقه.");
       }
@@ -218,6 +224,10 @@ export function SavedTournamentsModal({
         method: "DELETE",
       });
       const data = await res.json();
+      if (res.status === 401 || data.expired) {
+        handleSessionExpired();
+        throw new Error("نشست شما منقضی شده است. لطفاً مجدداً وارد شوید.");
+      }
       if (!res.ok) {
         throw new Error(data.error || "خطا در حذف مسابقه.");
       }
@@ -238,6 +248,10 @@ export function SavedTournamentsModal({
     try {
       const res = await fetch(`/api/tournaments/${tournamentId}`);
       const data = await res.json();
+      if (res.status === 401 || data.expired) {
+        handleSessionExpired();
+        throw new Error("نشست شما منقضی شده است. لطفاً مجدداً وارد شوید.");
+      }
       if (!res.ok || !data.tournament) {
         throw new Error(data.error || "خطا در دریافت اطلاعات کامل مسابقه.");
       }

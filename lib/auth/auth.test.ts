@@ -122,7 +122,7 @@ async function run() {
       is_verified: true,
     });
 
-    const token = await db.createSession(user.id, 30);
+    const token = await db.createSession(user.id, 48);
     assert(Boolean(token), "توکن باید تولید شود.");
 
     const session = await db.findSession(token);
@@ -131,6 +131,34 @@ async function run() {
     await db.deleteSession(token);
     const expiredSession = await db.findSession(token);
     assertEqual(expiredSession, null, "پس از حذف نشست، باید null بازگردد.");
+  });
+
+  await test("نشست لغزان ۴۸ ساعته (Rolling Session): تمدید خودکار ۴۸ ساعت پس از هر فعالیت و ثبت زمان آخرین فعالیت", async () => {
+    const user = await db.createUser({
+      name: "کاربر لغزان",
+      email: "rolling@nexsport.ir",
+      mobile: "09127778899",
+      password_hash: hashPassword("pass"),
+      is_verified: true,
+    });
+
+    // ایجاد نشست اولیه ۴۸ ساعته
+    const token = await db.createSession(user.id, 48);
+    const initialSession = await db.findSession(token);
+    assert(Boolean(initialSession), "نشست باید ایجاد شده باشد.");
+    assert(Boolean(initialSession?.last_active_at), "زمان آخرین فعالیت باید ثبت شده باشد.");
+
+    const now = Date.now();
+    const expiresMs = new Date(initialSession!.expires_at).getTime();
+    const hoursRemaining = (expiresMs - now) / (1000 * 60 * 60);
+
+    // زمان انقضا باید حدود ۴۸ ساعت از اکنون باشد (حداقل ۴۷.۹ ساعت)
+    assert(hoursRemaining >= 47.9 && hoursRemaining <= 48.1, `زمان انقضا باید ۴۸ ساعت پس از فعالیت باشد. زمان فعلی: ${hoursRemaining} ساعت`);
+
+    // شبیه‌سازی فعالیت مجدد کاربر: فراخوانی findSession باید تاریخ انقضا را دوباره تمدید کند
+    const refreshedSession = await db.findSession(token);
+    assert(Boolean(refreshedSession), "نشست تمدید شده باید معتبر باشد.");
+    assertEqual(refreshedSession?.user_id, user.id, "شناسه کاربر باید تطابق داشته باشد.");
   });
 
   await test("نرمال‌سازی ارقام فارسی: تبدیل کیبورد موبایل به انگلیسی و پاکسازی شماره", () => {

@@ -13,12 +13,23 @@ export async function GET(
 
     const token = req.cookies.get("nexsport_token")?.value;
     if (!token) {
-      return NextResponse.json({ error: "ابتدا وارد حساب کاربری شوید." }, { status: 401 });
+      return NextResponse.json({ error: "ابتدا وارد حساب کاربری شوید.", expired: true }, { status: 401 });
     }
 
     const session = await db.findSession(token);
     if (!session) {
-      return NextResponse.json({ error: "نشست منقضی شده است." }, { status: 401 });
+      const response = NextResponse.json(
+        { error: "نشست شما منقضی شده است. لطفاً مجدداً وارد شوید.", expired: true },
+        { status: 401 }
+      );
+      response.cookies.set("nexsport_token", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+      });
+      return response;
     }
 
     const tournament = await db.getTournament(id, session.user_id);
@@ -43,12 +54,23 @@ export async function DELETE(
 
     const token = req.cookies.get("nexsport_token")?.value;
     if (!token) {
-      return NextResponse.json({ error: "ابتدا وارد حساب کاربری شوید." }, { status: 401 });
+      return NextResponse.json({ error: "ابتدا وارد حساب کاربری شوید.", expired: true }, { status: 401 });
     }
 
     const session = await db.findSession(token);
     if (!session) {
-      return NextResponse.json({ error: "نشست منقضی شده است." }, { status: 401 });
+      const response = NextResponse.json(
+        { error: "نشست شما منقضی شده است. لطفاً مجدداً وارد شوید.", expired: true },
+        { status: 401 }
+      );
+      response.cookies.set("nexsport_token", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+      });
+      return response;
     }
 
     const deleted = await db.deleteTournament(id, session.user_id);

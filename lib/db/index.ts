@@ -26,6 +26,7 @@ export interface SessionRecord {
   id: string;
   user_id: string;
   expires_at: Date;
+  last_active_at?: Date;
   created_at: Date;
 }
 
@@ -113,8 +114,11 @@ async function initTablesIfRealDb() {
         id VARCHAR(64) PRIMARY KEY,
         user_id VARCHAR(36) NOT NULL,
         expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
 
       CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 
@@ -339,18 +343,19 @@ export const db = {
     }
   },
 
-  async createSession(userId: string, expiresDays = 30): Promise<string> {
+  async createSession(userId: string, hours = 48): Promise<string> {
     const token = crypto.randomBytes(32).toString("hex");
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + expiresDays * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(now.getTime() + hours * 60 * 60 * 1000);
 
     if (pool) {
       await initTablesIfRealDb();
       await pool.query(
-        `INSERT INTO sessions (id, user_id, expires_at, created_at)
-         VALUES ($1, $2, $3, $4)`,
-        [token, userId, expiresAt, now]
+        `INSERT INTO sessions (id, user_id, expires_at, last_active_at, created_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [token, userId, expiresAt, now, now]
       );
+      await pool.query("UPDATE users SET updated_at = $1 WHERE id = $2", [now, userId]).catch(() => {});
       return token;
     }
 
@@ -358,6 +363,7 @@ export const db = {
       id: token,
       user_id: userId,
       expires_at: expiresAt,
+      last_active_at: now,
       created_at: now,
     });
     return token;
@@ -365,16 +371,34 @@ export const db = {
 
   async findSession(token: string): Promise<SessionRecord | null> {
     const now = new Date();
+    // Rolling 48-hour expiration: each interaction extends the session by 48 hours from last activity
+    const rollingExpiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
     if (pool) {
       await initTablesIfRealDb();
       const res = await pool.query(
         "SELECT * FROM sessions WHERE id = $1 AND expires_at > $2 LIMIT 1",
         [token, now]
       );
-      return res.rows[0] || null;
+      const session = res.rows[0];
+      if (session) {
+        // Log last activity timestamp and roll expiration 48 hours forward
+        pool.query(
+          "UPDATE sessions SET expires_at = $1, last_active_at = $2 WHERE id = $3",
+          [rollingExpiresAt, now, token]
+        ).catch(() => {});
+        pool.query("UPDATE users SET updated_at = $1 WHERE id = $2", [now, session.user_id]).catch(() => {});
+        session.expires_at = rollingExpiresAt;
+        session.last_active_at = now;
+        return session;
+      }
+      return null;
     }
+
     const s = memoryStore.sessions.get(token);
     if (s && s.expires_at > now) {
+      s.expires_at = rollingExpiresAt;
+      s.last_active_at = now;
       return s;
     }
     return null;

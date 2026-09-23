@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
     await db.markUserVerified(user.id);
     await db.deleteVerificationCodesForUser(user.id);
 
-    // Create session token
-    const token = await db.createSession(user.id, 30);
+    // Create rolling 48-hour session token
+    const token = await db.createSession(user.id, 48);
 
     const response = NextResponse.json({
       success: true,
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge: 48 * 60 * 60, // 48 hours rolling
     });
 
     return response;
