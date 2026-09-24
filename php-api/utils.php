@@ -1,53 +1,112 @@
 <?php
 /**
  * NexSport Utilities & Security Helpers
+ * Full bilingual Persian/Arabic/English numeric normalization.
  */
 
 function to_english_digits($str) {
-    if (!$str) return '';
-    $persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-    $arabic  = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    $english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    if (!$str && $str !== '0') return '';
+    $persian   = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    $arabic    = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    $fullwidth = ['０', '１', '２', '３', '４', '５', '６', '７', '８', '９'];
+    $english   = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
-    $str = str_replace($persian, $english, $str);
+    $str = str_replace($persian, $english, (string)$str);
     $str = str_replace($arabic, $english, $str);
+    $str = str_replace($fullwidth, $english, $str);
     return $str;
 }
 
+function to_persian_digits($str) {
+    if (!$str && $str !== '0') return '';
+    $english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    $persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    return str_replace($english, $persian, (string)$str);
+}
+
+function to_arabic_digits($str) {
+    if (!$str && $str !== '0') return '';
+    $english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    $arabic  = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    return str_replace($english, $arabic, (string)$str);
+}
+
 function clean_mobile($mobile) {
-    $normalized = preg_replace('/[\s-]+/', '', to_english_digits($mobile));
-    if (strpos($normalized, '+98') === 0) {
-        return '0' . substr($normalized, 3);
+    if (!$mobile && $mobile !== '0') return '';
+    // Strip non-digits and normalize all numeral systems to English
+    $digits = preg_replace('/[^\d]/', '', to_english_digits((string)$mobile));
+
+    // Handle +98 or 0098 prefixes
+    if (strpos($digits, '98') === 0 && strlen($digits) === 12) {
+        return '0' . substr($digits, 2);
     }
-    if (strpos($normalized, '0098') === 0) {
-        return '0' . substr($normalized, 4);
+    if (strpos($digits, '0098') === 0 && strlen($digits) === 14) {
+        return '0' . substr($digits, 4);
     }
-    return $normalized;
+    // Handle 10-digit mobile starting with 9 (missing leading zero)
+    if (strlen($digits) === 10 && strpos($digits, '9') === 0) {
+        return '0' . $digits;
+    }
+    return $digits;
 }
 
 function clean_email($email) {
-    return strtolower(trim((string)$email));
+    if (!$email) return '';
+    // Normalize any Persian or Arabic numerals in email address (e.g. user۱۲۳@... -> user123@...)
+    $normalized = to_english_digits((string)$email);
+    // Remove zero-width spaces or non-joiners
+    $normalized = str_replace(["\xE2\x80\x8C", "\xE2\x80\x8B", "\xEF\xBB\xBF"], '', $normalized);
+    return strtolower(trim($normalized));
 }
 
 function hash_password($password) {
+    // Normalize digits to English before hashing so passwords are interoperable across all devices
+    $normalized = to_english_digits((string)$password);
     $salt = bin2hex(random_bytes(16));
     // 1000 iterations, 64 bytes (128 hex chars in output)
-    $hash = hash_pbkdf2('sha256', $password, $salt, 1000, 128);
+    $hash = hash_pbkdf2('sha256', $normalized, $salt, 1000, 128);
     return $salt . ':' . $hash;
 }
 
-function verify_password($password, $storedHash) {
+function check_single_password($password, $storedHash) {
     if (!$storedHash) return false;
     if (strpos($storedHash, ':') !== false) {
         list($salt, $hash) = explode(':', $storedHash, 2);
         $testHash = hash_pbkdf2('sha256', $password, $salt, 1000, 128);
-        return hash_equals($hash, $testHash);
+        if (hash_equals($hash, $testHash)) {
+            return true;
+        }
     }
-    // Fallback if password_hash() was used or legacy plain string
     if (password_verify($password, $storedHash)) {
         return true;
     }
     return hash_equals($storedHash, $password);
+}
+
+function verify_password($password, $storedHash) {
+    if (!$storedHash) return false;
+
+    // Check all plausible numeral representations of the entered password:
+    // 1. Normalized English digits (standard)
+    // 2. Raw password as submitted
+    // 3. Persian digits (in case account was registered with Persian keyboard)
+    // 4. Arabic digits
+    $raw = (string)$password;
+    $eng = to_english_digits($raw);
+    $variants = [
+        $eng,
+        $raw,
+        to_persian_digits($eng),
+        to_arabic_digits($eng),
+    ];
+    $uniqueVariants = array_values(array_unique($variants));
+
+    foreach ($uniqueVariants as $v) {
+        if (check_single_password($v, $storedHash)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function generate_uuid() {
