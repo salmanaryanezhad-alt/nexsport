@@ -596,11 +596,26 @@ export const db = {
 
     if (mysqlPool) {
       await initTablesIfRealDb();
-      await mysqlPool.execute(
-        `INSERT INTO \`sessions\` (id, user_id, device_type, expires_at, last_active_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [token, userId, deviceType, expiresAt, now, now]
-      );
+      try {
+        await mysqlPool.execute(
+          `INSERT INTO \`sessions\` (id, user_id, device_type, expires_at, last_active_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [token, userId, deviceType, expiresAt, now, now]
+        );
+      } catch {
+        await mysqlPool.query("ALTER TABLE `sessions` ADD COLUMN `device_type` VARCHAR(20) DEFAULT 'desktop'").catch(() => {});
+        await mysqlPool.execute(
+          `INSERT INTO \`sessions\` (id, user_id, device_type, expires_at, last_active_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [token, userId, deviceType, expiresAt, now, now]
+        ).catch(async () => {
+          await mysqlPool!.execute(
+            `INSERT INTO \`sessions\` (id, user_id, expires_at, last_active_at, created_at)
+             VALUES (?, ?, ?, ?, ?)`,
+            [token, userId, expiresAt, now, now]
+          );
+        });
+      }
       await mysqlPool.execute("UPDATE `users` SET updated_at = ? WHERE id = ?", [now, userId]).catch(() => {});
       return token;
     }
@@ -631,42 +646,53 @@ export const db = {
     const now = new Date();
     if (mysqlPool) {
       await initTablesIfRealDb();
-      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
-        "SELECT * FROM `sessions` WHERE user_id = ? AND device_type = ? AND expires_at > ? ORDER BY last_active_at DESC LIMIT 1",
-        [userId, deviceType, now]
-      );
-      const session = rows[0];
-      if (session) {
-        return {
-          id: session.id,
-          user_id: session.user_id,
-          device_type: session.device_type,
-          expires_at: new Date(session.expires_at),
-          last_active_at: new Date(session.last_active_at),
-          created_at: new Date(session.created_at),
-        };
+      try {
+        const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+          "SELECT * FROM `sessions` WHERE user_id = ? AND device_type = ? AND expires_at > ? ORDER BY last_active_at DESC LIMIT 1",
+          [userId, deviceType, now]
+        );
+        const session = rows[0];
+        if (session) {
+          return {
+            id: session.id,
+            user_id: session.user_id,
+            device_type: session.device_type,
+            expires_at: new Date(session.expires_at),
+            last_active_at: new Date(session.last_active_at),
+            created_at: new Date(session.created_at),
+          };
+        }
+        return null;
+      } catch {
+        // Auto-migrate column on existing database if missing
+        await mysqlPool.query("ALTER TABLE `sessions` ADD COLUMN `device_type` VARCHAR(20) DEFAULT 'desktop'").catch(() => {});
+        return null;
       }
-      return null;
     }
 
     if (pgPool) {
       await initTablesIfRealDb();
-      const res = await pgPool.query(
-        "SELECT * FROM sessions WHERE user_id = $1 AND device_type = $2 AND expires_at > $3 ORDER BY last_active_at DESC LIMIT 1",
-        [userId, deviceType, now]
-      );
-      const session = res.rows[0];
-      if (session) {
-        return {
-          id: session.id,
-          user_id: session.user_id,
-          device_type: session.device_type,
-          expires_at: new Date(session.expires_at),
-          last_active_at: new Date(session.last_active_at),
-          created_at: new Date(session.created_at),
-        };
+      try {
+        const res = await pgPool.query(
+          "SELECT * FROM sessions WHERE user_id = $1 AND device_type = $2 AND expires_at > $3 ORDER BY last_active_at DESC LIMIT 1",
+          [userId, deviceType, now]
+        );
+        const session = res.rows[0];
+        if (session) {
+          return {
+            id: session.id,
+            user_id: session.user_id,
+            device_type: session.device_type,
+            expires_at: new Date(session.expires_at),
+            last_active_at: new Date(session.last_active_at),
+            created_at: new Date(session.created_at),
+          };
+        }
+        return null;
+      } catch {
+        await pgPool.query("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS device_type VARCHAR(20) DEFAULT 'desktop'").catch(() => {});
+        return null;
       }
-      return null;
     }
 
     for (const s of memoryStore.sessions.values()) {
@@ -680,13 +706,23 @@ export const db = {
   async deleteSessionsByDevice(userId: string, deviceType: "desktop" | "mobile"): Promise<void> {
     if (mysqlPool) {
       await initTablesIfRealDb();
-      await mysqlPool.execute("DELETE FROM `sessions` WHERE user_id = ? AND device_type = ?", [userId, deviceType]);
+      try {
+        await mysqlPool.execute("DELETE FROM `sessions` WHERE user_id = ? AND device_type = ?", [userId, deviceType]);
+      } catch {
+        await mysqlPool.query("ALTER TABLE `sessions` ADD COLUMN `device_type` VARCHAR(20) DEFAULT 'desktop'").catch(() => {});
+        await mysqlPool.execute("DELETE FROM `sessions` WHERE user_id = ? AND device_type = ?", [userId, deviceType]).catch(() => {});
+      }
       return;
     }
 
     if (pgPool) {
       await initTablesIfRealDb();
-      await pgPool.query("DELETE FROM sessions WHERE user_id = $1 AND device_type = $2", [userId, deviceType]);
+      try {
+        await pgPool.query("DELETE FROM sessions WHERE user_id = $1 AND device_type = $2", [userId, deviceType]);
+      } catch {
+        await pgPool.query("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS device_type VARCHAR(20) DEFAULT 'desktop'").catch(() => {});
+        await pgPool.query("DELETE FROM sessions WHERE user_id = $1 AND device_type = $2", [userId, deviceType]).catch(() => {});
+      }
       return;
     }
 

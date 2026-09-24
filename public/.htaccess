@@ -4,7 +4,7 @@
   RewriteBase /
 
   # 1. Route all API requests directly to PHP API backend
-  RewriteRule ^api/(.*)$ /api/index.php [QSA,L]
+  RewriteRule ^api/(.*)$ /api/index.php?_route=$1 [QSA,L]
 
   # 2. Serve existing files and directories directly
   RewriteCond %{REQUEST_FILENAME} -f [OR]
