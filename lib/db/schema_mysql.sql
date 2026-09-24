@@ -39,15 +39,17 @@ CREATE TABLE IF NOT EXISTS `email_verifications` (
     CONSTRAINT `fk_verifications_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. جدول نشست‌های ورود (نشست لغزان ۴۸ ساعته)
+-- 3. جدول نشست‌های ورود (نشست لغزان ۴۸ ساعته و تفکیک موبایل/لپ‌تاپ)
 CREATE TABLE IF NOT EXISTS `sessions` (
     `id` VARCHAR(64) NOT NULL,
     `user_id` VARCHAR(36) NOT NULL,
+    `device_type` VARCHAR(20) DEFAULT 'desktop',
     `expires_at` TIMESTAMP NOT NULL,
     `last_active_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `idx_sessions_user_id` (`user_id`),
+    KEY `idx_sessions_device` (`user_id`, `device_type`),
     CONSTRAINT `fk_sessions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

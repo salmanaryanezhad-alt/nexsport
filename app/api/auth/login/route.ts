@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If user has not verified email, prompt verification and send fresh code
+    // Check if user has not verified email, prompt verification and send fresh code
     if (!user.is_verified) {
       const code = generateVerificationCode();
       await db.saveVerificationCode(user.id, user.email, code, 15);
@@ -67,8 +67,35 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Create rolling 48-hour session token
-    const token = await db.createSession(user.id, 48);
+    // Determine device type (mobile vs desktop)
+    const { deviceType: clientDevice, forceKick } = body || {};
+    const ua = req.headers.get("user-agent") || "";
+    const isMobileUa = /(android|iphone|ipad|ipod|blackberry|mobile)/i.test(ua);
+    const deviceType: "mobile" | "desktop" = (clientDevice === "mobile" || clientDevice === "desktop")
+      ? clientDevice
+      : (isMobileUa ? "mobile" : "desktop");
+
+    // Check Dual-Device Policy: check for active session on the SAME device type
+    const existingSession = await db.findActiveSessionByDevice(user.id, deviceType);
+
+    if (existingSession && !forceKick) {
+      const deviceLabel = deviceType === "mobile" ? "تلفن همراه" : "رایانه / لپ‌تاپ";
+      return NextResponse.json({
+        success: false,
+        requiresConfirmation: true,
+        conflictDeviceType: deviceType,
+        deviceLabel,
+        message: `حساب کاربری شما در حال حاضر روی یک ${deviceLabel} دیگر فعال است. با ورود به این دستگاه، دستگاه قبلی به صورت خودکار از حساب خارج شده و تغییرات ذخیره‌نشده در آن منقضی خواهد گردید. آیا مایل به ادامه هستید؟`,
+      });
+    }
+
+    // If forceKick is true, evict prior session(s) of this device type
+    if (existingSession && forceKick) {
+      await db.deleteSessionsByDevice(user.id, deviceType);
+    }
+
+    // Create rolling 48-hour session token for this device
+    const token = await db.createSession(user.id, 48, deviceType);
 
     const response = NextResponse.json({
       success: true,

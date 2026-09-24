@@ -39,8 +39,15 @@ export async function POST(req: NextRequest) {
     await db.markUserVerified(user.id);
     await db.deleteVerificationCodesForUser(user.id);
 
+    // Detect device type and replace any existing same-type session
+    const userAgent = req.headers.get("user-agent") || "";
+    const isMobileUa = /(android|iphone|ipad|ipod|blackberry|mobile|touch)/i.test(userAgent);
+    const reqDevice = body?.deviceType === "mobile" || body?.deviceType === "desktop" ? body.deviceType : (isMobileUa ? "mobile" : "desktop");
+
+    await db.deleteSessionsByDevice(user.id, reqDevice);
+
     // Create rolling 48-hour session token
-    const token = await db.createSession(user.id, 48);
+    const token = await db.createSession(user.id, 48, reqDevice);
 
     const response = NextResponse.json({
       success: true,

@@ -59,6 +59,21 @@ function clean_email($email) {
     return strtolower(trim($normalized));
 }
 
+function detect_device_type($clientHint = null) {
+    if ($clientHint === 'mobile' || $clientHint === 'desktop') {
+        return $clientHint;
+    }
+    $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    if (preg_match('/(android|iphone|ipad|ipod|blackberry|mobile|touch)/i', $ua)) {
+        return 'mobile';
+    }
+    return 'desktop';
+}
+
+function get_device_label_fa($deviceType) {
+    return ($deviceType === 'mobile') ? 'تلفن همراه' : 'رایانه / لپ‌تاپ';
+}
+
 function hash_password($password) {
     // Normalize digits to English before hashing so passwords are interoperable across all devices
     $normalized = to_english_digits((string)$password);

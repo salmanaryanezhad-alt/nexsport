@@ -290,6 +290,71 @@ async function run() {
     assertEqual(listAfter[0].id, t2.id, "مسابقه باقی‌مانده باید دومین مسابقه باشد.");
   });
 
+  await test("قانون اتصال دوگانه (Dual-Device Policy): همزمانی ۱ رایانه و ۱ موبایل", async () => {
+    const user = await db.createUser({
+      name: "کاربر تست دو دستگاه",
+      email: "dualdevice@nexsport.ir",
+      mobile: "09121112233",
+      passwordHash: hashPassword("Secret123"),
+      isVerified: true,
+    });
+
+    // 1. کاربر روی رایانه (Desktop) وارد می‌شود
+    const desktopToken1 = await db.createSession(user.id, 48, "desktop");
+    const activeDesktop1 = await db.findActiveSessionByDevice(user.id, "desktop");
+    assert(Boolean(activeDesktop1), "باید نشست فعال رایانه وجود داشته باشد.");
+    assertEqual(activeDesktop1?.id, desktopToken1, "نشست فعال رایانه باید برابر با توکن ثبت شده باشد.");
+    assertEqual(activeDesktop1?.device_type, "desktop", "نوع دستگاه باید desktop باشد.");
+
+    // 2. کاربر همزمان روی گوشی همراه (Mobile) وارد می‌شود
+    const mobileToken1 = await db.createSession(user.id, 48, "mobile");
+    const activeMobile1 = await db.findActiveSessionByDevice(user.id, "mobile");
+    assert(Boolean(activeMobile1), "باید نشست فعال موبایل همزمان وجود داشته باشد.");
+    assertEqual(activeMobile1?.id, mobileToken1, "نشست فعال موبایل باید برابر با توکن موبایل باشد.");
+    assertEqual(activeMobile1?.device_type, "mobile", "نوع دستگاه باید mobile باشد.");
+
+    // هر دو نشست همزمان معتبر هستند (۱ رایانه + ۱ موبایل)
+    const validDesktop = await db.findSession(desktopToken1);
+    const validMobile = await db.findSession(mobileToken1);
+    assert(Boolean(validDesktop), "نشست رایانه باید همزمان با موبایل معتبر و فعال بماند.");
+    assert(Boolean(validMobile), "نشست موبایل باید همزمان با رایانه معتبر و فعال بماند.");
+
+    // 3. تلاش برای ورود با یک رایانه دیگر (Desktop 2)
+    // سیستم ابتدا وجود نشست فعال رایانه را شناسایی می‌کند
+    const conflictDesktop = await db.findActiveSessionByDevice(user.id, "desktop");
+    assert(Boolean(conflictDesktop), "سیستم باید نشست قبلی رایانه را شناسایی کند تا فرم تایید نمایش داده شود.");
+
+    // با تایید کاربر برای خروج از رایانه قبلی (forceKick):
+    await db.deleteSessionsByDevice(user.id, "desktop");
+    const desktopToken2 = await db.createSession(user.id, 48, "desktop");
+
+    // بررسی نتیجه خروج گزینشی:
+    const expiredDesktop1 = await db.findSession(desktopToken1);
+    assertEqual(expiredDesktop1, null, "نشست رایانه ۱ باید ابطال و خارج شده باشد.");
+
+    const freshDesktop = await db.findSession(desktopToken2);
+    assert(Boolean(freshDesktop), "نشست رایانه ۲ باید فعال باشد.");
+
+    // مهم: نشست تلفن همراه (Mobile) نباید هیچ تغییری کرده باشد!
+    const stillAliveMobile = await db.findSession(mobileToken1);
+    assert(Boolean(stillAliveMobile), "خروج از رایانه نباید هیچ اثری روی نشست تلفن همراه بگذارد.");
+    assertEqual(stillAliveMobile?.device_type, "mobile", "نشست موبایل بدون تغییر باقی می‌ماند.");
+
+    // 4. ورود روی یک موبایل دیگر با تایید خروج از موبایل اول:
+    await db.deleteSessionsByDevice(user.id, "mobile");
+    const mobileToken2 = await db.createSession(user.id, 48, "mobile");
+
+    const expiredMobile1 = await db.findSession(mobileToken1);
+    assertEqual(expiredMobile1, null, "نشست موبایل ۱ باید ابطال و خارج شده باشد.");
+
+    const freshMobile = await db.findSession(mobileToken2);
+    assert(Boolean(freshMobile), "نشست موبایل ۲ باید فعال باشد.");
+
+    // رایانه ۲ هم‌چنان معتبر باقی می‌ماند:
+    const desktopStillAlive = await db.findSession(desktopToken2);
+    assert(Boolean(desktopStillAlive), "خروج از موبایل نباید هیچ اثری روی نشست رایانه بگذارد.");
+  });
+
   console.log("\n======================================");
   console.log(`تست‌های موفق: ${passed}`);
   console.log(`تست‌های ناموفق: ${failed}`);

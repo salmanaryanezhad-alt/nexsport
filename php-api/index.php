@@ -188,8 +188,29 @@ if ($path === 'auth/login' && $method === 'POST') {
         ]);
     }
 
+    // Dual-Device Policy Check: Max 1 Desktop + 1 Mobile per user account
+    $deviceType = detect_device_type($body['deviceType'] ?? null);
+    $forceKick = !empty($body['forceKick']);
+
+    if (!$forceKick) {
+        $activeSameDeviceSession = db_find_active_session_by_device($pdo, $user['id'], $deviceType);
+        if ($activeSameDeviceSession) {
+            $deviceLabel = get_device_label_fa($deviceType);
+            json_response([
+                'success' => false,
+                'requiresConfirmation' => true,
+                'conflictingDevice' => $deviceType,
+                'deviceLabel' => $deviceLabel,
+                'message' => "شما در حال حاضر با یک دستگاه {$deviceLabel} دیگر به این حساب وارد شده‌اید. هر حساب کاربری همزمان فقط مجاز به اتصال ۱ رایانه و ۱ موبایل است.\n\nدر صورت تایید، نشست قبلی روی {$deviceLabel} دیگر بسته خواهد شد (بدون تاثیر بر روی نشست دستگاه نوع دیگر). آیا مایل به ادامه هستید؟"
+            ], 200);
+        }
+    }
+
+    // Evict previous session(s) of this exact same device type
+    db_delete_sessions_by_device($pdo, $user['id'], $deviceType);
+
     // Create 48-hour rolling session token
-    $token = db_create_session($pdo, $user['id'], SESSION_HOURS);
+    $token = db_create_session($pdo, $user['id'], $deviceType, SESSION_HOURS);
     set_session_cookie($token, time() + (SESSION_HOURS * 3600));
 
     json_response([
@@ -263,8 +284,12 @@ if ($path === 'auth/verify-email' && $method === 'POST') {
     db_mark_user_verified($pdo, $user['id']);
     db_delete_verification_codes_for_user($pdo, $user['id']);
 
+    // Detect device type and clean previous session on this device type
+    $deviceType = detect_device_type($body['deviceType'] ?? null);
+    db_delete_sessions_by_device($pdo, $user['id'], $deviceType);
+
     // Create session token and log user in
-    $token = db_create_session($pdo, $user['id'], SESSION_HOURS);
+    $token = db_create_session($pdo, $user['id'], $deviceType, SESSION_HOURS);
     set_session_cookie($token, time() + (SESSION_HOURS * 3600));
 
     json_response([
