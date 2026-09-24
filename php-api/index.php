@@ -134,11 +134,8 @@ if ($path === 'auth/register' && $method === 'POST') {
         'success' => true,
         'requiresVerification' => true,
         'email' => $email,
-        'demoCode' => $emailResult['demoCode'],
         'isRealDelivery' => $emailResult['isRealDelivery'],
-        'message' => $emailResult['isRealDelivery']
-            ? "کد تایید ۶ رقمی به ایمیل {$email} ارسال شد."
-            : "کد تایید ۶ رقمی تولید شد. (حالت دمو: {$code})"
+        'message' => "کد تایید ۶ رقمی به آدرس ایمیل {$email} ارسال شد. لطفاً صندوق ورودی یا هرزنامه (Spam) را بررسی نمایید."
     ]);
 }
 
@@ -179,9 +176,8 @@ if ($path === 'auth/login' && $method === 'POST') {
             'success' => false,
             'requiresVerification' => true,
             'email' => $user['email'],
-            'demoCode' => $emailResult['demoCode'],
             'isRealDelivery' => $emailResult['isRealDelivery'],
-            'message' => 'حساب کاربری شما هنوز تایید نشده است. کد تایید به ایمیل شما ارسال شد.'
+            'message' => 'حساب کاربری شما هنوز تایید نشده است. کد فعال‌سازی ۶ رقمی مجدداً به ایمیل شما ارسال شد.'
         ]);
     }
 
@@ -298,11 +294,8 @@ if ($path === 'auth/resend-code' && $method === 'POST') {
 
     json_response([
         'success' => true,
-        'demoCode' => $emailResult['demoCode'],
         'isRealDelivery' => $emailResult['isRealDelivery'],
-        'message' => $emailResult['isRealDelivery']
-            ? "کد تایید جدید به ایمیل {$email} ارسال شد."
-            : "کد تایید جدید تولید شد. (حالت دمو: {$code})"
+        'message' => "کد تایید جدید به ایمیل {$email} ارسال شد."
     ]);
 }
 
@@ -330,11 +323,8 @@ if ($path === 'auth/forgot-password' && $method === 'POST') {
 
     json_response([
         'success' => true,
-        'demoCode' => $emailResult['demoCode'],
         'isRealDelivery' => $emailResult['isRealDelivery'],
-        'message' => $emailResult['isRealDelivery']
-            ? "کد بازیابی ۶ رقمی به ایمیل {$email} ارسال شد."
-            : "کد بازیابی تولید شد. (حالت آزمایشی: {$code})"
+        'message' => "کد بازیابی ۶ رقمی به ایمیل {$email} ارسال شد. لطفاً صندوق ورودی خود را بررسی فرمایید."
     ]);
 }
 

@@ -195,7 +195,6 @@ HTML;
     }
 
     return [
-        'demoCode' => $code,
         'isRealDelivery' => (bool)$delivered
     ];
 }
