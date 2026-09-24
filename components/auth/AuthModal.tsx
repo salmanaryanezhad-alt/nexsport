@@ -102,6 +102,10 @@ export function AuthModal() {
   async function handleRegisterSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (regPassword.length < 8) {
+      setError("رمز عبور باید حداقل ۸ کاراکتر باشد.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await register(regName, regEmail, regMobile, regPassword);
@@ -148,6 +152,10 @@ export function AuthModal() {
     e.preventDefault();
     if (!pendingEmail) return;
     setError(null);
+    if (newPasswordVal.length < 8) {
+      setError("رمز عبور جدید باید حداقل ۸ کاراکتر باشد.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await resetPassword(pendingEmail, resetCodeVal, newPasswordVal);
@@ -317,18 +325,9 @@ export function AuthModal() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-ink/80">
-                    رمز عبور
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => openAuthModal("forgot")}
-                    className="text-[11px] text-pitch font-medium hover:underline cursor-pointer"
-                  >
-                    رمز عبور را فراموش کردید؟
-                  </button>
-                </div>
+                <label className="block text-xs font-semibold text-ink/80 mb-1">
+                  رمز عبور
+                </label>
                 <input
                   type="password"
                   required
@@ -348,15 +347,25 @@ export function AuthModal() {
                 {loading ? "در حال بررسی..." : "ورود به حساب کاربری"}
               </button>
 
-              <div className="text-center pt-2">
-                <span className="text-xs text-ink/60">حساب کاربری ندارید؟ </span>
+              <div className="flex items-center justify-between text-xs pt-1 px-0.5">
                 <button
                   type="button"
-                  onClick={() => openAuthModal("register")}
-                  className="text-xs font-bold text-pitch hover:underline cursor-pointer"
+                  onClick={() => openAuthModal("forgot")}
+                  className="text-xs text-pitch font-medium hover:underline cursor-pointer"
                 >
-                  ثبت‌نام رایگان
+                  رمز عبور را فراموش کردید؟
                 </button>
+
+                <div className="text-xs text-ink/60">
+                  حساب کاربری ندارید؟{" "}
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal("register")}
+                    className="font-bold text-pitch hover:underline cursor-pointer"
+                  >
+                    ثبت‌نام رایگان
+                  </button>
+                </div>
               </div>
             </form>
             )
@@ -411,17 +420,21 @@ export function AuthModal() {
 
               <div>
                 <label className="block text-xs font-semibold text-ink/80 mb-1">
-                  رمز عبور دلخواه
+                  رمز عبور دلخواه (حداقل ۸ کاراکتر)
                 </label>
                 <input
                   type="password"
                   required
+                  minLength={8}
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
-                  placeholder="یک رمز عبور وارد کنید"
+                  placeholder="حداقل ۸ کاراکتر"
                   className="w-full rounded-lg border border-line bg-white px-3.5 py-2 text-sm focus:border-pitch focus:outline-none"
                   dir="ltr"
                 />
+                <p className="text-[11px] text-ink/50 mt-1">
+                  رمز عبور باید حداقل ۸ کاراکتر باشد.
+                </p>
               </div>
 
               <button
@@ -621,17 +634,21 @@ export function AuthModal() {
 
               <div>
                 <label className="block text-xs font-semibold text-ink/80 mb-1">
-                  رمز عبور جدید
+                  رمز عبور جدید (حداقل ۸ کاراکتر)
                 </label>
                 <input
                   type="password"
                   required
+                  minLength={8}
                   value={newPasswordVal}
                   onChange={(e) => setNewPasswordVal(e.target.value)}
-                  placeholder="رمز عبور جدید را وارد فرمایید"
+                  placeholder="حداقل ۸ کاراکتر"
                   className="w-full rounded-lg border border-line bg-white px-3.5 py-2 text-sm focus:border-pitch focus:outline-none"
                   dir="ltr"
                 />
+                <p className="text-[11px] text-ink/50 mt-1">
+                  رمز عبور جدید باید حداقل ۸ کاراکتر باشد.
+                </p>
               </div>
 
               <button

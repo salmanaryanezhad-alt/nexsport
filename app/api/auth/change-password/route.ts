@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { toEnglishDigits } from "@/lib/auth/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -35,8 +36,9 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const { currentPassword, newPassword } = body || {};
 
-    if (!newPassword || typeof newPassword !== "string" || newPassword.length === 0) {
-      return NextResponse.json({ error: "رمز عبور جدید الزامی است." }, { status: 400 });
+    const cleanNewPass = toEnglishDigits(String(newPassword || ""));
+    if (!cleanNewPass || cleanNewPass.length < 8) {
+      return NextResponse.json({ error: "رمز عبور جدید باید حداقل ۸ کاراکتر باشد." }, { status: 400 });
     }
 
     // Check current password if provided

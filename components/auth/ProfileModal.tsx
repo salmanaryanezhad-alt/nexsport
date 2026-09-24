@@ -38,6 +38,10 @@ export function ProfileModal() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    if (newPassword.length < 8) {
+      setError("رمز عبور جدید باید حداقل ۸ کاراکتر باشد.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await changePassword(currentPassword, newPassword);
@@ -211,17 +215,21 @@ export function ProfileModal() {
 
               <div>
                 <label className="block text-xs font-semibold text-ink/80 mb-1">
-                  رمز عبور جدید
+                  رمز عبور جدید (حداقل ۸ کاراکتر)
                 </label>
                 <input
                   type="password"
                   required
+                  minLength={8}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="رمز عبور جدید دلخواه"
+                  placeholder="حداقل ۸ کاراکتر"
                   className="w-full rounded-lg border border-line bg-white px-3.5 py-2 text-sm focus:border-pitch focus:outline-none"
                   dir="ltr"
                 />
+                <p className="text-[11px] text-ink/50 mt-1">
+                  رمز عبور باید حداقل ۸ کاراکتر باشد.
+                </p>
               </div>
 
               <button

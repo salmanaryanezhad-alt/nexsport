@@ -109,8 +109,8 @@ if ($path === 'auth/register' && $method === 'POST') {
     if (!$mobile || strlen($mobile) < 8) {
         json_response(['error' => 'لطفاً شماره موبایل معتبر وارد نمایید.'], 400);
     }
-    if (!$password) {
-        json_response(['error' => 'لطفاً رمز عبور را وارد نمایید.'], 400);
+    if (!$password || strlen(to_english_digits($password)) < 8) {
+        json_response(['error' => 'رمز عبور باید حداقل ۸ کاراکتر باشد.'], 400);
     }
 
     // Check unique email
@@ -379,6 +379,9 @@ if ($path === 'auth/reset-password' && $method === 'POST') {
     if (!$email || !$code || !$newPassword) {
         json_response(['error' => 'ایمیل، کد تایید و رمز عبور جدید الزامی هستند.'], 400);
     }
+    if (strlen(to_english_digits($newPassword)) < 8) {
+        json_response(['error' => 'رمز عبور جدید باید حداقل ۸ کاراکتر باشد.'], 400);
+    }
 
     $resetRecord = db_verify_password_reset_code($pdo, $email, $code);
     if (!$resetRecord) {
@@ -448,6 +451,9 @@ if ($path === 'auth/change-password' && $method === 'PUT') {
 
     if (!$newPassword) {
         json_response(['error' => 'رمز عبور جدید الزامی است.'], 400);
+    }
+    if (strlen(to_english_digits($newPassword)) < 8) {
+        json_response(['error' => 'رمز عبور باید حداقل ۸ کاراکتر باشد.'], 400);
     }
 
     $user = db_find_user_by_id($pdo, $session['user_id']);
