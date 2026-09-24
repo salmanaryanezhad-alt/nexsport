@@ -20,19 +20,7 @@ const ZIP_OUTPUT = '/home/user/nexsport-cpanel-direct-upload.zip';
 
 console.log('🚀 Starting NexSport cPanel Package Build...');
 
-// 1. Ensure next.config.mjs has output: 'export'
-let configContent = fs.readFileSync(NEXT_CONFIG, 'utf8');
-const originalConfig = configContent;
-if (!configContent.includes("output: 'export'") && !configContent.includes('output: "export"')) {
-    configContent = configContent.replace(
-        'const nextConfig = {',
-        'const nextConfig = {\n  output: "export",'
-    );
-    fs.writeFileSync(NEXT_CONFIG, configContent);
-    console.log('✓ Configured next.config.mjs for static export');
-}
-
-// 2. Temporarily move app/api during static build
+// 1. Temporarily move app/api during static build
 let apiMoved = false;
 if (fs.existsSync(APP_API_DIR)) {
     fs.renameSync(APP_API_DIR, APP_API_TEMP);
@@ -41,9 +29,13 @@ if (fs.existsSync(APP_API_DIR)) {
 }
 
 try {
-    // 3. Build Next.js
-    console.log('⏳ Running Next.js build...');
-    execSync('npm run build', { cwd: ROOT_DIR, stdio: 'inherit' });
+    // 2. Build Next.js with static HTML export
+    console.log('⏳ Running Next.js build with NEXT_EXPORT=true...');
+    execSync('npm run build', {
+        cwd: ROOT_DIR,
+        stdio: 'inherit',
+        env: { ...process.env, NEXT_EXPORT: 'true' }
+    });
     console.log('✓ Static frontend build completed successfully!');
 } finally {
     // Restore app/api

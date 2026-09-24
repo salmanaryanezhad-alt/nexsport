@@ -24,7 +24,20 @@ interface AuthContextType {
   openProfileModal: () => void;
   closeProfileModal: () => void;
   setPendingVerification: (email: string) => void;
-  login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string; requiresVerification?: boolean; email?: string }>;
+  login: (
+    identifier: string,
+    password: string,
+    forceKick?: boolean
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    requiresVerification?: boolean;
+    requiresConfirmation?: boolean;
+    conflictingDevice?: "mobile" | "desktop";
+    deviceLabel?: string;
+    message?: string;
+    email?: string;
+  }>;
   register: (name: string, email: string, mobile: string, password: string) => Promise<{ success: boolean; error?: string; requiresVerification?: boolean; email?: string }>;
   verifyEmail: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
   resendCode: (email: string) => Promise<{ success: boolean; error?: string }>;
@@ -123,12 +136,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setModalTab("verify");
   }
 
-  async function login(identifier: string, password: string) {
+  async function login(identifier: string, password: string, forceKick = false) {
     try {
+      const deviceType =
+        typeof window !== "undefined" &&
+        /android|iphone|ipad|ipod|blackberry|mobile|touch/i.test(navigator.userAgent || "")
+          ? "mobile"
+          : "desktop";
+
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify({
+          identifier,
+          password,
+          deviceType,
+          forceKick: !!forceKick,
+        }),
       });
       const data = await res.json();
 
@@ -146,6 +170,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           success: false,
           requiresVerification: true,
           email: data.email,
+        };
+      }
+
+      if (data.requiresConfirmation) {
+        return {
+          success: false,
+          requiresConfirmation: true,
+          conflictingDevice: data.conflictingDevice,
+          deviceLabel: data.deviceLabel,
+          message: data.message,
         };
       }
 

@@ -22,6 +22,11 @@ export function AuthModal() {
   // Login form state
   const [loginIdentifier, setLoginIdentifier] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [deviceConflict, setDeviceConflict] = useState<{
+    deviceLabel: string;
+    conflictingDevice: "mobile" | "desktop";
+    message: string;
+  } | null>(null);
 
   // Register form state
   const [regName, setRegName] = useState("");
@@ -46,6 +51,7 @@ export function AuthModal() {
   useEffect(() => {
     setError(null);
     setSuccessMsg(null);
+    setDeviceConflict(null);
   }, [modalTab, isAuthModalOpen]);
 
   useEffect(() => {
@@ -58,14 +64,24 @@ export function AuthModal() {
 
   if (!isAuthModalOpen) return null;
 
-  async function handleLoginSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleLoginSubmit(e?: React.FormEvent, forceKick = false) {
+    if (e) e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const res = await login(loginIdentifier, loginPassword);
+      const res = await login(loginIdentifier, loginPassword, forceKick);
       if (!res.success) {
-        setError(res.error || "ورود ناموفق بود.");
+        if (res.requiresConfirmation) {
+          setDeviceConflict({
+            deviceLabel: res.deviceLabel || "دستگاه دیگر",
+            conflictingDevice: res.conflictingDevice || "desktop",
+            message: res.message || "",
+          });
+        } else {
+          setError(res.error || "ورود ناموفق بود.");
+        }
+      } else {
+        setDeviceConflict(null);
       }
     } finally {
       setLoading(false);
@@ -150,7 +166,7 @@ export function AuthModal() {
     }
   }
 
-  const isTabsVisible = modalTab === "login" || modalTab === "register";
+  const isTabsVisible = (modalTab === "login" || modalTab === "register") && !deviceConflict;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/50 backdrop-blur-xs animate-in fade-in duration-200">
@@ -160,7 +176,9 @@ export function AuthModal() {
           <div className="flex items-center gap-2">
             <NexSportIcon size={24} />
             <span className="font-bold text-base text-pitch">
-              {modalTab === "forgot" || modalTab === "reset"
+              {deviceConflict
+                ? "تایید انتقال نشست (سیاست دو دستگاه)"
+                : modalTab === "forgot" || modalTab === "reset"
                 ? "بازیابی رمز عبور"
                 : "حساب کاربری NexSport"}
             </span>
@@ -223,6 +241,54 @@ export function AuthModal() {
 
           {/* TAB 1: LOGIN */}
           {modalTab === "login" && (
+            deviceConflict ? (
+              <div className="space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4">
+                  <div className="flex items-center gap-2.5 text-amber-900 font-bold text-sm mb-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-200 text-amber-900 text-base">
+                      ⚠️
+                    </span>
+                    <span>نشست فعال روی {deviceConflict.deviceLabel} دیگر</span>
+                  </div>
+
+                  <p className="text-xs text-amber-950/90 leading-relaxed mb-3">
+                    شما در حال حاضر با یک <strong>{deviceConflict.deviceLabel}</strong> دیگر به این حساب کاربری وارد شده‌اید.
+                  </p>
+
+                  <div className="rounded-lg bg-white/95 border border-amber-200 p-3.5 text-xs text-ink/80 space-y-2.5 shadow-xs">
+                    <div className="font-semibold text-pitch text-xs flex items-center gap-1.5">
+                      <span>📱💻</span>
+                      <span>سیاست اتصال دوگانه NexSport:</span>
+                    </div>
+                    <ul className="list-disc list-inside space-y-1.5 text-[11.5px] text-ink/80 leading-relaxed">
+                      <li>هر حساب کاربری همزمان مجاز به داشتن حداکثر <strong>۱ رایانه / لپ‌تاپ</strong> و <strong>۱ تلفن همراه</strong> است.</li>
+                      <li>با تایید این عملیات، نشست قبلی روی <strong>{deviceConflict.deviceLabel} دیگر</strong> بلافاصله بسته شده و از آن خارج خواهید شد.</li>
+                      <li>اطلاعات ذخیره‌نشده روی مرورگر قبلی از دسترس خارج خواهد شد.</li>
+                      <li>چنانچه همزمان روی <strong>{deviceConflict.conflictingDevice === "mobile" ? "رایانه / لپ‌تاپ" : "تلفن همراه"}</strong> لاگین باشید، آن نشست <strong>کاملاً فعال و بدون تغییر</strong> حفظ می‌شود.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleLoginSubmit(undefined, true)}
+                    className="w-full rounded-lg bg-pitch py-2.5 text-sm font-bold text-white shadow-sm hover:bg-pitch-light transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {loading ? "در حال خروج از دستگاه قبلی..." : "بله، خروج از دستگاه قبلی و ورود به این دستگاه"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => setDeviceConflict(null)}
+                    className="w-full rounded-lg border border-line py-2 text-xs font-semibold text-ink/70 hover:bg-chalk transition-colors cursor-pointer"
+                  >
+                    انصراف
+                  </button>
+                </div>
+              </div>
+            ) : (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-ink/80 mb-1">
@@ -282,6 +348,7 @@ export function AuthModal() {
                 </button>
               </div>
             </form>
+            )
           )}
 
           {/* TAB 2: REGISTER */}

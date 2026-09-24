@@ -5,9 +5,15 @@ import {
   isPlaceholderTeam,
   getBestThirdsRanking,
 } from "./index";
+import {
+  buildKnockout,
+  computeKnockoutWithScores,
+  findPlayedDownstreamMatch,
+  resolveWinner,
+  type MatchScore,
+} from "./knockout";
 import { generateSingleRoundRobin, generateDoubleRoundRobin } from "./roundRobin";
 import { buildGroups, calculateDefaultNumGroups } from "./groups";
-import { buildKnockout, computeKnockoutWithScores, findPlayedDownstreamMatch, resolveWinner } from "./knockout";
 import { buildDoubleKnockout, computeDoubleKnockoutWithScores } from "./doubleKnockout";
 import { formatScheduleAsText, formatScheduleAsCsv } from "./export";
 import { calculateStandings } from "./standings";
@@ -29,7 +35,7 @@ function test(name: string, fn: TestFn) {
   }
 }
 
-function assert(condition: boolean, message: string) {
+function assert(condition: any, message: string) {
   if (!condition) {
     throw new Error(message);
   }
@@ -1652,6 +1658,7 @@ test("گروهی + حذفی: صعود خودکار تیم‌های سرگروه 
   const sched = generateSchedule({
     format: "groups-knockout",
     teams: ["الف۱", "الف۲", "الف۳", "ب۱", "ب۲", "ب۳"],
+    seededTeams: [],
     numGroups: 2,
     qualifiersPerGroup: 2,
     hasThirdPlace: true,
@@ -1667,10 +1674,13 @@ test("گروهی + حذفی: صعود خودکار تیم‌های سرگروه 
 
   // حال تمام بازی‌های گروه اول را ثبت می‌کنیم: تیم ۱ اول، تیم ۲ دوم، تیم ۳ سوم
   const gA = sched.groups[0];
-  const [teamFirst, teamSecond, teamThird] = gA.teams;
+  const teamFirst = gA.teams[0] || "الف۱";
+  const teamSecond = gA.teams[1] || "الف۲";
+  const teamThird = gA.teams[2] || "الف۳";
   const scores: Record<string, any> = {};
 
   for (const m of gA.rounds.flatMap((r) => r.matches)) {
+    if (!m.id) continue;
     if (m.home === teamFirst) {
       scores[m.id] = { home: 3, away: 0, winner: teamFirst };
     } else if (m.away === teamFirst) {
@@ -1698,6 +1708,7 @@ test("حذفی: جلوگیری از ثبت نتیجه و برنده برای م�
   const sched = generateSchedule({
     format: "groups-knockout",
     teams: ["الف۱", "الف۲", "ب۱", "ب۲"],
+    seededTeams: [],
     numGroups: 2,
     qualifiersPerGroup: 1,
   });

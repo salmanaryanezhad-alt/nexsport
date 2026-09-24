@@ -84,11 +84,13 @@ function ensure_tables_exist_mysql($pdo) {
     CREATE TABLE IF NOT EXISTS `sessions` (
         `id` VARCHAR(64) NOT NULL,
         `user_id` VARCHAR(36) NOT NULL,
+        `device_type` VARCHAR(20) DEFAULT 'desktop',
         `expires_at` TIMESTAMP NOT NULL,
         `last_active_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`),
-        KEY `idx_sessions_user_id` (`user_id`)
+        KEY `idx_sessions_user_id` (`user_id`),
+        KEY `idx_sessions_device` (`user_id`, `device_type`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
     CREATE TABLE IF NOT EXISTS `password_resets` (
@@ -120,6 +122,12 @@ function ensure_tables_exist_mysql($pdo) {
 
     try {
         $pdo->exec($sql);
+        // Ensure device_type column exists for seamless migration
+        try {
+            $pdo->query("SELECT `device_type` FROM `sessions` LIMIT 1");
+        } catch (\Throwable $e) {
+            $pdo->exec("ALTER TABLE `sessions` ADD COLUMN `device_type` VARCHAR(20) DEFAULT 'desktop'");
+        }
     } catch (\Throwable $e) {
         // Table creation errors ignored if already exist
     }
@@ -151,6 +159,7 @@ function ensure_tables_exist_sqlite($pdo) {
     CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
+        device_type TEXT DEFAULT 'desktop',
         expires_at DATETIME NOT NULL,
         last_active_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -339,22 +348,40 @@ function db_delete_password_reset_codes_for_user($pdo, $userId) {
     $stmt->execute([$userId]);
 }
 
-// Sessions (Sliding/Rolling 48 Hours)
-function db_create_session($pdo, $userId, $hours = SESSION_HOURS) {
+// Sessions (Sliding/Rolling 48 Hours & Dual-Device Policy)
+function db_create_session($pdo, $userId, $deviceType = 'desktop', $hours = SESSION_HOURS) {
     $token = generate_session_token();
+    $device = ($deviceType === 'mobile') ? 'mobile' : 'desktop';
     $isSqlite = (bool)getenv('NEXSPORT_TEST_SQLITE');
     if ($isSqlite) {
         $expiresAt = date('Y-m-d H:i:s', time() + ($hours * 3600));
-        $stmt = $pdo->prepare("INSERT INTO sessions (id, user_id, expires_at, last_active_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)");
-        $stmt->execute([$token, $userId, $expiresAt]);
+        $stmt = $pdo->prepare("INSERT INTO sessions (id, user_id, device_type, expires_at, last_active_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)");
+        $stmt->execute([$token, $userId, $device, $expiresAt]);
     } else {
         $stmt = $pdo->prepare("
-            INSERT INTO sessions (id, user_id, expires_at, last_active_at)
-            VALUES (?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ? HOUR), CURRENT_TIMESTAMP)
+            INSERT INTO sessions (id, user_id, device_type, expires_at, last_active_at)
+            VALUES (?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ? HOUR), CURRENT_TIMESTAMP)
         ");
-        $stmt->execute([$token, $userId, $hours]);
+        $stmt->execute([$token, $userId, $device, $hours]);
     }
     return $token;
+}
+
+function db_find_active_session_by_device($pdo, $userId, $deviceType) {
+    $device = ($deviceType === 'mobile') ? 'mobile' : 'desktop';
+    $stmt = $pdo->prepare("
+        SELECT * FROM sessions
+        WHERE user_id = ? AND device_type = ? AND expires_at > CURRENT_TIMESTAMP
+        ORDER BY last_active_at DESC LIMIT 1
+    ");
+    $stmt->execute([$userId, $device]);
+    return $stmt->fetch() ?: null;
+}
+
+function db_delete_sessions_by_device($pdo, $userId, $deviceType) {
+    $device = ($deviceType === 'mobile') ? 'mobile' : 'desktop';
+    $stmt = $pdo->prepare("DELETE FROM sessions WHERE user_id = ? AND device_type = ?");
+    $stmt->execute([$userId, $device]);
 }
 
 function db_find_session($pdo, $token, $hours = SESSION_HOURS) {
