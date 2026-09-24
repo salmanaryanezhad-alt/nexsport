@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { generateVerificationCode, sendVerificationEmail } from "@/lib/auth/email";
-import { cleanEmailAddress, cleanMobileNumber } from "@/lib/auth/utils";
+import { cleanEmailAddress, cleanMobileNumber, toEnglishDigits } from "@/lib/auth/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -35,9 +35,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!password || typeof password !== "string" || password.length === 0) {
+    const cleanPassword = toEnglishDigits(String(password || ""));
+    if (!cleanPassword || cleanPassword.length < 8) {
       return NextResponse.json(
-        { error: "لطفاً رمز عبور را وارد نمایید." },
+        { error: "رمز عبور باید حداقل ۸ کاراکتر باشد." },
         { status: 400 }
       );
     }

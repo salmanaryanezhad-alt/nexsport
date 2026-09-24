@@ -17,6 +17,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const cleanPassword = toEnglishDigits(String(newPassword || ""));
+    if (cleanPassword.length < 8) {
+      return NextResponse.json(
+        { error: "رمز عبور جدید باید حداقل ۸ کاراکتر باشد." },
+        { status: 400 }
+      );
+    }
+
     const cleanEmail = cleanEmailAddress(String(email));
     const cleanCode = toEnglishDigits(String(code)).trim();
 

@@ -34,11 +34,22 @@ async function run() {
   console.log("شروع تست‌های سیستم احراز هویت و دیتابیس (فاز دوم)...\n");
 
   await test("رمز عبور: هش‌گذاری و اعتبارسنجی صحیح رمز", () => {
-    const raw = "123456";
+    const raw = "12345678";
     const hashed = hashPassword(raw);
     assert(hashed.includes(":"), "هش باید دارای سالت و فرمت مناسب باشد.");
     assert(verifyPassword(raw, hashed), "رمز عبور صحیح باید تایید شود.");
-    assert(!verifyPassword("wrong", hashed), "رمز عبور اشتباه نباید تایید شود.");
+    assert(!verifyPassword("wrongpass", hashed), "رمز عبور اشتباه نباید تایید شود.");
+  });
+
+  await test("قانون حداقل ۸ کاراکتر رمز عبور بدون محدودیت نوع کاراکتر", () => {
+    // اعتبارسنجی حداقل ۸ کاراکتر
+    const validateLength = (pwd: string) => typeof pwd === "string" && pwd.length >= 8;
+    assert(!validateLength("1234567"), "رمز کمتر از ۸ کاراکتر باید رد شود");
+    assert(!validateLength("abc"), "رمز کوتاه باید رد شود");
+    assert(validateLength("12345678"), "رمز ۸ رقمی عددی مجاز است");
+    assert(validateLength("password"), "رمز ۸ حرفی متنی مجاز است");
+    assert(validateLength("رمزعبور۱۲"), "رمز فارسی ۸ کاراکتری مجاز است");
+    assert(validateLength("Pass@1234"), "رمز ترکیبی مجاز است");
   });
 
   await test("تولید کد تایید ایمیل: فرمت عددی ۶ رقمی", () => {
