@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { toEnglishDigits } from "@/lib/auth/utils";
+import { toEnglishDigits, hasPersianLetters } from "@/lib/auth/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +35,10 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json();
     const { currentPassword, newPassword } = body || {};
+
+    if (hasPersianLetters(String(newPassword || ""))) {
+      return NextResponse.json({ error: "صفحه کلید را به انگلیسی تغییر دهید" }, { status: 400 });
+    }
 
     const cleanNewPass = toEnglishDigits(String(newPassword || ""));
     if (!cleanNewPass || cleanNewPass.length < 8) {

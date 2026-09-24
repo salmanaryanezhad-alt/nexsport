@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { generateVerificationCode, sendVerificationEmail } from "@/lib/auth/email";
-import { cleanEmailAddress, cleanMobileNumber, toEnglishDigits } from "@/lib/auth/utils";
+import { cleanEmailAddress, cleanMobileNumber, toEnglishDigits, hasPersianLetters } from "@/lib/auth/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +31,13 @@ export async function POST(req: NextRequest) {
     if (!cleanMobile || cleanMobile.length < 8) {
       return NextResponse.json(
         { error: "لطفاً شماره موبایل معتبر وارد نمایید." },
+        { status: 400 }
+      );
+    }
+
+    if (hasPersianLetters(String(password || ""))) {
+      return NextResponse.json(
+        { error: "صفحه کلید را به انگلیسی تغییر دهید" },
         { status: 400 }
       );
     }

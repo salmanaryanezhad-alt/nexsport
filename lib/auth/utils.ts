@@ -36,3 +36,13 @@ export function cleanEmailAddress(email: string): string {
     .toLowerCase();
   return normalized;
 }
+
+/**
+ * بررسی اینکه آیا متن حاوی حروف یا کاراکترهای الفبای فارسی/عربی است یا خیر.
+ * (ارقام فارسی/عربی ۰ تا ۹ مجاز هستند و به صورت خودکار به ارقام انگلیسی تبدیل می‌شوند)
+ */
+export function hasPersianLetters(str: string): boolean {
+  if (!str) return false;
+  return /[\u0600-\u065F\u066A-\u06EF\u06FA-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF\u200C\u200D]/.test(str);
+}
+

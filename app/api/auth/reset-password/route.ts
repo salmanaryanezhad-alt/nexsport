@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
-import { cleanEmailAddress, toEnglishDigits } from "@/lib/auth/utils";
+import { cleanEmailAddress, toEnglishDigits, hasPersianLetters } from "@/lib/auth/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +13,13 @@ export async function POST(req: NextRequest) {
     if (!email || !code || !newPassword) {
       return NextResponse.json(
         { error: "ایمیل، کد تایید و رمز عبور جدید الزامی هستند." },
+        { status: 400 }
+      );
+    }
+
+    if (hasPersianLetters(String(newPassword || ""))) {
+      return NextResponse.json(
+        { error: "صفحه کلید را به انگلیسی تغییر دهید" },
         { status: 400 }
       );
     }
