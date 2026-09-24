@@ -32,12 +32,7 @@ function get_db_connection() {
 
     try {
         $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-        // Fast probe: check if tables exist without running heavy DDL on every single request
-        try {
-            $pdo->query("SELECT 1 FROM `users` LIMIT 1");
-        } catch (\Throwable $e) {
-            ensure_tables_exist_mysql($pdo);
-        }
+        ensure_tables_exist_mysql($pdo);
     } catch (\PDOException $e) {
         // Return 500 JSON error if database connection fails
         json_response([
@@ -122,15 +117,16 @@ function ensure_tables_exist_mysql($pdo) {
 
     try {
         $pdo->exec($sql);
-        // Ensure device_type column exists for seamless migration
-        try {
-            $pdo->query("SELECT `device_type` FROM `sessions` LIMIT 1");
-        } catch (\Throwable $e) {
+    } catch (\Throwable $e) {}
+
+    // Auto-migrate device_type column on existing database tables
+    try {
+        $colCheck = $pdo->query("SHOW COLUMNS FROM `sessions` LIKE 'device_type'");
+        if (!$colCheck || !$colCheck->fetch()) {
             $pdo->exec("ALTER TABLE `sessions` ADD COLUMN `device_type` VARCHAR(20) DEFAULT 'desktop'");
+            $pdo->exec("ALTER TABLE `sessions` ADD INDEX `idx_sessions_device` (`user_id`, `device_type`)");
         }
-    } catch (\Throwable $e) {
-        // Table creation errors ignored if already exist
-    }
+    } catch (\Throwable $e) {}
 }
 
 function ensure_tables_exist_sqlite($pdo) {
@@ -355,33 +351,81 @@ function db_create_session($pdo, $userId, $deviceType = 'desktop', $hours = SESS
     $isSqlite = (bool)getenv('NEXSPORT_TEST_SQLITE');
     if ($isSqlite) {
         $expiresAt = date('Y-m-d H:i:s', time() + ($hours * 3600));
-        $stmt = $pdo->prepare("INSERT INTO sessions (id, user_id, device_type, expires_at, last_active_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)");
-        $stmt->execute([$token, $userId, $device, $expiresAt]);
+        try {
+            $stmt = $pdo->prepare("INSERT INTO sessions (id, user_id, device_type, expires_at, last_active_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)");
+            $stmt->execute([$token, $userId, $device, $expiresAt]);
+        } catch (\Throwable $e) {
+            try { $pdo->exec("ALTER TABLE sessions ADD COLUMN device_type TEXT DEFAULT 'desktop'"); } catch (\Throwable $ign) {}
+            $stmt = $pdo->prepare("INSERT INTO sessions (id, user_id, device_type, expires_at, last_active_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)");
+            $stmt->execute([$token, $userId, $device, $expiresAt]);
+        }
     } else {
-        $stmt = $pdo->prepare("
-            INSERT INTO sessions (id, user_id, device_type, expires_at, last_active_at)
-            VALUES (?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ? HOUR), CURRENT_TIMESTAMP)
-        ");
-        $stmt->execute([$token, $userId, $device, $hours]);
+        try {
+            $stmt = $pdo->prepare("
+                INSERT INTO sessions (id, user_id, device_type, expires_at, last_active_at)
+                VALUES (?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ? HOUR), CURRENT_TIMESTAMP)
+            ");
+            $stmt->execute([$token, $userId, $device, $hours]);
+        } catch (\Throwable $e) {
+            try {
+                $pdo->exec("ALTER TABLE `sessions` ADD COLUMN `device_type` VARCHAR(20) DEFAULT 'desktop'");
+            } catch (\Throwable $ign) {}
+            try {
+                $stmt = $pdo->prepare("
+                    INSERT INTO sessions (id, user_id, device_type, expires_at, last_active_at)
+                    VALUES (?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ? HOUR), CURRENT_TIMESTAMP)
+                ");
+                $stmt->execute([$token, $userId, $device, $hours]);
+            } catch (\Throwable $e2) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO sessions (id, user_id, expires_at, last_active_at)
+                    VALUES (?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ? HOUR), CURRENT_TIMESTAMP)
+                ");
+                $stmt->execute([$token, $userId, $hours]);
+            }
+        }
     }
     return $token;
 }
 
 function db_find_active_session_by_device($pdo, $userId, $deviceType) {
     $device = ($deviceType === 'mobile') ? 'mobile' : 'desktop';
-    $stmt = $pdo->prepare("
-        SELECT * FROM sessions
-        WHERE user_id = ? AND device_type = ? AND expires_at > CURRENT_TIMESTAMP
-        ORDER BY last_active_at DESC LIMIT 1
-    ");
-    $stmt->execute([$userId, $device]);
-    return $stmt->fetch() ?: null;
+    try {
+        $stmt = $pdo->prepare("
+            SELECT * FROM sessions
+            WHERE user_id = ? AND device_type = ? AND expires_at > CURRENT_TIMESTAMP
+            ORDER BY last_active_at DESC LIMIT 1
+        ");
+        $stmt->execute([$userId, $device]);
+        return $stmt->fetch() ?: null;
+    } catch (\Throwable $e) {
+        try {
+            $pdo->exec("ALTER TABLE `sessions` ADD COLUMN `device_type` VARCHAR(20) DEFAULT 'desktop'");
+            $stmt = $pdo->prepare("
+                SELECT * FROM sessions
+                WHERE user_id = ? AND device_type = ? AND expires_at > CURRENT_TIMESTAMP
+                ORDER BY last_active_at DESC LIMIT 1
+            ");
+            $stmt->execute([$userId, $device]);
+            return $stmt->fetch() ?: null;
+        } catch (\Throwable $ign) {
+            return null;
+        }
+    }
 }
 
 function db_delete_sessions_by_device($pdo, $userId, $deviceType) {
     $device = ($deviceType === 'mobile') ? 'mobile' : 'desktop';
-    $stmt = $pdo->prepare("DELETE FROM sessions WHERE user_id = ? AND device_type = ?");
-    $stmt->execute([$userId, $device]);
+    try {
+        $stmt = $pdo->prepare("DELETE FROM sessions WHERE user_id = ? AND device_type = ?");
+        $stmt->execute([$userId, $device]);
+    } catch (\Throwable $e) {
+        try {
+            $pdo->exec("ALTER TABLE `sessions` ADD COLUMN `device_type` VARCHAR(20) DEFAULT 'desktop'");
+            $stmt = $pdo->prepare("DELETE FROM sessions WHERE user_id = ? AND device_type = ?");
+            $stmt->execute([$userId, $device]);
+        } catch (\Throwable $ign) {}
+    }
 }
 
 function db_find_session($pdo, $token, $hours = SESSION_HOURS) {

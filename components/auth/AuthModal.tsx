@@ -9,6 +9,7 @@ export function AuthModal() {
     isAuthModalOpen,
     modalTab,
     pendingEmail,
+    demoVerificationCode,
     closeAuthModal,
     openAuthModal,
     login,
@@ -53,6 +54,16 @@ export function AuthModal() {
     setSuccessMsg(null);
     setDeviceConflict(null);
   }, [modalTab, isAuthModalOpen]);
+
+  useEffect(() => {
+    if (demoVerificationCode) {
+      if (modalTab === "verify") {
+        setVerifyCodeVal(demoVerificationCode);
+      } else if (modalTab === "reset") {
+        setResetCodeVal(demoVerificationCode);
+      }
+    }
+  }, [demoVerificationCode, modalTab]);
 
   useEffect(() => {
     let timer: any;
@@ -443,9 +454,26 @@ export function AuthModal() {
                 </div>
                 <h3 className="font-bold text-sm text-pitch">تایید آدرس ایمیل</h3>
                 <p className="text-xs text-ink/70 leading-relaxed">
-                  کد تایید ۶ رقمی به آدرس <strong>{pendingEmail}</strong> ایمیل گردید. لطفاً صندوق ورودی (و در صورت نیاز پوشه هرزنامه/Spam) را بررسی کرده و کد را در کادر زیر وارد فرمایید:
+                  کد تایید ۶ رقمی به آدرس <strong>{pendingEmail}</strong> ایمیل گردید. لطفاً کد را در کادر زیر وارد فرمایید:
                 </p>
               </div>
+
+              {demoVerificationCode && (
+                <div className="rounded-xl border border-sky-300 bg-sky-50/90 p-3 text-xs text-sky-950 space-y-2 shadow-xs">
+                  <div className="flex items-center justify-between font-bold text-xs text-sky-900">
+                    <span className="flex items-center gap-1.5">
+                      <span>🔑</span>
+                      <span>کد تایید جهت تست:</span>
+                    </span>
+                    <span className="font-mono text-base font-black tracking-widest bg-white border border-sky-300 px-2.5 py-0.5 rounded text-sky-950">
+                      {demoVerificationCode}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-sky-800 leading-normal">
+                    کد تایید به صورت خودکار در کادر زیر قرار گرفت؛ برای ادامه کافیست روی دکمه «تایید و ورود» کلیک فرمایید.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <input
@@ -557,6 +585,23 @@ export function AuthModal() {
                   کد بازیابی ۶ رقمی به ایمیل <strong>{pendingEmail}</strong> ارسال شد. لطفاً کد را به همراه رمز عبور جدید وارد نمایید:
                 </p>
               </div>
+
+              {demoVerificationCode && (
+                <div className="rounded-xl border border-sky-300 bg-sky-50/90 p-3 text-xs text-sky-950 space-y-2 shadow-xs">
+                  <div className="flex items-center justify-between font-bold text-xs text-sky-900">
+                    <span className="flex items-center gap-1.5">
+                      <span>🔑</span>
+                      <span>کد بازیابی آزمایشی:</span>
+                    </span>
+                    <span className="font-mono text-base font-black tracking-widest bg-white border border-sky-300 px-2.5 py-0.5 rounded text-sky-950">
+                      {demoVerificationCode}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-sky-800 leading-normal">
+                    کد بازیابی به صورت خودکار در کادر زیر قرار گرفت.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-ink/80 mb-1">

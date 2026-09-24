@@ -269,6 +269,7 @@ HTML;
     }
 
     return [
-        'isRealDelivery' => (bool)$delivered
+        'isRealDelivery' => (bool)$delivered,
+        'demoCode' => $delivered ? null : $code
     ];
 }

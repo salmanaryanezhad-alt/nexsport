@@ -58,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [demoVerificationCode, setDemoVerificationCode] = useState<string | null>(null);
 
   function syncUser(u: AuthUser | null) {
     setUser(u);
@@ -154,17 +155,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           forceKick: !!forceKick,
         }),
       });
-      const data = await res.json();
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
 
       if (!res.ok) {
         return {
           success: false,
-          error: data.error || "خطا در ورود به حساب کاربری",
+          error: data.error || (res.status === 404 ? "مسیر سرور یافت نشد (کد ۴۰۴)." : `خطای سرور (${res.status})`),
         };
       }
 
       if (data.requiresVerification) {
         setPendingEmail(data.email);
+        if (data.demoCode) {
+          setDemoVerificationCode(data.demoCode);
+        }
         setModalTab("verify");
         return {
           success: false,
@@ -187,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       closeAuthModal();
       return { success: true };
     } catch {
-      return { success: false, error: "خطای ارتباط با سرور" };
+      return { success: false, error: "خطای ارتباط با سرور. لطفاً اتصال اینترنت خود را بررسی نمایید." };
     }
   }
 
@@ -198,16 +208,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, mobile, password }),
       });
-      const data = await res.json();
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
 
       if (!res.ok) {
         return {
           success: false,
-          error: data.error || "خطا در ثبت‌نام",
+          error: data.error || (res.status === 404 ? "مسیر سرور یافت نشد (کد ۴۰۴)." : `خطای سرور (${res.status})`),
         };
       }
 
       setPendingEmail(data.email);
+      if (data.demoCode) {
+        setDemoVerificationCode(data.demoCode);
+      }
       setModalTab("verify");
       return {
         success: true,
@@ -247,7 +266,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      if (data.demoCode) {
+        setDemoVerificationCode(data.demoCode);
+      }
 
       if (!res.ok) {
         return { success: false, error: data.error || "خطا در ارسال مجدد کد" };
@@ -266,7 +294,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      if (data.demoCode) {
+        setDemoVerificationCode(data.demoCode);
+      }
 
       if (!res.ok) {
         return { success: false, error: data.error || "خطا در درخواست بازیابی رمز" };
@@ -367,7 +404,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isProfileModalOpen,
         modalTab,
         pendingEmail,
-        demoVerificationCode: null,
+        demoVerificationCode,
         openAuthModal,
         closeAuthModal,
         openProfileModal,
