@@ -58,12 +58,90 @@ for (const file of phpFiles) {
 }
 console.log('✓ Injected PHP MySQL API into out/api/');
 
-// 5. Copy .htaccess to out/.htaccess
+// 5. Copy .htaccess to out/.htaccess and enforce Indexing Headers
 const publicHtaccess = path.join(ROOT_DIR, 'public', '.htaccess');
+let htaccessContent = '';
 if (fs.existsSync(publicHtaccess)) {
-    fs.copyFileSync(publicHtaccess, path.join(OUT_DIR, '.htaccess'));
-    console.log('✓ Injected root .htaccess with API routing');
+    htaccessContent = fs.readFileSync(publicHtaccess, 'utf8');
 }
+if (!htaccessContent.includes('X-Robots-Tag')) {
+    const seoHeaders = `
+# Search Engine Indexing Headers (Permanent rule: 100% Index and Follow on Server)
+<IfModule mod_headers.c>
+  Header set X-Robots-Tag "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+</IfModule>
+`;
+    htaccessContent = seoHeaders + "\n" + htaccessContent;
+}
+fs.writeFileSync(path.join(OUT_DIR, '.htaccess'), htaccessContent);
+console.log('✓ Injected root .htaccess with API routing and X-Robots-Tag: index, follow');
+
+// 5.1 Enforce robots.txt for Server (Allow: / and Sitemap)
+const robotsTxt = `User-Agent: *
+Allow: /
+
+Sitemap: https://nexsport.ir/sitemap.xml
+`;
+fs.writeFileSync(path.join(OUT_DIR, 'robots.txt'), robotsTxt);
+console.log('✓ Enforced Server robots.txt with Allow: / and Sitemap: https://nexsport.ir/sitemap.xml');
+
+// 5.2 Enforce sitemap.xml for Server
+const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://nexsport.ir/</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://nexsport.ir/planner/</loc>
+    <lastmod>2026-09-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+</urlset>
+`;
+fs.writeFileSync(path.join(OUT_DIR, 'sitemap.xml'), sitemapXml);
+console.log('✓ Enforced Server sitemap.xml');
+
+// 5.3 Audit and enforce index, follow across all HTML files
+function sanitizeHtmlForIndexing(dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+            if (entry.name !== 'api') sanitizeHtmlForIndexing(fullPath);
+        } else if (entry.name.endsWith('.html')) {
+            let html = fs.readFileSync(fullPath, 'utf8');
+            // Remove any noindex meta tags
+            html = html.replace(/<meta\s+name=["']robots["']\s+content=["'][^"']*noindex[^"']*["']\s*\/?>/gi, '');
+            html = html.replace(/<meta\s+name=["']googlebot["']\s+content=["'][^"']*noindex[^"']*["']\s*\/?>/gi, '');
+            html = html.replace(/\\"robots\\":\\"noindex[^\\"]*\\"/gi, '\\"robots\\":\\"index, follow\\"');
+            html = html.replace(/"robots":"noindex[^"]*"/gi, '"robots":"index, follow"');
+            html = html.replace(/\\"googleBot\\":\{[^}]*\\"noimageindex\\":true[^}]*\}/gi, '\\"googleBot\\":{\\"index\\":true,\\"follow\\":true}');
+
+            // Ensure index, follow meta tags are present in <head>
+            if (!html.includes('content="index, follow"')) {
+                html = html.replace(
+                    /<head>/i,
+                    '<head><meta name="robots" content="index, follow" /><meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />'
+                );
+            }
+            // Ensure canonical tag
+            if (!html.includes('rel="canonical"') && !html.includes("rel='canonical'")) {
+                const canonicalUrl = fullPath.includes('planner') ? 'https://nexsport.ir/planner/' : 'https://nexsport.ir/';
+                html = html.replace(
+                    /<head>/i,
+                    `<head><link rel="canonical" href="${canonicalUrl}" />`
+                );
+            }
+            fs.writeFileSync(fullPath, html);
+        }
+    }
+}
+sanitizeHtmlForIndexing(OUT_DIR);
+console.log('✓ Sanitized and confirmed 100% index, follow across all HTML pages');
 
 // 6. Include MySQL Schema in out/database/
 const dbDir = path.join(OUT_DIR, 'database');
