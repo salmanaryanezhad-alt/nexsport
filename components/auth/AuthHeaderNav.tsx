@@ -18,12 +18,6 @@ export function AuthHeaderNav() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="h-8 w-20 animate-pulse rounded-lg bg-chalk/60" />
-    );
-  }
-
   if (!user) {
     return (
       <button

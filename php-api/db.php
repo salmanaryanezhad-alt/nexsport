@@ -32,7 +32,12 @@ function get_db_connection() {
 
     try {
         $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-        ensure_tables_exist_mysql($pdo);
+        // Fast probe: check if tables exist without running heavy DDL on every single request
+        try {
+            $pdo->query("SELECT 1 FROM `users` LIMIT 1");
+        } catch (\Throwable $e) {
+            ensure_tables_exist_mysql($pdo);
+        }
     } catch (\PDOException $e) {
         // Return 500 JSON error if database connection fails
         json_response([

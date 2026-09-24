@@ -9,7 +9,6 @@ export function AuthModal() {
     isAuthModalOpen,
     modalTab,
     pendingEmail,
-    demoVerificationCode,
     closeAuthModal,
     openAuthModal,
     login,
@@ -48,13 +47,6 @@ export function AuthModal() {
     setError(null);
     setSuccessMsg(null);
   }, [modalTab, isAuthModalOpen]);
-
-  useEffect(() => {
-    if (demoVerificationCode && (modalTab === "verify" || modalTab === "reset")) {
-      if (modalTab === "verify") setVerifyCodeVal(demoVerificationCode);
-      if (modalTab === "reset") setResetCodeVal(demoVerificationCode);
-    }
-  }, [demoVerificationCode, modalTab]);
 
   useEffect(() => {
     let timer: any;
@@ -148,12 +140,8 @@ export function AuthModal() {
     try {
       const res = await resendCode(pendingEmail);
       if (res.success) {
-        setSuccessMsg("کد تایید جدید ارسال شد.");
+        setSuccessMsg("کد تایید جدید به ایمیل شما ارسال شد.");
         setResendCooldown(60);
-        if (res.demoCode) {
-          if (modalTab === "verify") setVerifyCodeVal(res.demoCode);
-          if (modalTab === "reset") setResetCodeVal(res.demoCode);
-        }
       } else {
         setError(res.error || "خطا در ارسال مجدد.");
       }
@@ -388,24 +376,9 @@ export function AuthModal() {
                 </div>
                 <h3 className="font-bold text-sm text-pitch">تایید آدرس ایمیل</h3>
                 <p className="text-xs text-ink/70 leading-relaxed">
-                  کد تایید ۶ رقمی به آدرس <strong>{pendingEmail}</strong> ارسال شد:
+                  کد تایید ۶ رقمی به آدرس <strong>{pendingEmail}</strong> ایمیل گردید. لطفاً صندوق ورودی (و در صورت نیاز پوشه هرزنامه/Spam) را بررسی کرده و کد را در کادر زیر وارد فرمایید:
                 </p>
               </div>
-
-              {demoVerificationCode && (
-                <div className="rounded-lg bg-amber-50 border border-amber-300 p-3 text-xs text-amber-950 space-y-1">
-                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
-                    <span>💡</span>
-                    <span>کد تایید تستی (حالت ورسل / دمو):</span>
-                  </div>
-                  <p className="text-[11px] text-amber-900/90 leading-normal">
-                    کد فعال‌سازی شما: <b className="font-mono text-sm bg-white px-2 py-0.5 rounded border border-amber-400">{demoVerificationCode}</b>
-                  </p>
-                  <p className="text-[10px] text-amber-800">
-                    (پس از اتصال سرویس ایمیل، مستقیماً به اینباکس ارسال خواهد شد).
-                  </p>
-                </div>
-              )}
 
               <div>
                 <input
@@ -513,22 +486,10 @@ export function AuthModal() {
                   🔒
                 </div>
                 <h3 className="font-bold text-sm text-pitch">تعیین رمز عبور جدید</h3>
-                <p className="text-xs text-ink/70">
-                  کد ارسال شده به <strong>{pendingEmail}</strong> و رمز جدید را وارد فرمایید:
+                <p className="text-xs text-ink/70 leading-relaxed">
+                  کد بازیابی ۶ رقمی به ایمیل <strong>{pendingEmail}</strong> ارسال شد. لطفاً کد را به همراه رمز عبور جدید وارد نمایید:
                 </p>
               </div>
-
-              {demoVerificationCode && (
-                <div className="rounded-lg bg-amber-50 border border-amber-300 p-3 text-xs text-amber-950 space-y-1">
-                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
-                    <span>💡</span>
-                    <span>کد بازیابی تستی:</span>
-                  </div>
-                  <p className="text-[11px] text-amber-900/90">
-                    کد شما: <b className="font-mono text-sm bg-white px-2 py-0.5 rounded border border-amber-400">{demoVerificationCode}</b>
-                  </p>
-                </div>
-              )}
 
               <div>
                 <label className="block text-xs font-semibold text-ink/80 mb-1">

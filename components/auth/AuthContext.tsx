@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 export interface AuthUser {
   id: string;
@@ -23,12 +23,12 @@ interface AuthContextType {
   closeAuthModal: () => void;
   openProfileModal: () => void;
   closeProfileModal: () => void;
-  setPendingVerification: (email: string, demoCode?: string | null) => void;
-  login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string; requiresVerification?: boolean; email?: string; demoCode?: string }>;
-  register: (name: string, email: string, mobile: string, password: string) => Promise<{ success: boolean; error?: string; requiresVerification?: boolean; email?: string; demoCode?: string }>;
+  setPendingVerification: (email: string) => void;
+  login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string; requiresVerification?: boolean; email?: string }>;
+  register: (name: string, email: string, mobile: string, password: string) => Promise<{ success: boolean; error?: string; requiresVerification?: boolean; email?: string }>;
   verifyEmail: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
-  resendCode: (email: string) => Promise<{ success: boolean; error?: string; demoCode?: string }>;
-  forgotPassword: (email: string) => Promise<{ success: boolean; error?: string; demoCode?: string }>;
+  resendCode: (email: string) => Promise<{ success: boolean; error?: string }>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   resetPassword: (email: string, code: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   updateProfile: (name: string) => Promise<{ success: boolean; error?: string }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
@@ -40,36 +40,62 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
-  const [demoVerificationCode, setDemoVerificationCode] = useState<string | null>(null);
+
+  function syncUser(u: AuthUser | null) {
+    setUser(u);
+    try {
+      if (typeof window !== "undefined") {
+        if (u) {
+          localStorage.setItem("nexsport_user_cache", JSON.stringify(u));
+        } else {
+          localStorage.removeItem("nexsport_user_cache");
+        }
+      }
+    } catch {}
+  }
 
   function handleSessionExpired() {
-    setUser(null);
+    syncUser(null);
     setIsProfileModalOpen(false);
     try {
       fetch("/api/auth/logout", { method: "POST" });
     } catch {}
   }
 
+  // Restore cached user immediately on mount for zero-delay rendering
   useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const cached = localStorage.getItem("nexsport_user_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.id) {
+            setUser(parsed);
+          }
+        }
+      }
+    } catch {}
+
     async function checkMe() {
       try {
         const res = await fetch("/api/auth/me");
         if (res.ok) {
           const data = await res.json();
-          setUser(data.user || null);
+          if (data && data.user) {
+            syncUser(data.user);
+          } else {
+            syncUser(null);
+          }
         } else {
-          setUser(null);
+          syncUser(null);
         }
       } catch (err) {
         console.error("Auth check failed:", err);
-        setUser(null);
-      } finally {
-        setLoading(false);
       }
     }
     checkMe();
@@ -77,13 +103,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   function openAuthModal(tab: "login" | "register" | "forgot" = "login") {
     setModalTab(tab);
-    setDemoVerificationCode(null);
     setIsAuthModalOpen(true);
   }
 
   function closeAuthModal() {
     setIsAuthModalOpen(false);
-    setDemoVerificationCode(null);
   }
 
   function openProfileModal() {
@@ -94,9 +118,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsProfileModalOpen(false);
   }
 
-  function setPendingVerification(email: string, demoCode?: string | null) {
+  function setPendingVerification(email: string) {
     setPendingEmail(email);
-    if (demoCode) setDemoVerificationCode(demoCode);
     setModalTab("verify");
   }
 
@@ -118,17 +141,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data.requiresVerification) {
         setPendingEmail(data.email);
-        if (data.demoCode) setDemoVerificationCode(data.demoCode);
         setModalTab("verify");
         return {
           success: false,
           requiresVerification: true,
           email: data.email,
-          demoCode: data.demoCode,
         };
       }
 
-      setUser(data.user);
+      syncUser(data.user);
       closeAuthModal();
       return { success: true };
     } catch {
@@ -153,13 +174,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setPendingEmail(data.email);
-      if (data.demoCode) setDemoVerificationCode(data.demoCode);
       setModalTab("verify");
       return {
         success: true,
         requiresVerification: true,
         email: data.email,
-        demoCode: data.demoCode,
       };
     } catch {
       return { success: false, error: "خطای ارتباط با سرور" };
@@ -179,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || "کد نامعتبر است" };
       }
 
-      setUser(data.user);
+      syncUser(data.user);
       closeAuthModal();
       return { success: true };
     } catch {
@@ -200,8 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || "خطا در ارسال مجدد کد" };
       }
 
-      if (data.demoCode) setDemoVerificationCode(data.demoCode);
-      return { success: true, demoCode: data.demoCode };
+      return { success: true };
     } catch {
       return { success: false, error: "خطای ارتباط با سرور" };
     }
@@ -221,9 +239,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setPendingEmail(email);
-      if (data.demoCode) setDemoVerificationCode(data.demoCode);
       setModalTab("reset");
-      return { success: true, demoCode: data.demoCode };
+      return { success: true };
     } catch {
       return { success: false, error: "خطای ارتباط با سرور" };
     }
@@ -242,7 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || "کد بازیابی نامعتبر است" };
       }
 
-      setUser(data.user);
+      syncUser(data.user);
       closeAuthModal();
       return { success: true };
     } catch {
@@ -268,7 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || "خطا در به‌روزرسانی نام" };
       }
 
-      setUser(data.user);
+      syncUser(data.user);
       return { success: true };
     } catch {
       return { success: false, error: "خطای ارتباط با سرور" };
@@ -303,7 +320,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
-      setUser(null);
+      syncUser(null);
     }
   }
 
@@ -316,7 +333,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isProfileModalOpen,
         modalTab,
         pendingEmail,
-        demoVerificationCode,
+        demoVerificationCode: null,
         openAuthModal,
         closeAuthModal,
         openProfileModal,
