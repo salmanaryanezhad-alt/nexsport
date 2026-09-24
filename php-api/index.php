@@ -543,6 +543,31 @@ if (preg_match('#^tournaments/([^/]+)$#', $path, $matches) && $method === 'DELET
     json_response(['success' => true, 'message' => 'مسابقه با موفقیت حذف گردید.']);
 }
 
+// ==========================================
+// Admin Routes (/api/admin/users)
+// ==========================================
+if (($path === 'admin/users' || $path === 'users') && $method === 'GET') {
+    list($session) = require_auth($pdo);
+    $user = db_find_user_by_id($pdo, $session['user_id']);
+    if (!$user) {
+        json_response(['error' => 'کاربر یافت نشد.'], 401);
+    }
+
+    $isSalman = (clean_email($user['email'] ?? '') === 'salman.aryanezhad@gmail.com');
+    $isAdmin = $isSalman || (($user['role'] ?? '') === 'admin');
+
+    if (!$isAdmin) {
+        json_response(['error' => 'دسترسی غیرمجاز. این بخش منحصراً در اختیار مدیر سامانه می‌باشد.'], 403);
+    }
+
+    $users = db_list_all_users($pdo);
+    json_response([
+        'success' => true,
+        'count' => count($users),
+        'users' => $users
+    ]);
+}
+
 // 404 Route Not Found
 json_response([
     'error' => 'مسیر درخواستی در سامانه یافت نشد.',

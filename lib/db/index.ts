@@ -125,6 +125,7 @@ const memoryStore = {
 };
 
 function normalizeUserRow(row: any): UserRecord {
+  const isSuperAdmin = String(row.email || "").trim().toLowerCase() === "salman.aryanezhad@gmail.com";
   return {
     id: row.id,
     name: row.name,
@@ -132,7 +133,7 @@ function normalizeUserRow(row: any): UserRecord {
     mobile: row.mobile,
     password_hash: row.password_hash,
     is_verified: Boolean(row.is_verified),
-    role: row.role || "user",
+    role: isSuperAdmin ? "admin" : (row.role || "user"),
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
   };
@@ -327,7 +328,7 @@ export const db = {
     }
 
     for (const u of memoryStore.users.values()) {
-      if (u.email.toLowerCase() === cleanEmail) return u;
+      if (u.email.toLowerCase() === cleanEmail) return normalizeUserRow(u);
     }
     return null;
   },
@@ -350,7 +351,7 @@ export const db = {
     }
 
     for (const u of memoryStore.users.values()) {
-      if (u.mobile === cleanMobile) return u;
+      if (u.mobile === cleanMobile) return normalizeUserRow(u);
     }
     return null;
   },
@@ -380,7 +381,42 @@ export const db = {
       const res = await pgPool.query("SELECT * FROM users WHERE id = $1 LIMIT 1", [id]);
       return res.rows[0] ? normalizeUserRow(res.rows[0]) : null;
     }
-    return memoryStore.users.get(id) || null;
+    const u = memoryStore.users.get(id);
+    return u ? normalizeUserRow(u) : null;
+  },
+
+  async listAllUsers(): Promise<Omit<UserRecord, "password_hash">[]> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT id, name, email, mobile, is_verified, role, created_at, updated_at FROM `users` ORDER BY created_at DESC"
+      );
+      return rows.map((r) => {
+        const u = normalizeUserRow(r);
+        const { password_hash, ...safeUser } = u;
+        return safeUser;
+      });
+    }
+
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT id, name, email, mobile, is_verified, role, created_at, updated_at FROM users ORDER BY created_at DESC"
+      );
+      return res.rows.map((r) => {
+        const u = normalizeUserRow(r);
+        const { password_hash, ...safeUser } = u;
+        return safeUser;
+      });
+    }
+
+    return Array.from(memoryStore.users.values())
+      .map((u) => {
+        const normalized = normalizeUserRow(u);
+        const { password_hash, ...safeUser } = normalized;
+        return safeUser;
+      })
+      .sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
   },
 
   async createUser(data: {
@@ -395,7 +431,8 @@ export const db = {
     const now = new Date();
     const cleanEmail = data.email.trim().toLowerCase();
     const cleanMobile = data.mobile.trim();
-    const role = data.role ?? "user";
+    const isSuperAdmin = cleanEmail === "salman.aryanezhad@gmail.com";
+    const role = isSuperAdmin ? "admin" : (data.role ?? "user");
     const isVerified = Boolean(data.is_verified);
 
     if (mysqlPool) {
