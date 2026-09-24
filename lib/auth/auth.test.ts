@@ -355,6 +355,46 @@ async function run() {
     assert(Boolean(desktopStillAlive), "خروج از موبایل نباید هیچ اثری روی نشست رایانه بگذارد.");
   });
 
+  await test("مدیریت کاربران: دسترسی اختصاصی salman.aryanezhad@gmail.com و فهرست کاربران", async () => {
+    // ایجاد حساب کاربری مدیر کل
+    const adminUser = await db.createUser({
+      name: "سلمان آریان‌نژاد",
+      email: "salman.aryanezhad@gmail.com",
+      mobile: "09120000000",
+      passwordHash: hashPassword("AdminPass123"),
+      isVerified: true,
+    });
+
+    // بررسی اینکه نقش کاربر به صورت خودکار مدیر (admin) تعیین شده است
+    const fetchedAdmin = await db.findUserByEmail("salman.aryanezhad@gmail.com");
+    assertEqual(fetchedAdmin?.role, "admin", "ایمیل salman.aryanezhad@gmail.com باید دسترسی مدیر کل (admin) داشته باشد.");
+
+    // ایجاد یک کاربر عادی
+    const normalUser = await db.createUser({
+      name: "کاربر معمولی",
+      email: "normaluser@nexsport.ir",
+      mobile: "09129998877",
+      passwordHash: hashPassword("NormalPass123"),
+      isVerified: true,
+    });
+    const fetchedNormal = await db.findUserByEmail("normaluser@nexsport.ir");
+    assertEqual(fetchedNormal?.role, "user", "کاربر معمولی باید نقش عادی (user) داشته باشد.");
+
+    // فراخوانی فهرست کامل کاربران برای نمایش در مودال مدیریت کاربران
+    const allUsers = await db.listAllUsers();
+    assert(Array.isArray(allUsers), "خروجی listAllUsers باید یک آرایه باشد.");
+    assert(allUsers.length >= 2, "حداقل دو کاربر باید در فهرست وجود داشته باشند.");
+
+    // بررسی ساختار فیلدهای خروجی (ردیف، نام، ایمیل، موبایل، تاریخ)
+    const adminInList = allUsers.find((u) => u.email === "salman.aryanezhad@gmail.com");
+    assert(Boolean(adminInList), "مدیر کل باید در فهرست کاربران حضور داشته باشد.");
+    assertEqual(adminInList?.name, "سلمان آریان‌نژاد", "نام مدیر باید صحیح باشد.");
+    assert(Boolean(adminInList?.created_at), "تاریخ عضویت کاربر باید ثبت شده باشد.");
+
+    // بررسی عدم افشای پسورد هش در خروجی
+    assert(!("password_hash" in (allUsers[0] as any)), "هش رمز عبور نباید در خروجی لیست کاربران به فرانت‌اند بازگردانده شود.");
+  });
+
   console.log("\n======================================");
   console.log(`تست‌های موفق: ${passed}`);
   console.log(`تست‌های ناموفق: ${failed}`);

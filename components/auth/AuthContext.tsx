@@ -14,8 +14,10 @@ export interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
+  isAdmin: boolean;
   isAuthModalOpen: boolean;
   isProfileModalOpen: boolean;
+  isUsersModalOpen: boolean;
   modalTab: "login" | "register" | "verify" | "forgot" | "reset";
   pendingEmail: string | null;
   demoVerificationCode: string | null;
@@ -23,6 +25,8 @@ interface AuthContextType {
   closeAuthModal: () => void;
   openProfileModal: () => void;
   closeProfileModal: () => void;
+  openUsersModal: () => void;
+  closeUsersModal: () => void;
   setPendingVerification: (email: string) => void;
   login: (
     identifier: string,
@@ -56,9 +60,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [demoVerificationCode, setDemoVerificationCode] = useState<string | null>(null);
+
+  const isAdmin = Boolean(
+    user &&
+    (user.email?.trim().toLowerCase() === "salman.aryanezhad@gmail.com" || user.role === "admin")
+  );
 
   function syncUser(u: AuthUser | null) {
     setUser(u);
@@ -130,6 +140,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   function closeProfileModal() {
     setIsProfileModalOpen(false);
+  }
+
+  function openUsersModal() {
+    setIsUsersModalOpen(true);
+  }
+
+  function closeUsersModal() {
+    setIsUsersModalOpen(false);
   }
 
   function setPendingVerification(email: string) {
@@ -400,8 +418,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         loading,
+        isAdmin,
         isAuthModalOpen,
         isProfileModalOpen,
+        isUsersModalOpen,
         modalTab,
         pendingEmail,
         demoVerificationCode,
@@ -409,6 +429,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         closeAuthModal,
         openProfileModal,
         closeProfileModal,
+        openUsersModal,
+        closeUsersModal,
         setPendingVerification,
         login,
         register,

