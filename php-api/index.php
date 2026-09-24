@@ -166,6 +166,13 @@ if ($path === 'auth/login' && $method === 'POST') {
         json_response(['error' => 'اطلاعات کاربری (ایمیل/موبایل یا رمز عبور) صحیح نمی‌باشد.'], 401);
     }
 
+    // Auto-migrate password hash to standard English digits if it was saved with Persian digits
+    $normPass = to_english_digits($password);
+    if (!check_single_password($normPass, $user['password_hash'])) {
+        $newHash = hash_password($normPass);
+        db_update_user_password($pdo, $user['id'], $newHash);
+    }
+
     // If user is unverified, require verification
     if (empty($user['is_verified'])) {
         $code = generate_verification_code();

@@ -182,14 +182,49 @@ function ensure_tables_exist_sqlite($pdo) {
 
 // User functions
 function db_find_user_by_email($pdo, $email) {
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
-    $stmt->execute([clean_email($email)]);
+    $clean = clean_email($email);
+    if (!$clean) return null;
+
+    $raw = strtolower(trim((string)$email));
+    $persian = to_persian_digits($clean);
+    $arabic = to_arabic_digits($clean);
+
+    $variants = array_values(array_unique(array_filter([$clean, $raw, $persian, $arabic])));
+    $placeholders = implode(',', array_fill(0, count($variants), '?'));
+
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE email IN ({$placeholders}) LIMIT 1");
+    $stmt->execute($variants);
     return $stmt->fetch() ?: null;
 }
 
 function db_find_user_by_mobile($pdo, $mobile) {
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile = ? LIMIT 1");
-    $stmt->execute([clean_mobile($mobile)]);
+    $clean = clean_mobile($mobile);
+    if (!$clean) return null;
+
+    $raw = trim((string)$mobile);
+    $engRaw = to_english_digits($raw);
+    $persian = to_persian_digits($clean);
+    $arabic = to_arabic_digits($clean);
+    $noZero = ltrim($clean, '0');
+    $withZero = '0' . $noZero;
+    $withPlus98 = '+98' . $noZero;
+    $with0098 = '0098' . $noZero;
+
+    $variants = array_values(array_unique(array_filter([
+        $clean,
+        $withZero,
+        $noZero,
+        $withPlus98,
+        $with0098,
+        $raw,
+        $engRaw,
+        $persian,
+        $arabic
+    ])));
+    $placeholders = implode(',', array_fill(0, count($variants), '?'));
+
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile IN ({$placeholders}) LIMIT 1");
+    $stmt->execute($variants);
     return $stmt->fetch() ?: null;
 }
 

@@ -169,6 +169,17 @@ async function run() {
     assertEqual(cleanMobileNumber(withSpaces), englishDigits, "پیش‌شماره +98 باید به 0 تبدیل شود.");
   });
 
+  await test("انعطاف کیبورد در رمز عبور: سازگاری کامل ثبت‌نام با کیبورد فارسی و ورود با انگلیسی و برعکس", () => {
+    // سناریو ۱: کاربر با کیبورد فارسی روی گوشی ثبت‌نام کرده (مثلاً Pass۱۲۳۴)
+    const mobileHashed = hashPassword("Pass۱۲۳۴");
+    // حالا روی کامپیوتر با کیبورد انگلیسی تایپ می‌کند (Pass1234)
+    assert(verifyPassword("Pass1234", mobileHashed), "ورود با ارقام انگلیسی برای رمزی که با ارقام فارسی ثبت شده باید تایید شود.");
+
+    // سناریو ۲: کاربر با کیبورد انگلیسی ثبت‌نام کرده و روی گوشی با فارسی وارد می‌شود
+    const pcHashed = hashPassword("Secret1405");
+    assert(verifyPassword("Secret۱۴۰۵", pcHashed), "ورود با ارقام فارسی برای رمزی که با ارقام انگلیسی ثبت شده باید تایید شود.");
+  });
+
   await test("فراموشی رمز عبور: ایجاد کد بازیابی، اعتبارسنجی و به‌روزرسانی رمز عبور", async () => {
     const email = "forgot@nexsport.ir";
     const oldPassword = "oldPassword123";
