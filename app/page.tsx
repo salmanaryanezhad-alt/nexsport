@@ -203,10 +203,10 @@ export default function HomePage() {
 
       {/* NAVBAR */}
       <header className="sticky top-0 z-50 border-b border-line/70 bg-chalk/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2.5 text-pitch hover:opacity-90 transition-opacity">
-            <NexSportIcon className="w-9 h-9 shrink-0 drop-shadow-xs" />
-            <span className="text-xl font-black tracking-tight text-ink">NexSport</span>
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4">
+          <Link href="/" className="flex items-center gap-2 text-pitch hover:opacity-90 transition-opacity shrink-0">
+            <NexSportIcon className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 drop-shadow-xs" />
+            <span className="text-lg sm:text-xl font-black tracking-tight text-ink">NexSport</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-ink/75">

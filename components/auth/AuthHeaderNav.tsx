@@ -1,13 +1,20 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "./AuthContext";
 
 export function AuthHeaderNav() {
   const { user, openAuthModal, openProfileModal, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Close dropdown on outside click (for desktop)
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -18,7 +25,7 @@ export function AuthHeaderNav() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close dropdown on escape key
+  // Close on Escape
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") setDropdownOpen(false);
@@ -32,7 +39,7 @@ export function AuthHeaderNav() {
       <button
         type="button"
         onClick={() => openAuthModal("login")}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/20 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-bold text-pitch shadow-2xs hover:bg-pitch hover:text-white transition-all cursor-pointer"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/20 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-bold text-pitch shadow-2xs hover:bg-pitch hover:text-white transition-all cursor-pointer shrink-0"
       >
         <span>👤</span>
         <span>ورود / ثبت‌نام</span>
@@ -41,23 +48,23 @@ export function AuthHeaderNav() {
   }
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative inline-block text-right" ref={dropdownRef}>
       {/* Trigger Button */}
       <button
         type="button"
         onClick={() => setDropdownOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg border border-pitch/20 bg-white px-2 sm:px-3 py-1 text-xs font-bold text-pitch shadow-2xs hover:border-pitch/40 transition-all cursor-pointer"
+        className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg border border-pitch/20 bg-white px-2 sm:px-3 py-1 text-xs font-bold text-pitch shadow-2xs hover:border-pitch/40 transition-all cursor-pointer shrink-0"
         aria-expanded={dropdownOpen}
         aria-label="منوی حساب کاربری"
       >
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-pitch text-white text-[11px] font-bold shrink-0">
           {user.name.trim().charAt(0) || "👤"}
         </span>
-        <span className="max-w-[75px] sm:max-w-[120px] truncate text-ink">{user.name}</span>
+        <span className="max-w-[70px] sm:max-w-[120px] truncate text-ink">{user.name}</span>
         <span className="text-[10px] text-ink/40">▼</span>
       </button>
 
-      {/* 1. DESKTOP DROPDOWN (sm: and above) */}
+      {/* 1. DESKTOP FLOATING DROPDOWN (sm: and above) */}
       {dropdownOpen && (
         <div className="hidden sm:block absolute left-0 mt-2 w-64 rounded-xl border border-line bg-white p-3 shadow-xl z-50 text-right animate-in fade-in duration-150">
           <div className="border-b border-line/60 pb-2.5 mb-2">
@@ -116,9 +123,9 @@ export function AuthHeaderNav() {
         </div>
       )}
 
-      {/* 2. MOBILE BOTTOM SHEET (Screen < sm) */}
-      {dropdownOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:hidden p-0">
+      {/* 2. MOBILE BOTTOM SHEET (Screen < sm, portaled directly to body to break out of any header backdrop-filter) */}
+      {dropdownOpen && mounted && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-999 flex items-end justify-center sm:hidden p-0">
           {/* Backdrop Overlay */}
           <div
             className="fixed inset-0 bg-pitch/50 backdrop-blur-xs animate-in fade-in duration-200"
@@ -126,9 +133,9 @@ export function AuthHeaderNav() {
           />
 
           {/* Bottom Drawer Card */}
-          <div className="relative w-full max-w-md rounded-t-3xl border-t border-line bg-white p-5 shadow-2xl z-10 text-right animate-in slide-in-from-bottom duration-200">
+          <div className="relative w-full max-w-md rounded-t-3xl border-t border-line bg-white p-5 shadow-2xl z-10 text-right animate-in slide-in-from-bottom duration-200 pb-8">
             {/* Grab Handle */}
-            <div className="mx-auto -mt-2 mb-3 h-1 w-10 rounded-full bg-line/80" />
+            <div className="mx-auto -mt-2 mb-3.5 h-1.5 w-10 rounded-full bg-line/80" />
 
             {/* Profile Header */}
             <div className="flex items-center justify-between pb-3.5 border-b border-line/60 mb-3.5">
@@ -215,7 +222,8 @@ export function AuthHeaderNav() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
