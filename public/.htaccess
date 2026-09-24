@@ -3,19 +3,22 @@
   RewriteEngine On
   RewriteBase /
 
-  # Serve existing files and directories directly
+  # 1. Route all API requests directly to PHP API backend
+  RewriteRule ^api/(.*)$ /api/index.php [QSA,L]
+
+  # 2. Serve existing files and directories directly
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Redirect URLs without trailing slash to with trailing slash if directory index exists
+  # 3. Redirect URLs without trailing slash to with trailing slash if directory index exists
   RewriteCond %{DOCUMENT_ROOT}/$1/index.html -f
   RewriteRule ^(.*[^/])$ /$1/ [R=301,L]
 
-  # Clean URL routing for planner
+  # 4. Clean URL routing for planner
   RewriteRule ^planner/?$ /planner/index.html [L]
 
-  # Custom 404 page
+  # 5. Custom 404 page
   ErrorDocument 404 /404/index.html
 </IfModule>
 
