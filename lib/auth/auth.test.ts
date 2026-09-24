@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { hashPassword, verifyPassword } from "./password";
 import { generateVerificationCode } from "./email";
-import { cleanMobileNumber, toEnglishDigits } from "./utils";
+import { cleanMobileNumber, toEnglishDigits, hasPersianLetters } from "./utils";
 
 type TestFn = () => Promise<void> | void;
 
@@ -41,15 +41,29 @@ async function run() {
     assert(!verifyPassword("wrongpass", hashed), "رمز عبور اشتباه نباید تایید شود.");
   });
 
-  await test("قانون حداقل ۸ کاراکتر رمز عبور بدون محدودیت نوع کاراکتر", () => {
+  await test("قانون حداقل ۸ کاراکتر رمز عبور", () => {
     // اعتبارسنجی حداقل ۸ کاراکتر
     const validateLength = (pwd: string) => typeof pwd === "string" && pwd.length >= 8;
     assert(!validateLength("1234567"), "رمز کمتر از ۸ کاراکتر باید رد شود");
     assert(!validateLength("abc"), "رمز کوتاه باید رد شود");
     assert(validateLength("12345678"), "رمز ۸ رقمی عددی مجاز است");
     assert(validateLength("password"), "رمز ۸ حرفی متنی مجاز است");
-    assert(validateLength("رمزعبور۱۲"), "رمز فارسی ۸ کاراکتری مجاز است");
     assert(validateLength("Pass@1234"), "رمز ترکیبی مجاز است");
+  });
+
+  await test("محدودیت عدم پذیرش حروف فارسی در رمز عبور (صفحه کلید را به انگلیسی تغییر دهید)", () => {
+    // حروف فارسی، نیم‌فاصله و علائم نگارشی کیبورد فارسی باید رد شوند
+    assert(hasPersianLetters("سلام1234"), "رمز دارای حروف فارسی باید شناسایی شود");
+    assert(hasPersianLetters("حشسسصخقی"), "تایپ اشتباه رمز عبور روی کیبورد فارسی باید شناسایی شود");
+    assert(hasPersianLetters("pass‌word"), "کاراکتر نیم‌فاصله فارسی باید شناسایی شود");
+    assert(hasPersianLetters("password،"), "ویرگول فارسی باید شناسایی شود");
+    assert(hasPersianLetters("password؟"), "علامت سوال فارسی باید شناسایی شود");
+
+    // حروف انگلیسی، اعداد، کاراکترهای خاص و ارقام فارسی نباید به عنوان حروف فارسی رد شوند
+    assert(!hasPersianLetters("password123"), "رمز استاندارد انگلیسی باید تایید شود");
+    assert(!hasPersianLetters("12345678"), "رمز عددی انگلیسی باید تایید شود");
+    assert(!hasPersianLetters("Pass!@#$%^&*()_+"), "رمز با کاراکترهای ویژه انگلیسی باید تایید شود");
+    assert(!hasPersianLetters("۱۲۳۴۵۶۷۸"), "ارقام فارسی به عنوان حروف تلقی نمی‌شوند (خودکار به انگلیسی تبدیل می‌شوند)");
   });
 
   await test("تولید کد تایید ایمیل: فرمت عددی ۶ رقمی", () => {

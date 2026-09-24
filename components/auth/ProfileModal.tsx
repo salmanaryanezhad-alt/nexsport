@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "./AuthContext";
+import { hasPersianLetters } from "@/lib/auth/utils";
 
 export function ProfileModal() {
   const { user, isAdmin, isProfileModalOpen, closeProfileModal, openUsersModal, updateProfile, changePassword } = useAuth();
@@ -38,6 +39,10 @@ export function ProfileModal() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    if (hasPersianLetters(newPassword) || hasPersianLetters(currentPassword)) {
+      setError("صفحه کلید را به انگلیسی تغییر دهید");
+      return;
+    }
     if (newPassword.length < 8) {
       setError("رمز عبور جدید باید حداقل ۸ کاراکتر باشد.");
       return;
@@ -208,9 +213,19 @@ export function ProfileModal() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="رمز عبور فعلی را وارد نمایید"
-                  className="w-full rounded-lg border border-line bg-white px-3.5 py-2 text-sm focus:border-pitch focus:outline-none"
+                  className={`w-full rounded-lg border ${
+                    hasPersianLetters(currentPassword)
+                      ? "border-rose-500 bg-rose-50/30 text-rose-900 focus:border-rose-500"
+                      : "border-line bg-white focus:border-pitch"
+                  } px-3.5 py-2 text-sm focus:outline-none transition-colors`}
                   dir="ltr"
                 />
+                {hasPersianLetters(currentPassword) && (
+                  <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1 animate-pulse">
+                    <span>⚠️</span>
+                    <span>صفحه کلید را به انگلیسی تغییر دهید</span>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -224,17 +239,28 @@ export function ProfileModal() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="حداقل ۸ کاراکتر"
-                  className="w-full rounded-lg border border-line bg-white px-3.5 py-2 text-sm focus:border-pitch focus:outline-none"
+                  className={`w-full rounded-lg border ${
+                    hasPersianLetters(newPassword)
+                      ? "border-rose-500 bg-rose-50/30 text-rose-900 focus:border-rose-500"
+                      : "border-line bg-white focus:border-pitch"
+                  } px-3.5 py-2 text-sm focus:outline-none transition-colors`}
                   dir="ltr"
                 />
-                <p className="text-[11px] text-ink/50 mt-1">
-                  رمز عبور باید حداقل ۸ کاراکتر باشد.
-                </p>
+                {hasPersianLetters(newPassword) ? (
+                  <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1 animate-pulse">
+                    <span>⚠️</span>
+                    <span>صفحه کلید را به انگلیسی تغییر دهید</span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-ink/50 mt-1">
+                    رمز عبور جدید باید حداقل ۸ کاراکتر باشد.
+                  </p>
+                )}
               </div>
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || hasPersianLetters(newPassword) || hasPersianLetters(currentPassword)}
                 className="w-full rounded-lg bg-pitch py-2.5 text-sm font-bold text-white shadow-sm hover:bg-pitch-light transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {loading ? "در حال ثبت..." : "به‌روزرسانی رمز عبور"}

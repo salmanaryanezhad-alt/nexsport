@@ -59,6 +59,12 @@ function clean_email($email) {
     return strtolower(trim($normalized));
 }
 
+function has_persian_letters($str) {
+    if (!$str && $str !== '0') return false;
+    // بررسی هرگونه حروف یا کاراکتر فارسی و عربی به جز ارقام ۰ تا ۹
+    return preg_match('/[\x{0600}-\x{065F}\x{066A}-\x{06EF}\x{06FA}-\x{06FF}\x{FB50}-\x{FDFF}\x{FE70}-\x{FEFF}\x{200C}\x{200D}]/u', (string)$str) === 1;
+}
+
 function detect_device_type($clientHint = null) {
     if ($clientHint === 'mobile' || $clientHint === 'desktop') {
         return $clientHint;
