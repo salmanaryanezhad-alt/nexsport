@@ -423,8 +423,10 @@ export const db = {
     name: string;
     email: string;
     mobile: string;
-    password_hash: string;
+    password_hash?: string;
+    passwordHash?: string;
     is_verified?: boolean;
+    isVerified?: boolean;
     role?: string;
   }): Promise<UserRecord> {
     const id = crypto.randomUUID();
@@ -433,21 +435,22 @@ export const db = {
     const cleanMobile = data.mobile.trim();
     const isSuperAdmin = cleanEmail === "salman.aryanezhad@gmail.com";
     const role = isSuperAdmin ? "admin" : (data.role ?? "user");
-    const isVerified = Boolean(data.is_verified);
+    const isVerified = Boolean(data.is_verified ?? data.isVerified);
+    const passwordHash = data.password_hash || data.passwordHash || "";
 
     if (mysqlPool) {
       await initTablesIfRealDb();
       await mysqlPool.execute(
         `INSERT INTO \`users\` (id, name, email, mobile, password_hash, is_verified, role, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, data.name.trim(), cleanEmail, cleanMobile, data.password_hash, isVerified ? 1 : 0, role, now, now]
+        [id, data.name.trim(), cleanEmail, cleanMobile, passwordHash, isVerified ? 1 : 0, role, now, now]
       );
       return {
         id,
         name: data.name.trim(),
         email: cleanEmail,
         mobile: cleanMobile,
-        password_hash: data.password_hash,
+        password_hash: passwordHash,
         is_verified: isVerified,
         role,
         created_at: now,
@@ -466,7 +469,7 @@ export const db = {
           data.name.trim(),
           cleanEmail,
           cleanMobile,
-          data.password_hash,
+          passwordHash,
           isVerified,
           role,
           now,
@@ -481,7 +484,7 @@ export const db = {
       name: data.name.trim(),
       email: cleanEmail,
       mobile: cleanMobile,
-      password_hash: data.password_hash,
+      password_hash: passwordHash,
       is_verified: isVerified,
       role,
       created_at: now,
@@ -515,6 +518,50 @@ export const db = {
       u.is_verified = true;
       u.updated_at = new Date();
     }
+  },
+
+  async deleteUnverifiedUser(userId: string): Promise<boolean> {
+    const user = await this.findUserById(userId);
+    if (!user) return false;
+    // Protect verified users
+    if (user.is_verified) {
+      throw new Error("تنها کاربران تایید‌نشده قابل حذف هستند.");
+    }
+
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute("DELETE FROM `email_verifications` WHERE user_id = ?", [userId]);
+      await mysqlPool.execute("DELETE FROM `password_resets` WHERE user_id = ?", [userId]);
+      await mysqlPool.execute("DELETE FROM `sessions` WHERE user_id = ?", [userId]);
+      await mysqlPool.execute("DELETE FROM `tournaments` WHERE user_id = ?", [userId]);
+      const [res]: any = await mysqlPool.execute("DELETE FROM `users` WHERE id = ? AND is_verified = 0", [userId]);
+      return res.affectedRows > 0;
+    }
+
+    if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query("DELETE FROM email_verifications WHERE user_id = $1", [userId]);
+      await pgPool.query("DELETE FROM password_resets WHERE user_id = $1", [userId]);
+      await pgPool.query("DELETE FROM sessions WHERE user_id = $1", [userId]);
+      await pgPool.query("DELETE FROM tournaments WHERE user_id = $1", [userId]);
+      const res = await pgPool.query("DELETE FROM users WHERE id = $1 AND is_verified = FALSE", [userId]);
+      return (res.rowCount ?? 0) > 0;
+    }
+
+    // In-memory
+    for (const [k, v] of memoryStore.verifications.entries()) {
+      if (v.user_id === userId) memoryStore.verifications.delete(k);
+    }
+    for (const [k, v] of memoryStore.passwordResets.entries()) {
+      if (v.user_id === userId) memoryStore.passwordResets.delete(k);
+    }
+    for (const [token, s] of memoryStore.sessions.entries()) {
+      if (s.user_id === userId) memoryStore.sessions.delete(token);
+    }
+    for (const [id, t] of memoryStore.tournaments.entries()) {
+      if (t.user_id === userId) memoryStore.tournaments.delete(id);
+    }
+    return memoryStore.users.delete(userId);
   },
 
   async saveVerificationCode(userId: string, email: string, code: string, expiresMinutes = 15): Promise<EmailVerificationRecord> {

@@ -20,6 +20,11 @@ export function UsersModal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -53,6 +58,84 @@ export function UsersModal() {
       fetchUsers();
     }
   }, [isUsersModalOpen, isAdmin]);
+
+  useEffect(() => {
+    if (actionMessage) {
+      const t = setTimeout(() => setActionMessage(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [actionMessage]);
+
+  const handleApproveUser = async (target: AdminUserItem) => {
+    setActionLoadingId(target.id);
+    setActionMessage(null);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: target.id, action: "approve" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setActionMessage({
+          type: "error",
+          text: data.error || "خطا در تایید کاربر.",
+        });
+        return;
+      }
+      setUsers((prev) =>
+        prev.map((u) => (u.id === target.id ? { ...u, is_verified: true } : u))
+      );
+      setActionMessage({
+        type: "success",
+        text: `حساب کاربری «${target.name}» با موفقیت تایید و فعال شد.`,
+      });
+    } catch {
+      setActionMessage({
+        type: "error",
+        text: "خطای شبکه در تایید کاربر.",
+      });
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleRejectUser = async (target: AdminUserItem) => {
+    const confirmed = window.confirm(
+      `آیا از رد و حذف کاربر «${target.name}» اطمینان دارید؟\nاین کاربر تستی به صورت کامل از سامانه و پایگاه داده حذف خواهد شد.`
+    );
+    if (!confirmed) return;
+
+    setActionLoadingId(target.id);
+    setActionMessage(null);
+    try {
+      const res = await fetch(`/api/admin/users?userId=${encodeURIComponent(target.id)}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: target.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setActionMessage({
+          type: "error",
+          text: data.error || "خطا در حذف کاربر.",
+        });
+        return;
+      }
+      setUsers((prev) => prev.filter((u) => u.id !== target.id));
+      setActionMessage({
+        type: "success",
+        text: `کاربر «${target.name}» از سامانه حذف شد.`,
+      });
+    } catch {
+      setActionMessage({
+        type: "error",
+        text: "خطای شبکه در حذف کاربر.",
+      });
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users;
@@ -102,7 +185,7 @@ export function UsersModal() {
                 </span>
               </div>
               <p className="text-[11px] text-ink/60 mt-0.5">
-                مشاهده آمار و فهرست کامل اعضای ثبت‌نام‌شده
+                مشاهده، تایید دستی یا حذف کاربران ثبت‌نام‌شده
               </p>
             </div>
           </div>
@@ -134,7 +217,7 @@ export function UsersModal() {
             {/* Verified Users */}
             <div className="rounded-xl border border-line/80 bg-white p-3 shadow-2xs flex items-center justify-between">
               <div>
-                <p className="text-[11px] text-ink/60 font-semibold">تاییدشده با ایمیل</p>
+                <p className="text-[11px] text-ink/60 font-semibold">تاییدشده</p>
                 <p className="text-xl font-black text-emerald-700 mt-0.5">
                   {verifiedCount.toLocaleString("fa-IR")}
                   <span className="text-xs font-normal text-ink/50 mr-1">نفر</span>
@@ -179,6 +262,28 @@ export function UsersModal() {
 
         {/* Modal Body / Table View */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+          {actionMessage && (
+            <div
+              className={`mb-4 rounded-xl border p-3 text-xs flex items-center justify-between animate-in fade-in ${
+                actionMessage.type === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                  : "border-rose-200 bg-rose-50 text-rose-900"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span>{actionMessage.type === "success" ? "✅" : "⚠️"}</span>
+                <span className="font-semibold">{actionMessage.text}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActionMessage(null)}
+                className="text-ink/40 hover:text-ink cursor-pointer text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {error && (
             <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -220,12 +325,13 @@ export function UsersModal() {
                       <th className="py-3 px-4">آدرس ایمیل</th>
                       <th className="py-3 px-4">شماره تماس</th>
                       <th className="py-3 px-4">تاریخ عضویت</th>
-                      <th className="py-3 px-3 text-center w-24">وضعیت</th>
+                      <th className="py-3 px-3 text-center w-36">وضعیت / عملیات</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line/60">
                     {filteredUsers.map((u, index) => {
                       const isCurrentUserAdmin = u.email === "salman.aryanezhad@gmail.com" || u.role === "admin";
+                      const isTargetLoading = actionLoadingId === u.id;
                       return (
                         <tr key={u.id} className="hover:bg-chalk/40 transition-colors">
                           <td className="py-3 px-3 text-center font-mono text-ink/50 font-bold">
@@ -255,16 +361,44 @@ export function UsersModal() {
                           <td className="py-3 px-4 text-[11px] text-ink/70">
                             {formatPersianDate(u.created_at)}
                           </td>
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-2.5 px-3 text-center">
                             {u.is_verified ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
                                 <span>✓</span>
                                 <span>تایید شده</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                                <span>در انتظار</span>
-                              </span>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  disabled={isTargetLoading}
+                                  onClick={() => handleApproveUser(u)}
+                                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white px-2.5 py-1 text-[11px] font-bold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                                  title="تایید مستقیم و فعال‌سازی این حساب بدون نیاز به کد ایمیل"
+                                >
+                                  {isTargetLoading ? (
+                                    <span className="animate-spin text-[10px]">⏳</span>
+                                  ) : (
+                                    <span>✓</span>
+                                  )}
+                                  <span>تایید</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={isTargetLoading}
+                                  onClick={() => handleRejectUser(u)}
+                                  className="inline-flex items-center gap-1 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white px-2.5 py-1 text-[11px] font-bold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                                  title="رد و حذف کامل این کاربر از فهرست"
+                                >
+                                  {isTargetLoading ? (
+                                    <span className="animate-spin text-[10px]">⏳</span>
+                                  ) : (
+                                    <span>✕</span>
+                                  )}
+                                  <span>رد</span>
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -278,6 +412,7 @@ export function UsersModal() {
               <div className="md:hidden space-y-3">
                 {filteredUsers.map((u, index) => {
                   const isCurrentUserAdmin = u.email === "salman.aryanezhad@gmail.com" || u.role === "admin";
+                  const isTargetLoading = actionLoadingId === u.id;
                   return (
                     <div
                       key={u.id}
@@ -305,14 +440,42 @@ export function UsersModal() {
 
                         <div>
                           {u.is_verified ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
                               <span>✓</span>
                               <span>تایید شده</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                              <span>در انتظار</span>
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                disabled={isTargetLoading}
+                                onClick={() => handleApproveUser(u)}
+                                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white px-2.5 py-1 text-[11px] font-bold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                                title="تایید مستقیم و فعال‌سازی این حساب"
+                              >
+                                {isTargetLoading ? (
+                                  <span className="animate-spin text-[10px]">⏳</span>
+                                ) : (
+                                  <span>✓</span>
+                                )}
+                                <span>تایید</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={isTargetLoading}
+                                onClick={() => handleRejectUser(u)}
+                                className="inline-flex items-center gap-1 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white px-2.5 py-1 text-[11px] font-bold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                                title="رد و حذف کاربر"
+                              >
+                                {isTargetLoading ? (
+                                  <span className="animate-spin text-[10px]">⏳</span>
+                                ) : (
+                                  <span>✕</span>
+                                )}
+                                <span>رد</span>
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
