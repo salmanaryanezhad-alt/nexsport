@@ -301,6 +301,29 @@ function db_mark_user_verified($pdo, $userId) {
     $stmt->execute([$userId]);
 }
 
+function db_delete_unverified_user($pdo, $userId) {
+    $user = db_find_user_by_id($pdo, $userId);
+    if (!$user || !empty($user['is_verified'])) {
+        return false;
+    }
+    // Delete related records
+    $stmt = $pdo->prepare("DELETE FROM email_verifications WHERE user_id = ?");
+    $stmt->execute([$userId]);
+
+    $stmt = $pdo->prepare("DELETE FROM password_resets WHERE user_id = ?");
+    $stmt->execute([$userId]);
+
+    $stmt = $pdo->prepare("DELETE FROM sessions WHERE user_id = ?");
+    $stmt->execute([$userId]);
+
+    $stmt = $pdo->prepare("DELETE FROM tournaments WHERE user_id = ?");
+    $stmt->execute([$userId]);
+
+    $stmt = $pdo->prepare("DELETE FROM users WHERE id = ? AND is_verified = 0");
+    $stmt->execute([$userId]);
+    return $stmt->rowCount() > 0;
+}
+
 // Email Verification functions
 function db_save_verification_code($pdo, $userId, $email, $code, $minutes = 15) {
     $id = generate_uuid();

@@ -583,6 +583,88 @@ if (($path === 'admin/users' || $path === 'users') && $method === 'GET') {
     ]);
 }
 
+if (($path === 'admin/users' || $path === 'users') && ($method === 'PATCH' || $method === 'PUT')) {
+    list($session) = require_auth($pdo);
+    $user = db_find_user_by_id($pdo, $session['user_id']);
+    if (!$user) {
+        json_response(['error' => 'کاربر یافت نشد.'], 401);
+    }
+
+    $isSalman = (clean_email($user['email'] ?? '') === 'salman.aryanezhad@gmail.com');
+    $isAdmin = $isSalman || (($user['role'] ?? '') === 'admin');
+
+    if (!$isAdmin) {
+        json_response(['error' => 'دسترسی غیرمجاز. این بخش منحصراً در اختیار مدیر سامانه می‌باشد.'], 403);
+    }
+
+    $body = get_json_input();
+    $userId = (string)($body['userId'] ?? '');
+    $action = (string)($body['action'] ?? '');
+
+    if (!$userId) {
+        json_response(['error' => 'شناسه کاربر الزامی است.'], 400);
+    }
+
+    $targetUser = db_find_user_by_id($pdo, $userId);
+    if (!$targetUser) {
+        json_response(['error' => 'کاربر مورد نظر یافت نشد.'], 404);
+    }
+
+    if ($action === 'approve') {
+        db_mark_user_verified($pdo, $userId);
+        json_response([
+            'success' => true,
+            'message' => "حساب کاربری «{$targetUser['name']}» با موفقیت تایید و فعال شد."
+        ]);
+    }
+
+    json_response(['error' => 'عملیات نامعتبر است.'], 400);
+}
+
+if (($path === 'admin/users' || $path === 'users') && $method === 'DELETE') {
+    list($session) = require_auth($pdo);
+    $user = db_find_user_by_id($pdo, $session['user_id']);
+    if (!$user) {
+        json_response(['error' => 'کاربر یافت نشد.'], 401);
+    }
+
+    $isSalman = (clean_email($user['email'] ?? '') === 'salman.aryanezhad@gmail.com');
+    $isAdmin = $isSalman || (($user['role'] ?? '') === 'admin');
+
+    if (!$isAdmin) {
+        json_response(['error' => 'دسترسی غیرمجاز. این بخش منحصراً در اختیار مدیر سامانه می‌باشد.'], 403);
+    }
+
+    $userId = $_GET['userId'] ?? '';
+    if (!$userId) {
+        $body = get_json_input();
+        $userId = $body['userId'] ?? '';
+    }
+
+    if (!$userId) {
+        json_response(['error' => 'شناسه کاربر الزامی است.'], 400);
+    }
+
+    $targetUser = db_find_user_by_id($pdo, $userId);
+    if (!$targetUser) {
+        json_response(['error' => 'کاربر مورد نظر یافت نشد.'], 404);
+    }
+
+    if (!empty($targetUser['is_verified'])) {
+        json_response(['error' => 'تنها کاربران در حال انتظار تایید ایمیل قابل حذف هستند.'], 400);
+    }
+
+    $deleted = db_delete_unverified_user($pdo, $userId);
+    if ($deleted) {
+        json_response([
+            'success' => true,
+            'message' => "کاربر «{$targetUser['name']}» از سامانه حذف شد."
+        ]);
+    } else {
+        json_response(['error' => 'خطا در حذف کاربر.'], 500);
+    }
+}
+
 // 404 Route Not Found
 json_response([
     'error' => 'مسیر درخواستی در سامانه یافت نشد.',

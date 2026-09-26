@@ -420,6 +420,62 @@ async function run() {
     assert(!("password_hash" in (allUsers[0] as any)), "هش رمز عبور نباید در خروجی لیست کاربران به فرانت‌اند بازگردانده شود.");
   });
 
+  await test("مدیریت کاربران: تایید دستی کاربر در انتظار (دکمه سبز) و ورود بدون نیاز به کد تایید", async () => {
+    const unverifiedEmail = "pending_approve@nexsport.ir";
+    const user = await db.createUser({
+      name: "کاربر تستی در انتظار",
+      email: unverifiedEmail,
+      mobile: "09121110022",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: false,
+    });
+
+    assertEqual(user.is_verified, false, "کاربر ابتدا باید در انتظار تایید باشد.");
+
+    // مدیر روی دکمه تایید سبز کلیک می‌کند:
+    await db.markUserVerified(user.id);
+
+    const approvedUser = await db.findUserById(user.id);
+    assertEqual(approvedUser?.is_verified, true, "پس از کلیک تایید، کاربر باید فعال و تایید شده باشد.");
+  });
+
+  await test("مدیریت کاربران: رد و حذف کاربر تستی در انتظار (دکمه قرمز) و خروج کامل از فهرست", async () => {
+    const junkEmail = "junk_test_user@nexsport.ir";
+    const junkUser = await db.createUser({
+      name: "کاربر تستی نامعتبر",
+      email: junkEmail,
+      mobile: "09121110033",
+      passwordHash: hashPassword("JunkPass12"),
+      isVerified: false,
+    });
+
+    assert(Boolean(await db.findUserById(junkUser.id)), "کاربر قبل از حذف باید وجود داشته باشد.");
+
+    // مدیر روی دکمه رد قرمز کلیک می‌کند:
+    const deleteResult = await db.deleteUnverifiedUser(junkUser.id);
+    assertEqual(deleteResult, true, "عملیات حذف باید با موفقیت انجام شود.");
+
+    const afterDelete = await db.findUserById(junkUser.id);
+    assertEqual(afterDelete, null, "کاربر تستی پس از رد باید کاملاً از سامانه حذف شود.");
+
+    // محافظت: تلاش برای حذف کاربر تاییدشده باید رد شود
+    const verifiedUser = await db.createUser({
+      name: "کاربر رسمی تاییدشده",
+      email: "official@nexsport.ir",
+      mobile: "09121110044",
+      passwordHash: hashPassword("Official12"),
+      isVerified: true,
+    });
+
+    let prevented = false;
+    try {
+      await db.deleteUnverifiedUser(verifiedUser.id);
+    } catch {
+      prevented = true;
+    }
+    assert(prevented, "کاربران رسمی تاییدشده نباید قابل حذف باشند.");
+  });
+
   console.log("\n======================================");
   console.log(`تست‌های موفق: ${passed}`);
   console.log(`تست‌های ناموفق: ${failed}`);
