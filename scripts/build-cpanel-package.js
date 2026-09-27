@@ -117,9 +117,13 @@ function sanitizeHtmlForIndexing(dir) {
             // Remove any noindex meta tags
             html = html.replace(/<meta\s+name=["']robots["']\s+content=["'][^"']*noindex[^"']*["']\s*\/?>/gi, '');
             html = html.replace(/<meta\s+name=["']googlebot["']\s+content=["'][^"']*noindex[^"']*["']\s*\/?>/gi, '');
-            html = html.replace(/\\"robots\\":\\"noindex[^\\"]*\\"/gi, '\\"robots\\":\\"index, follow\\"');
-            html = html.replace(/"robots":"noindex[^"]*"/gi, '"robots":"index, follow"');
-            html = html.replace(/\\"googleBot\\":\{[^}]*\\"noimageindex\\":true[^}]*\}/gi, '\\"googleBot\\":{\\"index\\":true,\\"follow\\":true}');
+            // Replace within serialized Next.js payloads
+            html = html.replace(/noindex,\s*nofollow(?:,\s*noarchive)?(?:,\s*nocache)?/gi, 'index, follow');
+            html = html.replace(/\\"noimageindex\\":true/gi, '\\"noimageindex\\":false');
+            html = html.replace(/\\"index\\":false/gi, '\\"index\\":true');
+            html = html.replace(/\\"follow\\":false/gi, '\\"follow\\":true');
+            html = html.replace(/"index":false/gi, '"index":true');
+            html = html.replace(/"follow":false/gi, '"follow":true');
 
             // Ensure index, follow meta tags are present in <head>
             if (!html.includes('content="index, follow"')) {
