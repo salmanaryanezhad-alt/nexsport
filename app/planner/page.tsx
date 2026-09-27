@@ -1160,9 +1160,10 @@ function PlannerWizard() {
             <button
               onClick={handleReset}
               className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
+              title="شروع مسابقه جدید و بازگشت به صفحه اول برنامه‌ریزی"
             >
               <span>🔄</span>
-              <span className="hidden sm:inline">مسابقه جدید</span>
+              <span>مسابقه جدید</span>
             </button>
           )}
         </div>
