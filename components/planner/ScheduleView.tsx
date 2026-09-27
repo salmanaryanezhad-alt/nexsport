@@ -750,9 +750,9 @@ function RoundsTable({
   filterTeam?: string;
 }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       {title && <h3 className="font-bold text-pitch text-base">{title}</h3>}
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 w-full">
         {rounds.map((round) => {
           const visibleMatches =
             filterTeam && filterTeam !== "all"
@@ -1501,8 +1501,10 @@ function InteractiveBracket({
     [allMatches, scores]
   );
 
+  const [layoutMode, setLayoutMode] = useState<"cards" | "tree">("cards");
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 w-full">
       {/* Celebration Podium */}
       {champion && (
         <div className="rounded-xl border-2 border-gold bg-gradient-to-r from-gold/15 via-gold/25 to-gold/15 p-6 shadow-md text-center animate-fade-in print-avoid-break">
@@ -1540,80 +1542,201 @@ function InteractiveBracket({
         </p>
       )}
 
-      {/* Main Bracket Columns (Tree View) */}
-      <div
-        className={`bracket-tree-container overflow-x-auto pb-4 pt-2 ${
-          printBracketStyle === "stages"
-            ? "print:hidden"
-            : "print:overflow-visible print:p-0 print:m-0"
-        }`}
-      >
-        <div className="flex gap-6 print:gap-1.5 print:w-full print:justify-between">
-          {knockout.rounds.map((round: any, roundIdx: number) => {
-            const isFinal = roundIdx === knockout.rounds.length - 1;
-            return (
-              <div
-                key={round.round}
-                className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
-              >
-                <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3 print:py-0.5 print:px-1">
-                  <p className="text-xs font-bold text-pitch print:text-[10px]">{round.label}</p>
-                </div>
-
-                <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
-                  {round.matches.map((m: any) => (
-                    <MatchBracketCard
-                      key={m.id}
-                      match={m}
-                      scores={scores}
-                      isFinal={isFinal}
-                      onScoreChange={onScoreChange}
-                      matchDetails={matchDetails}
-                      onOpenEditModal={onOpenEditModal}
-                      filterTeam={filterTeam}
-                      checkDownstreamPlayed={checkDownstreamPlayed}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+      {/* View Switcher: Cards (Full Screen) vs Tree Bracket */}
+      <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white/80 p-3 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-pitch">نحوه نمایش مسابقات:</span>
+          <div className="inline-flex rounded-lg border border-line bg-chalk/80 p-0.5 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setLayoutMode("cards")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
+                layoutMode === "cards"
+                  ? "bg-pitch text-chalk shadow-xs font-bold"
+                  : "text-ink/70 hover:text-ink"
+              }`}
+            >
+              <span>🗂️</span>
+              <span>نمایش کارتی مسابقات (تمام‌صفحه)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutMode("tree")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
+                layoutMode === "tree"
+                  ? "bg-pitch text-chalk shadow-xs font-bold"
+                  : "text-ink/70 hover:text-ink"
+              }`}
+            >
+              <span>🌳</span>
+              <span>نمودار درختی براکت حذفی</span>
+            </button>
+          </div>
         </div>
+        <span className="text-xs text-ink/60 hidden sm:inline">
+          {layoutMode === "cards"
+            ? "نمایش مرحله به مرحله در قالب کارت‌های جادار و تعاملی در تمام عرض صفحه"
+            : "نمودار درختی استاندارد مسابقات حذفی"}
+        </span>
       </div>
 
-      {/* Third Place Match (if configured) */}
-      {knockout.thirdPlaceMatch && (
+      {/* 1. CARDS VIEW (FULL SCREEN RESPONSIVE GRID) */}
+      <div className={layoutMode === "cards" ? "space-y-6 w-full" : "hidden"}>
+        {knockout.rounds.map((round: any, roundIdx: number) => {
+          const isFinal = roundIdx === knockout.rounds.length - 1;
+          const visibleMatches =
+            filterTeam && filterTeam !== "all"
+              ? round.matches.filter((m: any) => m.home === filterTeam || m.away === filterTeam)
+              : round.matches;
+
+          if (filterTeam && filterTeam !== "all" && visibleMatches.length === 0) {
+            return null;
+          }
+
+          return (
+            <div
+              key={round.round}
+              className="rounded-2xl border border-line bg-white/80 p-4 sm:p-5 shadow-xs space-y-4 print-avoid-break w-full"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/70 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{isFinal ? "👑" : "🏆"}</span>
+                  <h3 className="font-black text-base text-pitch">{round.label}</h3>
+                </div>
+                <span className="rounded-full bg-pitch/10 text-pitch font-bold px-3 py-1 text-xs">
+                  {visibleMatches.length} مسابقه
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
+                {visibleMatches.map((m: any) => (
+                  <MatchBracketCard
+                    key={m.id}
+                    match={m}
+                    scores={scores}
+                    isFinal={isFinal}
+                    onScoreChange={onScoreChange}
+                    matchDetails={matchDetails}
+                    onOpenEditModal={onOpenEditModal}
+                    filterTeam={filterTeam}
+                    checkDownstreamPlayed={checkDownstreamPlayed}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Third Place in Cards View */}
+        {knockout.thirdPlaceMatch && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50/40 p-4 sm:p-5 shadow-xs space-y-4 print-avoid-break w-full">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300/60 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🥉</span>
+                <h3 className="font-black text-base text-amber-950">
+                  مسابقه رده‌بندی (تعیین مقام سوم و چهارم)
+                </h3>
+              </div>
+              {thirdPlace && (
+                <span className="rounded-full bg-amber-200 text-amber-950 font-bold px-3 py-1 text-xs">
+                  برنده مقام سوم: {thirdPlace}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
+              <MatchBracketCard
+                match={knockout.thirdPlaceMatch}
+                scores={scores}
+                isFinal={false}
+                onScoreChange={onScoreChange}
+                label="دیدار رده‌بندی"
+                matchDetails={matchDetails}
+                onOpenEditModal={onOpenEditModal}
+                filterTeam={filterTeam}
+                checkDownstreamPlayed={checkDownstreamPlayed}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 2. TREE VIEW */}
+      <div className={layoutMode === "tree" ? "space-y-6" : "hidden"}>
+        {/* Main Bracket Columns (Tree View) */}
         <div
-          className={`border-t border-line pt-6 print:pt-3 print-avoid-break ${
-            printBracketStyle === "stages" ? "print:hidden" : ""
+          className={`bracket-tree-container overflow-x-auto pb-4 pt-2 ${
+            printBracketStyle === "stages"
+              ? "print:hidden"
+              : "print:overflow-visible print:p-0 print:m-0"
           }`}
         >
-          <div className="mb-3 flex items-center justify-between print:mb-1">
-            <h3 className="font-bold text-sm text-pitch flex items-center gap-1.5 print:text-xs">
-              <span>🥉 مسابقه رده‌بندی</span>
-              <span className="text-xs text-ink/50 font-normal print:text-[10px]">(تعیین مقام سوم و چهارم)</span>
-            </h3>
-            {thirdPlace && (
-              <span className="text-xs font-bold text-pitch bg-pitch/10 px-2 py-0.5 rounded print:text-[10px]">
-                برنده مقام سوم: {thirdPlace}
-              </span>
-            )}
-          </div>
-          <div className="max-w-sm print:max-w-none">
-            <MatchBracketCard
-              match={knockout.thirdPlaceMatch}
-              scores={scores}
-              isFinal={false}
-              onScoreChange={onScoreChange}
-              label="دیدار رده‌بندی"
-              matchDetails={matchDetails}
-              onOpenEditModal={onOpenEditModal}
-              filterTeam={filterTeam}
-              checkDownstreamPlayed={checkDownstreamPlayed}
-            />
+          <div className="flex gap-6 print:gap-1.5 print:w-full print:justify-between">
+            {knockout.rounds.map((round: any, roundIdx: number) => {
+              const isFinal = roundIdx === knockout.rounds.length - 1;
+              return (
+                <div
+                  key={round.round}
+                  className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
+                >
+                  <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3 print:py-0.5 print:px-1">
+                    <p className="text-xs font-bold text-pitch print:text-[10px]">{round.label}</p>
+                  </div>
+
+                  <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
+                    {round.matches.map((m: any) => (
+                      <MatchBracketCard
+                        key={m.id}
+                        match={m}
+                        scores={scores}
+                        isFinal={isFinal}
+                        onScoreChange={onScoreChange}
+                        matchDetails={matchDetails}
+                        onOpenEditModal={onOpenEditModal}
+                        filterTeam={filterTeam}
+                        checkDownstreamPlayed={checkDownstreamPlayed}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-      )}
+
+        {/* Third Place Match (if configured) in tree mode */}
+        {knockout.thirdPlaceMatch && (
+          <div
+            className={`border-t border-line pt-6 print:pt-3 print-avoid-break ${
+              printBracketStyle === "stages" ? "print:hidden" : ""
+            }`}
+          >
+            <div className="mb-3 flex items-center justify-between print:mb-1">
+              <h3 className="font-bold text-sm text-pitch flex items-center gap-1.5 print:text-xs">
+                <span>🥉 مسابقه رده‌بندی</span>
+                <span className="text-xs text-ink/50 font-normal print:text-[10px]">(تعیین مقام سوم و چهارم)</span>
+              </h3>
+              {thirdPlace && (
+                <span className="text-xs font-bold text-pitch bg-pitch/10 px-2 py-0.5 rounded print:text-[10px]">
+                  برنده مقام سوم: {thirdPlace}
+                </span>
+              )}
+            </div>
+            <div className="max-w-sm print:max-w-none">
+              <MatchBracketCard
+                match={knockout.thirdPlaceMatch}
+                scores={scores}
+                isFinal={false}
+                onScoreChange={onScoreChange}
+                label="دیدار رده‌بندی"
+                matchDetails={matchDetails}
+                onOpenEditModal={onOpenEditModal}
+                filterTeam={filterTeam}
+                checkDownstreamPlayed={checkDownstreamPlayed}
+              />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Stage-by-Stage Printable Schedule Cards (for 100% clean, non-clipped printing across any number of pages) */}
       {(printBracketStyle === "stages" || printBracketStyle === "both" || !printBracketStyle) && (
@@ -1654,6 +1777,7 @@ function InteractiveDoubleKnockoutBracket({
   printBracketStyle?: "tree" | "stages" | "both";
 }) {
   const [bracketView, setBracketView] = useState<"all" | "winners" | "losers" | "finals">("all");
+  const [layoutMode, setLayoutMode] = useState<"cards" | "tree">("cards");
 
   const { doubleKnockout, champion, runnerUp, thirdPlace } = useMemo(
     () => computeDoubleKnockoutWithScores(originalDoubleKnockout, scores),
@@ -1739,6 +1863,44 @@ function InteractiveDoubleKnockoutBracket({
         </div>
       )}
 
+      {/* View Switcher: Cards (Full Screen) vs Tree Bracket */}
+      <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white/80 p-3 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-pitch">نحوه نمایش مسابقات دو حذفی:</span>
+          <div className="inline-flex rounded-lg border border-line bg-chalk/80 p-0.5 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setLayoutMode("cards")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
+                layoutMode === "cards"
+                  ? "bg-pitch text-chalk shadow-xs font-bold"
+                  : "text-ink/70 hover:text-ink"
+              }`}
+            >
+              <span>🗂️</span>
+              <span>نمایش کارتی مسابقات (تمام‌صفحه)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutMode("tree")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
+                layoutMode === "tree"
+                  ? "bg-pitch text-chalk shadow-xs font-bold"
+                  : "text-ink/70 hover:text-ink"
+              }`}
+            >
+              <span>🌳</span>
+              <span>نمودار درختی تورنمنت</span>
+            </button>
+          </div>
+        </div>
+        <span className="text-xs text-ink/60 hidden sm:inline">
+          {layoutMode === "cards"
+            ? "نمایش مسابقات در کارت‌های جادار و گسترده در تمام عرض صفحه"
+            : "نمودار درختی دو حذفی"}
+        </span>
+      </div>
+
       {/* View Filter Buttons */}
       <div className="no-print flex flex-wrap items-center gap-2 border-b border-line pb-3">
         {[
@@ -1813,13 +1975,13 @@ function InteractiveDoubleKnockoutBracket({
       {/* Section 1: Winners Bracket */}
       {(bracketView === "all" || bracketView === "winners") && (
         <div
-          className={`rounded-xl border border-line bg-chalk/30 p-5 space-y-4 print-avoid-break ${
+          className={`rounded-2xl border border-line bg-chalk/30 p-5 space-y-4 print-avoid-break w-full ${
             printBracketStyle === "stages" ? "print:hidden" : "print:overflow-visible print:p-2"
           }`}
         >
           <div className="flex items-center justify-between border-b border-line pb-3">
             <div>
-              <h3 className="font-bold text-base text-pitch flex items-center gap-2">
+              <h3 className="font-black text-base text-pitch flex items-center gap-2">
                 <span>🏆</span>
                 <span>جدول برندگان (Winners Bracket)</span>
               </h3>
@@ -1832,50 +1994,91 @@ function InteractiveDoubleKnockoutBracket({
             </span>
           </div>
 
-          <div className="bracket-tree-container flex gap-6 overflow-x-auto pb-4 pt-2 print:gap-1.5 print:w-full print:justify-between print:overflow-visible">
-            {doubleKnockout.winnersBracket.map((round, rIdx) => {
-              const isFinal = rIdx === doubleKnockout.winnersBracket.length - 1;
-              return (
-                <div
-                  key={round.round}
-                  className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
-                >
-                  <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3 print:py-0.5 print:px-1">
-                    <p className="text-xs font-bold text-pitch print:text-[10px]">{round.label}</p>
-                  </div>
+          {layoutMode === "cards" ? (
+            <div className="space-y-6 w-full">
+              {doubleKnockout.winnersBracket.map((round, rIdx) => {
+                const isFinal = rIdx === doubleKnockout.winnersBracket.length - 1;
+                const visibleMatches =
+                  filterTeam && filterTeam !== "all"
+                    ? round.matches.filter((m) => m.home === filterTeam || m.away === filterTeam)
+                    : round.matches;
 
-                  <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
-                    {round.matches.map((m) => (
-                      <MatchBracketCard
-                        key={m.id}
-                        match={m}
-                        scores={scores}
-                        isFinal={isFinal}
-                        onScoreChange={onScoreChange}
-                        matchDetails={matchDetails}
-                        onOpenEditModal={onOpenEditModal}
-                        filterTeam={filterTeam}
-                        checkDownstreamPlayed={checkDownstreamPlayed}
-                      />
-                    ))}
+                if (filterTeam && filterTeam !== "all" && visibleMatches.length === 0) return null;
+
+                return (
+                  <div
+                    key={round.round}
+                    className="rounded-xl border border-line/80 bg-white/90 p-4 space-y-3 shadow-2xs w-full"
+                  >
+                    <div className="flex items-center justify-between border-b border-line/60 pb-2">
+                      <span className="font-extrabold text-sm text-pitch">{round.label}</span>
+                      <span className="text-xs font-semibold text-ink/50">{visibleMatches.length} مسابقه</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
+                      {visibleMatches.map((m) => (
+                        <MatchBracketCard
+                          key={m.id}
+                          match={m}
+                          scores={scores}
+                          isFinal={isFinal}
+                          onScoreChange={onScoreChange}
+                          matchDetails={matchDetails}
+                          onOpenEditModal={onOpenEditModal}
+                          filterTeam={filterTeam}
+                          checkDownstreamPlayed={checkDownstreamPlayed}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bracket-tree-container flex gap-6 overflow-x-auto pb-4 pt-2 print:gap-1.5 print:w-full print:justify-between print:overflow-visible">
+              {doubleKnockout.winnersBracket.map((round, rIdx) => {
+                const isFinal = rIdx === doubleKnockout.winnersBracket.length - 1;
+                return (
+                  <div
+                    key={round.round}
+                    className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
+                  >
+                    <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3 print:py-0.5 print:px-1">
+                      <p className="text-xs font-bold text-pitch print:text-[10px]">{round.label}</p>
+                    </div>
+
+                    <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
+                      {round.matches.map((m) => (
+                        <MatchBracketCard
+                          key={m.id}
+                          match={m}
+                          scores={scores}
+                          isFinal={isFinal}
+                          onScoreChange={onScoreChange}
+                          matchDetails={matchDetails}
+                          onOpenEditModal={onOpenEditModal}
+                          filterTeam={filterTeam}
+                          checkDownstreamPlayed={checkDownstreamPlayed}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {/* Section 2: Losers Bracket */}
       {(bracketView === "all" || bracketView === "losers") && (
         <div
-          className={`rounded-xl border border-amber-600/30 bg-amber-50/30 p-5 space-y-4 print-avoid-break ${
+          className={`rounded-2xl border border-amber-600/30 bg-amber-50/30 p-5 space-y-4 print-avoid-break w-full ${
             printBracketStyle === "stages" ? "print:hidden" : "print:overflow-visible print:p-2"
           }`}
         >
           <div className="flex items-center justify-between border-b border-amber-600/20 pb-3">
             <div>
-              <h3 className="font-bold text-base text-amber-900 flex items-center gap-2">
+              <h3 className="font-black text-base text-amber-900 flex items-center gap-2">
                 <span>🛡️</span>
                 <span>جدول شانس مجدد / بازندگان (Losers Bracket)</span>
               </h3>
@@ -1907,50 +2110,91 @@ function InteractiveDoubleKnockoutBracket({
             )}
           </div>
 
-          <div className="bracket-tree-container flex gap-6 overflow-x-auto pb-4 pt-2 print:gap-1.5 print:w-full print:justify-between print:overflow-visible">
-            {doubleKnockout.losersBracket.map((round, rIdx) => {
-              const isFinal = rIdx === doubleKnockout.losersBracket.length - 1;
-              return (
-                <div
-                  key={round.round}
-                  className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
-                >
-                  <div className="text-center rounded-md bg-amber-600/15 py-1.5 px-3 print:py-0.5 print:px-1">
-                    <p className="text-xs font-bold text-amber-950 print:text-[10px]">{round.label}</p>
-                  </div>
+          {layoutMode === "cards" ? (
+            <div className="space-y-6 w-full">
+              {doubleKnockout.losersBracket.map((round, rIdx) => {
+                const isFinal = rIdx === doubleKnockout.losersBracket.length - 1;
+                const visibleMatches =
+                  filterTeam && filterTeam !== "all"
+                    ? round.matches.filter((m) => m.home === filterTeam || m.away === filterTeam)
+                    : round.matches;
 
-                  <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
-                    {round.matches.map((m) => (
-                      <MatchBracketCard
-                        key={m.id}
-                        match={m}
-                        scores={scores}
-                        isFinal={isFinal}
-                        onScoreChange={onScoreChange}
-                        matchDetails={matchDetails}
-                        onOpenEditModal={onOpenEditModal}
-                        filterTeam={filterTeam}
-                        checkDownstreamPlayed={checkDownstreamPlayed}
-                      />
-                    ))}
+                if (filterTeam && filterTeam !== "all" && visibleMatches.length === 0) return null;
+
+                return (
+                  <div
+                    key={round.round}
+                    className="rounded-xl border border-amber-600/20 bg-white/95 p-4 space-y-3 shadow-2xs w-full"
+                  >
+                    <div className="flex items-center justify-between border-b border-amber-600/20 pb-2">
+                      <span className="font-extrabold text-sm text-amber-950">{round.label}</span>
+                      <span className="text-xs font-semibold text-ink/50">{visibleMatches.length} مسابقه</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
+                      {visibleMatches.map((m) => (
+                        <MatchBracketCard
+                          key={m.id}
+                          match={m}
+                          scores={scores}
+                          isFinal={isFinal}
+                          onScoreChange={onScoreChange}
+                          matchDetails={matchDetails}
+                          onOpenEditModal={onOpenEditModal}
+                          filterTeam={filterTeam}
+                          checkDownstreamPlayed={checkDownstreamPlayed}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bracket-tree-container flex gap-6 overflow-x-auto pb-4 pt-2 print:gap-1.5 print:w-full print:justify-between print:overflow-visible">
+              {doubleKnockout.losersBracket.map((round, rIdx) => {
+                const isFinal = rIdx === doubleKnockout.losersBracket.length - 1;
+                return (
+                  <div
+                    key={round.round}
+                    className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
+                  >
+                    <div className="text-center rounded-md bg-amber-600/15 py-1.5 px-3 print:py-0.5 print:px-1">
+                      <p className="text-xs font-bold text-amber-950 print:text-[10px]">{round.label}</p>
+                    </div>
+
+                    <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
+                      {round.matches.map((m) => (
+                        <MatchBracketCard
+                          key={m.id}
+                          match={m}
+                          scores={scores}
+                          isFinal={isFinal}
+                          onScoreChange={onScoreChange}
+                          matchDetails={matchDetails}
+                          onOpenEditModal={onOpenEditModal}
+                          filterTeam={filterTeam}
+                          checkDownstreamPlayed={checkDownstreamPlayed}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {/* Section 3: Grand Final */}
       {(bracketView === "all" || bracketView === "finals") && (
         <div
-          className={`rounded-xl border-2 border-gold/70 bg-white p-5 space-y-4 shadow-sm print-avoid-break ${
+          className={`rounded-2xl border-2 border-gold/70 bg-white p-5 space-y-4 shadow-sm print-avoid-break w-full ${
             printBracketStyle === "stages" ? "print:hidden" : "print:p-2"
           }`}
         >
           <div className="flex items-center justify-between border-b border-line pb-3">
             <div>
-              <h3 className="font-bold text-base text-pitch flex items-center gap-2">
+              <h3 className="font-black text-base text-pitch flex items-center gap-2">
                 <span>👑</span>
                 <span>فینال نهایی مسابقات (Grand Final)</span>
               </h3>
@@ -1963,7 +2207,7 @@ function InteractiveDoubleKnockoutBracket({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
             <div>
               <MatchBracketCard
                 match={doubleKnockout.grandFinal}
