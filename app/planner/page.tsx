@@ -244,9 +244,9 @@ const COMMON_TEAM_PRESETS = [
 ];
 
 const btnPrimary =
-  "inline-flex items-center justify-center rounded-md bg-pitch px-4 py-2.5 text-sm font-semibold text-chalk transition-colors hover:bg-pitch-light disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-pitch px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-pitch-light hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 shadow-xs cursor-pointer";
 const btnGhost =
-  "inline-flex items-center justify-center rounded-md border border-line px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-line/40";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:border-slate-400 shadow-2xs cursor-pointer";
 
 function PlannerWizard() {
   const searchParams = useSearchParams();
@@ -1246,6 +1246,19 @@ function PlannerWizard() {
           <div className="grid gap-6 md:grid-cols-2">
             {displayedFormats.map((opt) => {
               const isSelected = format === opt.key;
+              const accentGradient =
+                opt.key === "groups-knockout"
+                  ? "from-purple-500 to-indigo-600"
+                  : opt.key === "knockout"
+                  ? "from-rose-500 to-pink-600"
+                  : opt.key === "double-knockout"
+                  ? "from-teal-500 to-emerald-600"
+                  : opt.key === "double-league"
+                  ? "from-amber-500 to-amber-600"
+                  : opt.key === "groups"
+                  ? "from-blue-500 to-cyan-600"
+                  : "from-emerald-500 to-teal-600";
+
               return (
                 <div
                   key={opt.key}
@@ -1254,16 +1267,19 @@ function PlannerWizard() {
                     setStep(1);
                   }}
                   className={
-                    "group relative flex flex-col justify-between rounded-2xl border bg-white p-6 transition-all duration-200 cursor-pointer text-right hover:-translate-y-1 hover:shadow-xl " +
+                    "group relative flex flex-col justify-between rounded-2xl border bg-white p-6 pt-7 transition-all duration-300 cursor-pointer text-right hover:-translate-y-1.5 hover:shadow-card-hover overflow-hidden " +
                     (isSelected
-                      ? "border-pitch ring-2 ring-pitch/20 bg-pitch/5 shadow-md"
+                      ? "border-emerald-600 ring-2 ring-emerald-500/30 bg-emerald-50/15 shadow-md"
                       : opt.recommended
-                      ? "border-pitch/40 ring-1 ring-pitch/20 shadow-sm hover:border-pitch"
-                      : "border-line/80 shadow-xs hover:border-pitch/50")
+                      ? "border-amber-400 ring-1 ring-amber-400/30 shadow-card hover:border-amber-500"
+                      : "border-slate-200/90 shadow-card hover:border-emerald-500/60")
                   }
                 >
+                  {/* Top colored accent stripe */}
+                  <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${accentGradient}`} />
+
                   {opt.recommended && (
-                    <div className="absolute -top-3 right-6 rounded-full bg-gold px-3 py-0.5 text-[11px] font-black text-ink shadow-sm flex items-center gap-1">
+                    <div className="absolute top-3 right-6 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-0.5 text-[11px] font-black text-slate-950 shadow-xs flex items-center gap-1">
                       <span>⭐</span>
                       <span>فرمت پیشنهادی تورنمنت‌ها</span>
                     </div>
@@ -1273,14 +1289,14 @@ function PlannerWizard() {
                     {/* Header Row */}
                     <div className="flex items-start justify-between gap-3 mb-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pitch/10 text-2xl group-hover:bg-pitch group-hover:text-gold transition-colors shrink-0 shadow-xs">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-2xl group-hover:scale-105 transition-transform shrink-0 shadow-2xs border border-slate-200/80">
                           {opt.icon}
                         </div>
                         <div>
-                          <h3 className="text-lg font-black text-pitch group-hover:text-pitch-light transition-colors">
+                          <h3 className="text-lg font-black text-slate-900 group-hover:text-pitch transition-colors">
                             {opt.title}
                           </h3>
-                          <p className="text-[11px] font-mono text-ink/45 mt-0.5">
+                          <p className="text-[11px] font-mono text-slate-400 mt-0.5">
                             {opt.subtitle}
                           </p>
                         </div>
@@ -1294,23 +1310,23 @@ function PlannerWizard() {
                     </div>
 
                     {/* Description */}
-                    <p className="text-xs text-ink/75 leading-6 mb-4">
+                    <p className="text-xs text-slate-600 leading-6 mb-4">
                       {opt.desc}
                     </p>
 
                     {/* Ideal For Box */}
-                    <div className="mb-4 rounded-xl bg-chalk/80 border border-line/60 p-2.5 text-[11px] text-ink/70 flex items-start gap-2">
-                      <span className="text-pitch font-bold shrink-0 mt-0.5">📍</span>
+                    <div className="mb-4 rounded-xl bg-slate-50 border border-slate-200/70 p-2.5 text-[11px] text-slate-700 flex items-start gap-2">
+                      <span className="text-emerald-700 font-bold shrink-0 mt-0.5">📍</span>
                       <div className="leading-5">
-                        <strong className="text-pitch font-bold">مناسب برای:</strong> {opt.idealFor}
+                        <strong className="text-slate-900 font-bold">مناسب برای:</strong> {opt.idealFor}
                       </div>
                     </div>
 
                     {/* Features List */}
-                    <ul className="space-y-2 mb-6 border-t border-line/50 pt-3">
+                    <ul className="space-y-2 mb-6 border-t border-slate-100 pt-3">
                       {opt.features.map((feat, idx) => (
-                        <li key={idx} className="flex items-center gap-2 text-xs text-ink/80">
-                          <span className="text-pitch font-bold text-xs shrink-0">✓</span>
+                        <li key={idx} className="flex items-center gap-2 text-xs text-slate-700">
+                          <span className="text-emerald-700 font-bold text-xs shrink-0">✓</span>
                           <span className="text-[11px] sm:text-xs">{feat}</span>
                         </li>
                       ))}
@@ -1318,10 +1334,10 @@ function PlannerWizard() {
                   </div>
 
                   {/* Action Button */}
-                  <div className="pt-2 border-t border-line/50">
-                    <div className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-pitch bg-pitch/5 py-2.5 text-xs font-bold text-pitch group-hover:bg-pitch group-hover:text-chalk transition-all shadow-xs">
+                  <div className="pt-2 border-t border-slate-100">
+                    <div className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-xs font-bold text-slate-800 group-hover:bg-pitch group-hover:text-white group-hover:border-pitch transition-all shadow-2xs">
                       <span>انتخاب این فرمت و ادامه</span>
-                      <span className="text-gold group-hover:translate-x-1 transition-transform">←</span>
+                      <span className="text-amber-500 group-hover:text-amber-300 group-hover:translate-x-1 transition-transform">←</span>
                     </div>
                   </div>
                 </div>

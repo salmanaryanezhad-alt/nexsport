@@ -29,54 +29,66 @@ const FORMATS = [
     title: "لیگ دوره‌ای (تک‌دور)",
     icon: "⚽",
     tag: "پرطرفدار",
+    accentColor: "from-emerald-500 to-emerald-700",
+    borderTop: "border-t-4 border-emerald-500",
+    badgeColor: "bg-emerald-50 text-emerald-800 border-emerald-200",
     desc: "هر تیم دقیقاً یک‌بار با سایر تیم‌ها بازی می‌کند. مبتنی بر الگوریتم استاندارد برگر که از نظر ریاضی تضمین می‌کند هیچ بازی تکراری ایجاد نشود.",
     bullets: ["بدون مسابقه تکراری", "توازن میزبانی و میهمانی", "محاسبه خودکار استراحت (Bye) برای تیم‌های فرد"],
-    badgeColor: "bg-pitch/10 text-pitch border-pitch/30",
   },
   {
     id: "double-league",
     title: "لیگ رفت و برگشت",
     icon: "🔄",
     tag: "استاندارد حرفه‌ای",
+    accentColor: "from-amber-500 to-amber-700",
+    borderTop: "border-t-4 border-amber-500",
+    badgeColor: "bg-amber-50 text-amber-800 border-amber-200",
     desc: "هر دو تیم دو بار، یک‌بار در زمین خود و یک‌بار در زمین حریف به مصاف هم می‌روند. نیم‌فصل اول و دوم به طور منظم تفکیک می‌شوند.",
     bullets: ["تفکیک بازی‌های رفت و برگشت", "تضمین دو بازی برای هر زوج", "تولید تقویم منظم هفتگی"],
-    badgeColor: "bg-gold/15 text-gold-dark border-gold/40",
   },
   {
     id: "groups",
     title: "مرحله گروهی",
     icon: "👥",
     tag: "سیدبندی اختیاری",
+    accentColor: "from-blue-500 to-blue-700",
+    borderTop: "border-t-4 border-blue-500",
+    badgeColor: "bg-blue-50 text-blue-800 border-blue-200",
     desc: "تقسیم تیم‌ها به ۲ تا ۳۲ گروه به صورت کاملاً تصادفی یا با تعیین سرگروه‌ها و تیم‌های شاخص دلخواه شما.",
     bullets: ["سیدبندی کاملاً اختیاری", "تعداد سرگروه کمتر یا مساوی تعداد گروه", "توازن خودکار تعداد تیم‌ها در گروه‌ها"],
-    badgeColor: "bg-pitch/10 text-pitch border-pitch/30",
   },
   {
     id: "groups-knockout",
     title: "گروهی + براکت حذفی",
     icon: "🏆",
     tag: "جام‌های رسمی",
+    accentColor: "from-purple-500 to-purple-700",
+    borderTop: "border-t-4 border-purple-500",
+    badgeColor: "bg-purple-50 text-purple-800 border-purple-200",
     desc: "مسابقات با مرحله گروهی آغاز شده و تیم‌های اول و دوم با سیستم ضربدری کلاسیک (مثل جام جهانی) وارد براکت حذفی می‌شوند.",
     bullets: ["عدم برخورد تیم‌های هم‌گروه تا فینال", "جدول ضربدری صعودکنندگان", "براکت حذفی شکیل تا تعیین قهرمان"],
-    badgeColor: "bg-gold/15 text-gold-dark border-gold/40",
   },
   {
     id: "knockout",
     title: "براکت تک‌حذفی",
-    icon: <BracketSvgIcon className="w-5 h-5 text-brick" />,
+    icon: <BracketSvgIcon className="w-5 h-5 text-rose-600" />,
     tag: "جام حذفی",
+    accentColor: "from-rose-500 to-rose-700",
+    borderTop: "border-t-4 border-rose-500",
+    badgeColor: "bg-rose-50 text-rose-800 border-rose-200",
     desc: "براکت تک‌حذفی استاندارد با مدیریت خودکار تعداد تیم‌های نامتوازن (پشتیبانی کامل از قرعه‌های استراحت / Bye).",
     bullets: ["سیدبندی ۱ تا ۴ در ۴ بخش جداگانه", "صعود مستقیم تیم‌های برتر با Bye", "صعود خودکار برنده با ثبت نتیجه"],
-    badgeColor: "bg-brick/10 text-brick border-brick/30",
   },
   {
     id: "double-knockout",
     title: "جدول دو حذفی (Double Elimination)",
     icon: "🛡️",
-    tag: "ویژه مدارس و المپیادها",
+    tag: "ویژه مسابقات و المپیادها",
+    accentColor: "from-teal-500 to-teal-700",
+    borderTop: "border-t-4 border-teal-500",
+    badgeColor: "bg-teal-50 text-teal-800 border-teal-200",
     desc: "هیچ تیمی با یک شکست حذف نمی‌شود! بازنده‌ها به جدول شانس مجدد (Losers Bracket) می‌روند و فینال بین قهرمانان دو جدول برگزار می‌شود.",
     bullets: ["جدول دوگانه برندگان و شانس مجدد", "تعیین دقیق مقام‌های اول تا سوم", "امکان فینال مجدد (Bracket Reset)"],
-    badgeColor: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
   },
 ];
 
@@ -85,31 +97,37 @@ const FEATURES = [
     icon: "📐",
     title: "الگوریتم دایره‌ای استاندارد (Berger Method)",
     desc: "دیگر نگران بازی تکراری یا جا افتادن مسابقه تیم‌ها نباشید. الگوریتم ما از نظر ریاضی تضمین می‌کند جدول کاملاً عادلانه چیده شود.",
+    accent: "bg-emerald-50 text-emerald-800 border-emerald-200",
   },
   {
     icon: "🎲",
     title: "سیدبندی کاملاً اختیاری و منعطف",
     desc: "برخلاف برنامه‌های دیگر، در NexSport مجبور به سیدبندی اجباری نیستید. می‌توانید همه‌چیز را تصادفی بگذارید یا فقط چند سرگروه شاخص انتخاب کنید.",
+    accent: "bg-amber-50 text-amber-800 border-amber-200",
   },
   {
-    icon: <BracketSvgIcon className="w-7 h-7 text-pitch" />,
+    icon: <BracketSvgIcon className="w-7 h-7 text-blue-600" />,
     title: "براکت حذفی با تقسیم هوشمند Bye",
     desc: "اگر تعداد تیم‌هایتان توان ۲ نباشد (مثلاً ۱۰ یا ۱۳ تیم)، سیستم به طور عادلانه به تیم‌های برتر استراحت دور اول می‌دهد.",
+    accent: "bg-blue-50 text-blue-800 border-blue-200",
   },
   {
     icon: "📊",
     title: "ثبت زنده گل‌ها و جدول رده‌بندی لحظه‌ای",
     desc: "گل‌های هر بازی را وارد کنید تا جدول لیگ (امتیاز، تفاضل، گل زده و خورده) به طور زنده و لحظه‌ای به‌روزرسانی شود.",
+    accent: "bg-purple-50 text-purple-800 border-purple-200",
   },
   {
     icon: "📋",
-    title: "اشتراک‌گذاری در پیام‌رسان‌ها (تلگرام و واتس‌اپ)",
+    title: "اشتراک‌گذاری در پیام‌رسان‌ها (تلگرام و ایتا)",
     desc: "با یک کلیک متن خوانا و مرتب برنامه هفتگی مسابقات را کپی کرده و در گروه‌های تلگرامی و پیام‌رسان تیم‌ها بفرستید.",
+    accent: "bg-teal-50 text-teal-800 border-teal-200",
   },
   {
-    icon: "📥",
-    title: "خروجی استاندارد اکسل (CSV) و چاپ / PDF",
-    desc: "جدول بازی‌ها را در قالب فایل اکسل با فونت فارسی سالم دانلود کنید یا با کلیک روی پرینت، خروجی PDF تمیز بگیرید.",
+    icon: "🖨️",
+    title: "نسخه چاپی جدولی، تمیز و خروجی PDF",
+    desc: "جدول بازی‌ها را بدون به‌هم‌ریختگی و بدون شکستگی مرز صفحات چاپ کنید یا در قالب فایل اکسل دانلود نمایید.",
+    accent: "bg-rose-50 text-rose-800 border-rose-200",
   },
 ];
 
@@ -119,12 +137,12 @@ const FAQS = [
     a: "خیر! استفاده از تمامی امکانات NexSport (تولید برنامه مسابقات، جدول رده‌بندی، چاپ و خروجی اکسل) بدون نیاز به ثبت‌نام و کاملاً رایگان است. در عین حال با ایجاد حساب کاربری می‌توانید مسابقات خود را در فضای ابری ذخیره کرده و از هر دستگاهی به آنها دسترسی داشته باشید.",
   },
   {
-    q: "چگونه مطمئن شوم هیچ مسابقه تکراری در لیگ ایجاد نمی‌شود؟",
-    a: "موتور برنامه‌ریزی NexSport از الگوریتم استاندارد جهانی Circle Method (روش دوره‌ای برگر) استفاده می‌کند. این الگوریتم تضمین ریاضی می‌دهد که هر تیم دقیقاً یک‌بار (یا در رفت‌وبرگشت، دقیقاً دو بار با جابه‌جایی میزبان) مقابل هر حریف قرار بگیرد.",
+    q: "تفاوت لیگ دوره‌ای با مسابقات گروهی چیست؟",
+    a: "در لیگ دوره‌ای، همه تیم‌ها در یک جدول واحد با یکدیگر مسابقه می‌دهند و بر اساس مجموع امتیازات قهرمان مشخص می‌شود. اما در مرحله گروهی، ابتدا تیم‌ها به چند گروه تفکیک می‌شوند و پس از رقابت درون‌گروهی، تیم‌های برتر به مرحله حذفی راه می‌یابند.",
   },
   {
-    q: "اگر تعداد تیم‌ها فرد باشد یا در مرحله حذفی به توان ۲ نرسد چه اتفاقی می‌افتد؟",
-    a: "در لیگ با تعداد تیم فرد، سیستم به صورت خودکار در هر هفته یک بازی استراحت (Bye) به صورت چرخشی به تیم‌ها اختصاص می‌دهد. در مسابقات حذفی نیز جایگاه‌های خالی به صورت استراحت مستقیم برای تیم‌های برتر در نظر گرفته می‌شوند.",
+    q: "اگر تعداد تیم‌ها فرد باشد، سیستم استراحت را چطور مدیریت می‌کند؟",
+    a: "الگوریتم برگر هوشمند ما به صورت خودکار در هر هفته به یکی از تیم‌ها استراحت (Bye) می‌دهد؛ به نحوی که در انتهای دور رفت، تمام تیم‌ها دقیقاً یک بار استراحت کرده باشند و تعداد بازی‌های همه تیم‌ها کاملاً برابر باشد.",
   },
   {
     q: "آیا می‌توانم نتیجه بازی‌ها را ثبت کنم و جدول رده‌بندی داشته باشم؟",
@@ -137,7 +155,6 @@ const FAQS = [
 ];
 
 export default function HomePage() {
-  // Structured Data (JSON-LD) for Google SEO Rich Snippets & Knowledge Graph
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -202,24 +219,34 @@ export default function HomePage() {
       />
 
       {/* NAVBAR */}
-      <header className="sticky top-0 z-50 border-b border-line/70 bg-chalk/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4">
-          <Link href="/" className="flex items-center gap-2 text-pitch hover:opacity-90 transition-opacity shrink-0">
-            <NexSportIcon className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 drop-shadow-xs" />
-            <span className="text-lg sm:text-xl font-black tracking-tight text-ink">NexSport</span>
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/85 backdrop-blur-md shadow-2xs">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5">
+          <Link href="/" className="flex items-center gap-2.5 text-pitch hover:opacity-95 transition-opacity shrink-0">
+            <div className="relative flex items-center justify-center">
+              <NexSportIcon className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 drop-shadow-sm" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-lg sm:text-xl font-black tracking-tight text-slate-900 leading-tight">
+                Nex<span className="text-emerald-700">Sport</span>
+              </span>
+              <span className="text-[10px] text-slate-500 font-semibold tracking-wider">
+                سامانه هوشمند مسابقات
+              </span>
+            </div>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-ink/75">
-            <a href="#formats" className="hover:text-pitch transition-colors">
+          <nav className="hidden md:flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100/70 p-1 rounded-xl border border-slate-200/60">
+            <a href="#formats" className="px-3 py-1.5 rounded-lg hover:bg-white hover:text-pitch transition-all">
               فرمت‌های مسابقات
             </a>
-            <a href="#features" className="hover:text-pitch transition-colors">
+            <a href="#features" className="px-3 py-1.5 rounded-lg hover:bg-white hover:text-pitch transition-all">
               امکانات کلیدی
             </a>
-            <a href="#how-it-works" className="hover:text-pitch transition-colors">
+            <a href="#how-it-works" className="px-3 py-1.5 rounded-lg hover:bg-white hover:text-pitch transition-all">
               نحوه کار
             </a>
-            <a href="#faq" className="hover:text-pitch transition-colors">
+            <a href="#faq" className="px-3 py-1.5 rounded-lg hover:bg-white hover:text-pitch transition-all">
               سوالات متداول
             </a>
           </nav>
@@ -231,124 +258,169 @@ export default function HomePage() {
       </header>
 
       <main>
-        {/* HERO SECTION */}
-        <section className="relative overflow-hidden bg-pitch text-chalk py-20 md:py-28">
-          <div className="absolute inset-0 bg-pitch-lines pointer-events-none opacity-60" />
-          <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-pitch-light/30 blur-3xl pointer-events-none" />
+        {/* HERO SECTION WITH DYNAMIC STADIUM VIBE */}
+        <section className="relative overflow-hidden bg-gradient-to-br from-[#06281C] via-[#0B3B24] to-[#041F16] text-white py-16 sm:py-24 lg:py-28">
+          {/* Ambient Lighting & Field lines */}
+          <div className="absolute inset-0 bg-pitch-lines pointer-events-none opacity-40" />
+          <div className="absolute top-0 right-1/4 h-96 w-96 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-10 h-80 w-80 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
 
-          <div className="relative mx-auto max-w-6xl px-6">
+          <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
               {/* Left/Main Column */}
-              <div className="lg:col-span-7 space-y-6">
-                <div className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-pitch-dark/80 px-3.5 py-1.5 text-xs text-gold-light backdrop-blur-sm">
-                  <span className="h-2 w-2 rounded-full bg-gold animate-pulse" />
-                  <span>برنامه‌ریز ۱۰۰٪ رایگان و بدون نیاز به ثبت‌نام</span>
+              <div className="lg:col-span-7 space-y-6 text-right">
+                {/* Live Badge */}
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-950/60 px-4 py-1.5 text-xs font-bold text-emerald-200 shadow-inner backdrop-blur-md">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                  </span>
+                  <span>برنامه‌ریز رسمی مسابقات ورزشی • ۱۰۰٪ رایگان</span>
                 </div>
 
-                <h1 className="text-3xl sm:text-5xl lg:text-[2.9rem] font-black leading-[1.3] text-chalk">
+                {/* Main Headline */}
+                <h1 className="text-3xl sm:text-5xl lg:text-[3.1rem] font-black leading-[1.3] text-white tracking-tight">
                   برنامه‌ریزی و قرعه‌کشی مسابقات ورزشی؛{" "}
-                  <span className="text-gold-light underline decoration-gold/40 decoration-wavy underline-offset-8">
-                    سریع، دقیق و بدون خطا
+                  <span className="bg-gradient-to-r from-amber-300 via-emerald-300 to-amber-200 bg-clip-text text-transparent">
+                    سریع، دقیق و پرانرژی
                   </span>
                 </h1>
 
-                <p className="text-base sm:text-lg text-chalk/80 leading-8">
-                  دیگر نیازی به اکسل یا محاسبات دستی پیچیده نیست! برای مسابقات{" "}
-                  <strong>فوتبال، فوتسال، والیبال</strong> یا تورنمنت‌های دوستانه در کمتر از ۱ دقیقه
-                  جدول استاندارد لیگ، گروهی یا براکت حذفی بسازید، نتایج را ثبت کنید و خروجی اکسل یا
-                  PDF بگیرید.
+                {/* Subtitle */}
+                <p className="text-sm sm:text-base text-slate-200/90 leading-relaxed sm:leading-8 max-w-2xl">
+                  بدون دغدغه فرمول‌های اکسل و خطای انسانی، در کمتر از یک دقیقه برای مسابقات{" "}
+                  <strong className="text-amber-300">فوتبال، فوتسال، والیبال</strong> یا تورنمنت‌های دوستانه
+                  برنامه لیگ، مرحله گروهی یا براکت حذفی بسازید، نتایج را زنده ثبت کنید و نسخه چاپی بی‌نقص بگیرید.
                 </p>
 
                 {/* CTAs */}
-                <div className="flex flex-wrap items-center gap-4 pt-2">
+                <div className="flex flex-wrap items-center gap-3.5 pt-2">
                   <Link
                     href="/planner"
-                    className="inline-flex items-center gap-2 rounded-lg bg-gold px-7 py-3.5 text-base font-bold text-ink shadow-lg shadow-gold/20 hover:bg-gold-light transition-all transform hover:-translate-y-0.5"
+                    className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-7 py-3.5 text-sm sm:text-base font-black text-slate-950 shadow-lg shadow-amber-500/25 hover:from-amber-300 hover:to-amber-400 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                   >
-                    <span>ساخت برنامه مسابقات (رایگان)</span>
-                    <span>⚡</span>
+                    <span>ساخت فوری برنامه مسابقات</span>
+                    <span className="text-lg">⚡</span>
                   </Link>
 
                   <a
                     href="#formats"
-                    className="inline-flex items-center rounded-lg border border-chalk/25 bg-pitch-dark/50 px-5 py-3.5 text-sm font-semibold text-chalk hover:bg-pitch-dark transition-colors"
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3.5 text-xs sm:text-sm font-bold text-white hover:bg-white/20 transition-all backdrop-blur-md"
                   >
-                    مشاهده انواع فرمت‌ها ↓
+                    <span>مشاهده فرمت‌ها</span>
+                    <span>↓</span>
                   </a>
                 </div>
 
                 {/* Trust Badges */}
-                <div className="pt-4 flex flex-wrap items-center gap-6 text-xs text-chalk/70 border-t border-chalk/10">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-gold">✓</span>
-                    <span>بدون بازی تکراری (الگوریتم برگر)</span>
+                <div className="pt-4 flex flex-wrap items-center gap-5 sm:gap-6 text-xs text-emerald-200/80 border-t border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[11px]">✓</span>
+                    <span>الگوریتم بدون تکرار برگر</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-gold">✓</span>
-                    <span>خروجی استاندارد اکسل و PDF</span>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[11px]">✓</span>
+                    <span>خروجی اکسل و نسخه چاپی A4</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-gold">✓</span>
-                    <span>ثبت زنده نتایج و رده‌بندی</span>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[11px]">✓</span>
+                    <span>رده‌بندی هوشمند و خودکار</span>
                   </div>
                 </div>
               </div>
 
-              {/* Right Column: Interactive Scoreboard Mockup */}
+              {/* Right Column: High-Energy Stadium Matchday Mockup */}
               <div className="lg:col-span-5">
-                <div className="relative rounded-2xl border border-chalk/15 bg-pitch-dark/70 p-6 backdrop-blur-md shadow-2xl">
-                  <div className="flex items-center justify-between border-b border-chalk/10 pb-4 mb-4">
+                <div className="relative rounded-2xl border border-emerald-500/30 bg-slate-950/80 p-5 sm:p-6 backdrop-blur-xl shadow-2xl ring-1 ring-white/10 space-y-4">
+                  {/* Card Header */}
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
                     <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 rounded-full bg-brick" />
-                      <span className="h-3 w-3 rounded-full bg-gold" />
-                      <span className="h-3 w-3 rounded-full bg-emerald-400" />
+                      <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse" />
+                      <span className="text-xs font-black text-amber-300">جام قهرمانان NexSport</span>
                     </div>
-                    <span className="text-xs font-semibold text-gold-light bg-gold/10 px-2.5 py-1 rounded-full border border-gold/20">
-                      هفته اول مسابقات لیگ
+                    <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-mono">
+                      هفته سوم • زنده
                     </span>
                   </div>
 
-                  {/* Match cards */}
-                  <div className="space-y-3">
-                    <div className="rounded-xl border border-chalk/10 bg-chalk/5 p-3.5 flex items-center justify-between text-sm">
-                      <span className="font-bold text-chalk">شاهین تهران</span>
-                      <div className="flex items-center gap-2 px-3 py-1 rounded bg-pitch-dark/90 text-xs font-mono font-bold text-gold">
+                  {/* Matches List */}
+                  <div className="space-y-2.5">
+                    {/* Match 1 */}
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex items-center justify-between text-xs sm:text-sm hover:bg-white/10 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-300 font-black text-xs border border-emerald-500/30">
+                          ش
+                        </span>
+                        <span className="font-bold text-white">شاهین تهران</span>
+                      </div>
+                      <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-white/10 text-xs font-mono font-black text-amber-300 shadow-inner">
                         <span>۲</span>
-                        <span className="text-chalk/40">:</span>
+                        <span className="text-white/30">:</span>
                         <span>۱</span>
                       </div>
-                      <span className="font-bold text-chalk">امید سپاهان</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white">امید سپاهان</span>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300 font-black text-xs border border-amber-500/30">
+                          س
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="rounded-xl border border-chalk/10 bg-chalk/5 p-3.5 flex items-center justify-between text-sm">
-                      <span className="font-bold text-chalk">ستارگان آبی</span>
-                      <div className="flex items-center gap-2 px-3 py-1 rounded bg-pitch-dark/90 text-xs font-mono font-bold text-chalk/70">
+                    {/* Match 2 */}
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex items-center justify-between text-xs sm:text-sm hover:bg-white/10 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/20 text-blue-300 font-black text-xs border border-blue-500/30">
+                          س
+                        </span>
+                        <span className="font-bold text-white">ستارگان آبی</span>
+                      </div>
+                      <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-white/10 text-xs font-mono font-black text-slate-300 shadow-inner">
                         <span>۰</span>
-                        <span className="text-chalk/40">:</span>
+                        <span className="text-white/30">:</span>
                         <span>۰</span>
                       </div>
-                      <span className="font-bold text-chalk">عقاب جنوب</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white">عقاب جنوب</span>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/20 text-rose-300 font-black text-xs border border-rose-500/30">
+                          ع
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="rounded-xl border border-chalk/10 bg-chalk/5 p-3.5 flex items-center justify-between text-sm">
-                      <span className="font-bold text-chalk">پاس نوین</span>
-                      <div className="flex items-center gap-2 px-3 py-1 rounded bg-pitch-dark/90 text-xs font-mono font-bold text-gold">
+                    {/* Match 3 */}
+                    <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-3 flex items-center justify-between text-xs sm:text-sm ring-1 ring-emerald-500/20">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500 text-slate-950 font-black text-xs">
+                          پ
+                        </span>
+                        <span className="font-black text-emerald-300">پاس نوین</span>
+                      </div>
+                      <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-emerald-500/40 text-xs font-mono font-black text-emerald-400 shadow-inner">
                         <span>۳</span>
-                        <span className="text-chalk/40">:</span>
+                        <span className="text-white/30">:</span>
                         <span>۱</span>
                       </div>
-                      <span className="font-bold text-chalk">الوند مرکزی</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-300">الوند مرکزی</span>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 font-black text-xs border border-purple-500/30">
+                          ا
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Standings Snippet */}
-                  <div className="mt-5 rounded-xl border border-gold/30 bg-gold/10 p-3 flex items-center justify-between text-xs text-chalk">
+                  {/* Leader Standings Highlight */}
+                  <div className="rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500/15 to-emerald-500/15 p-3 flex items-center justify-between text-xs text-white">
                     <div className="flex items-center gap-2">
-                      <span className="text-base">🏆</span>
-                      <span className="font-bold text-gold-light">صدرنشین: پاس نوین</span>
+                      <span className="text-base">👑</span>
+                      <div>
+                        <span className="font-black text-amber-300 block">صدرنشین جدول: پاس نوین</span>
+                        <span className="text-[10px] text-white/70">۳ بازی • ۹ امتیاز • تفاضل +۴</span>
+                      </div>
                     </div>
-                    <span className="text-chalk/80 font-mono font-bold">۳ امتیاز (+۲ تفاضل)</span>
+                    <span className="text-[10px] font-bold bg-amber-400/20 text-amber-200 px-2 py-0.5 rounded border border-amber-400/30">
+                      صعود قطعی
+                    </span>
                   </div>
                 </div>
               </div>
@@ -356,16 +428,42 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* METRICS & QUICK STATS BAR */}
+        <section className="bg-white border-b border-slate-200/80 shadow-xs">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+              <div className="space-y-1">
+                <div className="text-2xl sm:text-3xl font-black text-pitch font-mono">+۱۰,۰۰۰</div>
+                <div className="text-xs font-bold text-slate-500">مسابقه برنامه‌ریزی‌شده</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl sm:text-3xl font-black text-emerald-700 font-mono">۱۰۰٪</div>
+                <div className="text-xs font-bold text-slate-500">الگوریتم بدون خطای ریاضی</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl sm:text-3xl font-black text-amber-700 font-mono">۶</div>
+                <div className="text-xs font-bold text-slate-500">فرمت مسابقاتی استاندارد جهانی</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">رایگان</div>
+                <div className="text-xs font-bold text-slate-500">بدون نیاز به پرداخت و ثبت‌نام</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* FORMATS SHOWCASE */}
-        <section id="formats" className="mx-auto max-w-6xl px-6 py-20 scroll-mt-20">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <span className="text-xs font-bold text-gold-dark bg-gold/15 px-3 py-1 rounded-full uppercase tracking-wider">
-              انعطاف‌پذیری نامحدود
+        <section id="formats" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 scroll-mt-20">
+          <div className="text-center max-w-3xl mx-auto space-y-3">
+            <span className="text-xs font-black text-emerald-800 bg-emerald-100/80 px-3.5 py-1 rounded-full uppercase tracking-wider border border-emerald-300/60">
+              انعطاف‌پذیری نامحدود مسابقات
             </span>
-            <h2 className="text-3xl font-black text-ink">پشتیبانی از تمامی فرمت‌های مسابقات</h2>
-            <p className="text-sm text-ink/70 leading-7">
+            <h2 className="text-2xl sm:text-4xl font-black text-slate-900">
+              پشتیبانی از تمامی ساختارها و فرمت‌های ورزشی
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
               چه یک لیگ محلی ۴ نفره داشته باشید و چه تورنمنت بزرگ ۶۴ تیمی، NexSport دقیق‌ترین الگوریتم
-              را برای شما اجرا می‌کند.
+              را برای شما اجرا می‌کند. فرمت مورد نظر خود را انتخاب کنید:
             </p>
           </div>
 
@@ -373,28 +471,28 @@ export default function HomePage() {
             {FORMATS.map((f) => (
               <div
                 key={f.id}
-                className="flex flex-col justify-between rounded-xl border border-line bg-white p-6 shadow-sm hover:border-pitch/50 hover:shadow-md transition-all"
+                className={`sport-card flex flex-col justify-between p-6 ${f.borderTop}`}
               >
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3.5">
                     <div className="flex items-center gap-2.5">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-pitch/10 text-base shrink-0">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-lg shrink-0 shadow-2xs border border-slate-200/80">
                         {f.icon}
                       </span>
-                      <h3 className="font-bold text-lg text-pitch">{f.title}</h3>
+                      <h3 className="font-black text-base sm:text-lg text-slate-900">{f.title}</h3>
                     </div>
                     <span
-                      className={`text-[11px] font-bold px-2 py-0.5 rounded border shrink-0 ${f.badgeColor}`}
+                      className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${f.badgeColor}`}
                     >
                       {f.tag}
                     </span>
                   </div>
-                  <p className="text-xs leading-6 text-ink/70 mb-5">{f.desc}</p>
+                  <p className="text-xs leading-6 text-slate-600 mb-5">{f.desc}</p>
 
-                  <ul className="space-y-2 mb-6 border-t border-line/60 pt-4">
+                  <ul className="space-y-2 mb-6 border-t border-slate-100 pt-4">
                     {f.bullets.map((b, idx) => (
-                      <li key={idx} className="flex items-center gap-2 text-xs text-ink/80">
-                        <span className="text-pitch font-bold">✓</span>
+                      <li key={idx} className="flex items-center gap-2 text-xs text-slate-700 font-medium">
+                        <span className="text-emerald-700 font-bold text-xs shrink-0">✓</span>
                         <span>{b}</span>
                       </li>
                     ))}
@@ -403,121 +501,131 @@ export default function HomePage() {
 
                 <Link
                   href={`/planner?format=${f.id}`}
-                  className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-pitch bg-pitch/5 py-2.5 text-xs font-bold text-pitch hover:bg-pitch hover:text-chalk transition-colors"
+                  className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-xs font-bold text-slate-800 hover:bg-pitch hover:text-white hover:border-pitch transition-all shadow-2xs group"
                 >
-                  ساخت مسابقه با این فرمت ←
+                  <span>ساخت مسابقه با این فرمت</span>
+                  <span className="group-hover:translate-x-0.5 transition-transform">←</span>
                 </Link>
               </div>
             ))}
           </div>
         </section>
 
-        {/* FEATURES GRID */}
-        <section id="features" className="bg-chalk/60 border-y border-line py-20 scroll-mt-20">
-          <div className="mx-auto max-w-6xl px-6">
-            <div className="text-center max-w-2xl mx-auto space-y-3">
-              <span className="text-xs font-bold text-pitch bg-pitch/10 px-3 py-1 rounded-full uppercase tracking-wider">
-                امکانات هوشمند
+        {/* HOW IT WORKS SECTION */}
+        <section id="how-it-works" className="bg-white border-y border-slate-200/80 py-20 scroll-mt-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-2xl mx-auto space-y-3 mb-14">
+              <span className="text-xs font-black text-amber-800 bg-amber-100/80 px-3.5 py-1 rounded-full uppercase tracking-wider border border-amber-300/60">
+                ساده و سریع
               </span>
-              <h2 className="text-3xl font-black text-ink">چرا NexSport بهترین انتخاب برگزارکنندگان است؟</h2>
-              <p className="text-sm text-ink/70 leading-7">
-                ساخته‌شده برای مربیان، مدارس فوتبال، مدیران سالن‌های ورزشی و برگزارکنندگان مسابقات حرفه‌ای.
+              <h2 className="text-2xl sm:text-4xl font-black text-slate-900">
+                تنها ۳ گام تا ساخت برنامه مسابقات
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                بدون نیاز به دانش ریاضی یا فرمول‌های سخت، جدول مسابقات خود را در لحظه تحویل بگیرید.
               </p>
             </div>
 
-            <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-8 md:grid-cols-3">
+              <div className="sport-card p-6 text-right space-y-4 relative">
+                <div className="flex items-center justify-between">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800 font-black text-lg border border-emerald-300/60">
+                    ۱
+                  </span>
+                  <span className="text-2xl">⚙️</span>
+                </div>
+                <h3 className="font-black text-base text-slate-900">انتخاب فرمت مسابقه</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  از بین ۶ فرمت استاندارد (لیگ، رفت‌وبرگشت، گروهی، حذفی، دو حذفی)، ساختار مورد نظر خود را انتخاب کنید.
+                </p>
+              </div>
+
+              <div className="sport-card p-6 text-right space-y-4 relative">
+                <div className="flex items-center justify-between">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 font-black text-lg border border-amber-300/60">
+                    ۲
+                  </span>
+                  <span className="text-2xl">👥</span>
+                </div>
+                <h3 className="font-black text-base text-slate-900">وارد کردن اسامی تیم‌ها</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  تیم‌های مسابقه را تایپ کرده یا کل فهرست را یکجا پیست کنید. در صورت تمایل سرگروه‌ها را مشخص کنید.
+                </p>
+              </div>
+
+              <div className="sport-card p-6 text-right space-y-4 relative">
+                <div className="flex items-center justify-between">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-purple-800 font-black text-lg border border-purple-300/60">
+                    ۳
+                  </span>
+                  <span className="text-2xl">📊</span>
+                </div>
+                <h3 className="font-black text-base text-slate-900">دریافت برنامه، ثبت نتایج و چاپ</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  برنامه مسابقات، تاریخ و زمین‌ها را تحویل بگیرید، گل‌ها را وارد کنید و نسخه چاپی A4 یا فایل اکسل را ذخیره نمایید.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* FEATURES GRID */}
+        <section id="features" className="py-20 scroll-mt-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-2xl mx-auto space-y-3 mb-14">
+              <span className="text-xs font-black text-pitch bg-emerald-100/80 px-3.5 py-1 rounded-full uppercase tracking-wider border border-emerald-300/60">
+                امکانات هوشمند و بی‌رقیب
+              </span>
+              <h2 className="text-2xl sm:text-4xl font-black text-slate-900">
+                چرا برگزارکنندگان حرفه‌ای NexSport را انتخاب می‌کنند؟
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                طراحی‌شده برای مربیان، مدارس فوتبال، مدیران سالن‌های ورزشی و برگزارکنندگان تورنمنت‌های کشوری.
+              </p>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {FEATURES.map((item, idx) => (
                 <div
                   key={idx}
-                  className="rounded-xl border border-line bg-white p-6 shadow-sm hover:border-pitch/40 transition-colors"
+                  className="sport-card p-6 flex flex-col justify-between"
                 >
-                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-pitch/10 text-2xl mb-4">
-                    {item.icon}
-                  </span>
-                  <h3 className="font-bold text-base text-pitch mb-2">{item.title}</h3>
-                  <p className="text-xs leading-6 text-ink/70">{item.desc}</p>
+                  <div>
+                    <span className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl text-2xl mb-4 border ${item.accent}`}>
+                      {item.icon}
+                    </span>
+                    <h3 className="font-black text-base text-slate-900 mb-2">{item.title}</h3>
+                    <p className="text-xs leading-6 text-slate-600">{item.desc}</p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* HOW IT WORKS */}
-        <section id="how-it-works" className="mx-auto max-w-6xl px-6 py-20 scroll-mt-20">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <span className="text-xs font-bold text-gold-dark bg-gold/15 px-3 py-1 rounded-full uppercase tracking-wider">
-              ساده و سریع
-            </span>
-            <h2 className="text-3xl font-black text-ink">در ۳ مرحله برنامه مسابقات خود را بسازید</h2>
-            <p className="text-sm text-ink/70 leading-7">
-              بدون نیاز به آموزش، در چند کلیک ساده به خروجی کامل برسید.
-            </p>
-          </div>
-
-          <div className="mt-14 grid gap-8 md:grid-cols-3 relative">
-            <div className="rounded-xl border border-line bg-white p-6 shadow-sm relative">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-pitch text-chalk font-black text-sm mb-4">
-                ۱
-              </span>
-              <h3 className="font-bold text-base text-pitch mb-2">انتخاب فرمت و تعداد تیم‌ها</h3>
-              <p className="text-xs text-ink/70 leading-6">
-                نوع مسابقه (لیگ، گروهی، حذفی) و تعداد شرکت‌کنندگان را مشخص کنید.
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-line bg-white p-6 shadow-sm relative">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gold text-ink font-black text-sm mb-4">
-                ۲
-              </span>
-              <h3 className="font-bold text-base text-pitch mb-2">نام‌گذاری و سیدبندی (اختیاری)</h3>
-              <p className="text-xs text-ink/70 leading-6">
-                اسامی تیم‌ها را وارد کنید و در صورت تمایل، سرگروه‌ها را برای جلوگیری از برخورد تعیین کنید.
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-line bg-white p-6 shadow-sm relative">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-pitch text-chalk font-black text-sm mb-4">
-                ۳
-              </span>
-              <h3 className="font-bold text-base text-pitch mb-2">دریافت برنامه، چاپ و ثبت نتایج</h3>
-              <p className="text-xs text-ink/70 leading-6">
-                برنامه را به صورت PDF یا اکسل دریافت کنید، گل‌ها را ثبت کنید یا برای پیام‌رسان‌ها کپی کنید.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-12 text-center">
-            <Link
-              href="/planner"
-              className="inline-flex items-center gap-2 rounded-lg bg-pitch px-8 py-3.5 text-base font-bold text-chalk shadow-md hover:bg-pitch-light transition-colors"
-            >
-              <span>ورود به برنامه‌ریز مسابقات</span>
-              <span className="text-gold">←</span>
-            </Link>
-          </div>
-        </section>
-
         {/* FAQ SECTION */}
-        <section id="faq" className="bg-chalk/60 border-t border-line py-20 scroll-mt-20">
-          <div className="mx-auto max-w-4xl px-6">
+        <section id="faq" className="bg-slate-50 border-t border-slate-200/80 py-20 scroll-mt-20">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6">
             <div className="text-center max-w-2xl mx-auto space-y-3 mb-12">
-              <span className="text-xs font-bold text-pitch bg-pitch/10 px-3 py-1 rounded-full uppercase tracking-wider">
-                پاسخ به سوالات
+              <span className="text-xs font-black text-slate-700 bg-slate-200/80 px-3.5 py-1 rounded-full uppercase tracking-wider">
+                پاسخ به سوالات متداول
               </span>
-              <h2 className="text-3xl font-black text-ink">سوالات متداول کاربران</h2>
-              <p className="text-sm text-ink/70 leading-7">
-                پاسخ پرتکرارترین سوالات برگزارکنندگان درباره ساخت جدول و قرعه‌کشی مسابقات.
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
+                سوالات متداول برگزارکنندگان
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600">
+                پاسخ پرتکرارترین پرسش‌ها درباره نحوه تولید جدول و قرعه‌کشی مسابقات.
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               {FAQS.map((faq, idx) => (
-                <div key={idx} className="rounded-xl border border-line bg-white p-5 shadow-sm">
-                  <h3 className="font-bold text-base text-pitch flex items-start gap-2">
-                    <span className="text-gold font-bold">؟</span>
+                <div key={idx} className="sport-card p-5">
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900 flex items-start gap-2.5">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-800 font-black text-xs shrink-0 mt-0.5">؟</span>
                     <span>{faq.q}</span>
                   </h3>
-                  <p className="mt-2.5 text-xs sm:text-sm text-ink/75 leading-7 pr-5">{faq.a}</p>
+                  <p className="mt-2.5 text-xs sm:text-sm text-slate-600 leading-7 pr-7">{faq.a}</p>
                 </div>
               ))}
             </div>
@@ -525,23 +633,23 @@ export default function HomePage() {
         </section>
 
         {/* FINAL CTA BANNER */}
-        <section className="bg-pitch py-16 text-chalk relative overflow-hidden">
-          <div className="absolute inset-0 bg-pitch-lines opacity-40 pointer-events-none" />
-          <div className="relative mx-auto max-w-4xl px-6 text-center space-y-6">
-            <h2 className="text-2xl sm:text-4xl font-black text-chalk leading-tight">
+        <section className="bg-gradient-to-br from-[#06281C] via-[#0F5132] to-[#041F16] py-16 text-white relative overflow-hidden">
+          <div className="absolute inset-0 bg-pitch-lines opacity-30 pointer-events-none" />
+          <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-emerald-400/20 blur-3xl pointer-events-none" />
+          <div className="relative mx-auto max-w-4xl px-4 sm:px-6 text-center space-y-6">
+            <h2 className="text-2xl sm:text-4xl font-black text-white leading-tight">
               آماده‌اید مسابقات خود را بدون دغدغه و حرفه‌ای برگزار کنید؟
             </h2>
-            <p className="text-sm sm:text-base text-chalk/80 max-w-xl mx-auto leading-7">
-              همین حالا و بدون نیاز به نصب هیچ نرم‌افزاری، اولین جدول مسابقات خود را در NexSport
-              بسازید.
+            <p className="text-xs sm:text-sm text-slate-200/90 max-w-xl mx-auto leading-relaxed">
+              همین حالا و بدون نیاز به نصب هیچ نرم‌افزاری، اولین جدول مسابقات خود را در سامانه NexSport بسازید.
             </p>
             <div className="pt-2">
               <Link
                 href="/planner"
-                className="inline-flex items-center gap-2 rounded-lg bg-gold px-8 py-3.5 text-base font-bold text-ink shadow-xl hover:bg-gold-light transition-all transform hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-8 py-3.5 text-sm sm:text-base font-black text-slate-950 shadow-xl shadow-amber-500/25 hover:from-amber-300 hover:to-amber-400 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
               >
                 <span>شروع رایگان برنامه‌ریزی مسابقات</span>
-                <span>⚡</span>
+                <span className="text-lg">⚡</span>
               </Link>
             </div>
           </div>
@@ -549,87 +657,87 @@ export default function HomePage() {
       </main>
 
       {/* FOOTER */}
-      <footer className="border-t border-line bg-chalk py-12 text-ink">
-        <div className="mx-auto max-w-6xl px-6">
+      <footer className="border-t border-slate-800 bg-slate-950 py-12 text-slate-300">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 md:grid-cols-12 items-start">
-            <div className="md:col-span-6 space-y-3">
+            <div className="md:col-span-6 space-y-3 text-right">
               <div className="flex items-center gap-2.5">
-                <NexSportIcon className="w-8 h-8 shrink-0 drop-shadow-xs" />
-                <span className="text-lg font-black text-ink">NexSport</span>
+                <NexSportIcon className="w-8 h-8 shrink-0 drop-shadow-sm" />
+                <span className="text-lg font-black text-white">NexSport</span>
               </div>
-              <p className="text-xs text-ink/70 leading-6 max-w-md">
+              <p className="text-xs text-slate-400 leading-6 max-w-md">
                 NexSport پلتفرم هوشمند مدیریت و برنامه‌ریزی مسابقات ورزشی است. هدف ما حذف پیچیدگی‌های
                 قرعه‌کشی، جدول‌بندی و ثبت نتایج برای مدارس فوتبال، سالن‌ها و برگزارکنندگان تورنمنت‌ها
                 می‌باشد.
               </p>
             </div>
 
-            <div className="md:col-span-3 space-y-2">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-pitch">دسترسی سریع</h4>
-              <ul className="space-y-1.5 text-xs text-ink/75">
+            <div className="md:col-span-3 space-y-2 text-right">
+              <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400">دسترسی سریع</h4>
+              <ul className="space-y-1.5 text-xs text-slate-400">
                 <li>
-                  <Link href="/planner" className="hover:text-pitch transition-colors">
+                  <Link href="/planner" className="hover:text-emerald-300 transition-colors">
                     برنامه‌ریز مسابقات
                   </Link>
                 </li>
                 <li>
-                  <a href="#formats" className="hover:text-pitch transition-colors">
+                  <a href="#formats" className="hover:text-emerald-300 transition-colors">
                     فرمت‌های پشتیبانی‌شده
                   </a>
                 </li>
                 <li>
-                  <a href="#features" className="hover:text-pitch transition-colors">
+                  <a href="#features" className="hover:text-emerald-300 transition-colors">
                     امکانات و مزایا
                   </a>
                 </li>
                 <li>
-                  <a href="#faq" className="hover:text-pitch transition-colors">
+                  <a href="#faq" className="hover:text-emerald-300 transition-colors">
                     سوالات متداول
                   </a>
                 </li>
               </ul>
             </div>
 
-            <div className="md:col-span-3 space-y-2">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-pitch">فرمت‌های مسابقه</h4>
-              <ul className="space-y-1.5 text-xs text-ink/75">
+            <div className="md:col-span-3 space-y-2 text-right">
+              <h4 className="text-xs font-black uppercase tracking-wider text-amber-400">فرمت‌های مسابقه</h4>
+              <ul className="space-y-1.5 text-xs text-slate-400">
                 <li>
-                  <Link href="/planner?format=league" className="hover:text-pitch transition-colors">
+                  <Link href="/planner?format=league" className="hover:text-amber-300 transition-colors">
                     لیگ دوره‌ای (تک‌دور)
                   </Link>
                 </li>
                 <li>
-                  <Link href="/planner?format=double-league" className="hover:text-pitch transition-colors">
+                  <Link href="/planner?format=double-league" className="hover:text-amber-300 transition-colors">
                     لیگ رفت و برگشت
                   </Link>
                 </li>
                 <li>
-                  <Link href="/planner?format=groups" className="hover:text-pitch transition-colors">
+                  <Link href="/planner?format=groups" className="hover:text-amber-300 transition-colors">
                     مرحله گروهی
                   </Link>
                 </li>
                 <li>
-                  <Link href="/planner?format=groups-knockout" className="hover:text-pitch transition-colors">
+                  <Link href="/planner?format=groups-knockout" className="hover:text-amber-300 transition-colors">
                     گروهی + براکت حذفی
                   </Link>
                 </li>
                 <li>
-                  <Link href="/planner?format=knockout" className="hover:text-pitch transition-colors">
+                  <Link href="/planner?format=knockout" className="hover:text-amber-300 transition-colors">
                     براکت تک‌حذفی
                   </Link>
                 </li>
                 <li>
-                  <Link href="/planner?format=double-knockout" className="hover:text-pitch transition-colors">
-                    تورنمنت دو حذفی (Double Elimination)
+                  <Link href="/planner?format=double-knockout" className="hover:text-amber-300 transition-colors">
+                    تورنمنت دو حذفی
                   </Link>
                 </li>
               </ul>
             </div>
           </div>
 
-          <div className="mt-10 border-t border-line/70 pt-6 flex flex-wrap items-center justify-between gap-4 text-xs text-ink/50">
+          <div className="mt-10 border-t border-slate-800/80 pt-6 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
             <p>© {new Date().getFullYear()} تمامی حقوق برای سامانه ورزشی NexSport محفوظ است.</p>
-            <p>طراحی‌شده با عشق برای ورزشکاران و برگزارکنندگان ایرانی 🇮🇷</p>
+            <p className="text-slate-400">طراحی‌شده با عشق برای ورزشکاران و برگزارکنندگان ایرانی 🇮🇷</p>
           </div>
         </div>
       </footer>
