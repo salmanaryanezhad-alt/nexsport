@@ -244,9 +244,9 @@ const COMMON_TEAM_PRESETS = [
 ];
 
 const btnPrimary =
-  "inline-flex items-center justify-center rounded-md bg-pitch px-4 py-2.5 text-sm font-semibold text-chalk transition-colors hover:bg-pitch-light disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-black text-white transition-all hover:brightness-110 hover:shadow-glow hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none shadow-md cursor-pointer";
 const btnGhost =
-  "inline-flex items-center justify-center rounded-md border border-line px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-line/40";
+  "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200/90 bg-white/95 px-5 py-2.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 shadow-2xs cursor-pointer";
 
 function PlannerWizard() {
   const searchParams = useSearchParams();
@@ -1103,19 +1103,19 @@ function PlannerWizard() {
       }`}
     >
       {/* Top Bar */}
-      <div className="no-print mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-line/70 pb-4">
+      <div className="no-print mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-ink hover:border-pitch hover:text-pitch transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors shadow-2xs"
           >
             <span>←</span>
             <span>صفحه اصلی</span>
           </Link>
-          <div className="h-4 w-px bg-line/80" />
+          <div className="h-4 w-px bg-slate-200" />
           <div className="flex items-center gap-2">
             <NexSportIcon size={28} className="shrink-0 drop-shadow-2xs" />
-            <span className="text-sm font-black text-ink">برنامه‌ریز مسابقات NexSport</span>
+            <span className="text-sm font-black text-slate-900">برنامه‌ریز مسابقات NexSport</span>
           </div>
         </div>
 
@@ -1123,7 +1123,7 @@ function PlannerWizard() {
           <button
             type="button"
             onClick={handleOpenSavedList}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/20 bg-white px-2.5 py-1.5 text-xs font-bold text-pitch shadow-2xs hover:bg-pitch hover:text-white transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50/60 px-3 py-1.5 text-xs font-black text-emerald-800 shadow-2xs hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
             title="مشاهده و بارگذاری مسابقات ذخیره شده من در فضای ابری"
           >
             <span>📂</span>
@@ -1134,7 +1134,7 @@ function PlannerWizard() {
             <button
               type="button"
               onClick={handleOpenSaveCloud}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 bg-gold/10 px-2.5 py-1.5 text-xs font-bold text-gold-dark hover:bg-gold hover:text-white transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-900 hover:bg-amber-500 hover:text-white transition-all cursor-pointer"
               title="ذخیره مسابقه جاری در حساب ابری"
             >
               <span>☁️</span>
@@ -1147,10 +1147,10 @@ function PlannerWizard() {
           {(step > 0 || result) && (
             <button
               onClick={handleReset}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-brick/30 bg-brick/5 px-3 py-1.5 text-xs font-bold text-brick hover:bg-brick hover:text-white transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
             >
               <span>🔄</span>
-              <span className="hidden sm:inline">شروع مسابقه جدید</span>
+              <span className="hidden sm:inline">مسابقه جدید</span>
             </button>
           )}
         </div>
@@ -1246,6 +1246,19 @@ function PlannerWizard() {
           <div className="grid gap-6 md:grid-cols-2">
             {displayedFormats.map((opt) => {
               const isSelected = format === opt.key;
+              const accentGradient =
+                opt.key === "groups-knockout"
+                  ? "from-purple-500 to-indigo-600"
+                  : opt.key === "knockout"
+                  ? "from-rose-500 to-pink-600"
+                  : opt.key === "double-knockout"
+                  ? "from-teal-500 to-emerald-600"
+                  : opt.key === "double-league"
+                  ? "from-amber-500 to-amber-600"
+                  : opt.key === "groups"
+                  ? "from-blue-500 to-cyan-600"
+                  : "from-emerald-500 to-teal-600";
+
               return (
                 <div
                   key={opt.key}
@@ -1254,16 +1267,19 @@ function PlannerWizard() {
                     setStep(1);
                   }}
                   className={
-                    "group relative flex flex-col justify-between rounded-2xl border bg-white p-6 transition-all duration-200 cursor-pointer text-right hover:-translate-y-1 hover:shadow-xl " +
+                    "group relative flex flex-col justify-between rounded-2xl border bg-white p-6 pt-7 transition-all duration-300 cursor-pointer text-right hover:-translate-y-1.5 hover:shadow-card-hover overflow-hidden " +
                     (isSelected
-                      ? "border-pitch ring-2 ring-pitch/20 bg-pitch/5 shadow-md"
+                      ? "border-emerald-600 ring-2 ring-emerald-500/30 bg-emerald-50/15 shadow-md"
                       : opt.recommended
-                      ? "border-pitch/40 ring-1 ring-pitch/20 shadow-sm hover:border-pitch"
-                      : "border-line/80 shadow-xs hover:border-pitch/50")
+                      ? "border-amber-400 ring-1 ring-amber-400/30 shadow-card hover:border-amber-500"
+                      : "border-slate-200/90 shadow-card hover:border-emerald-500/60")
                   }
                 >
+                  {/* Top colored accent stripe */}
+                  <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${accentGradient}`} />
+
                   {opt.recommended && (
-                    <div className="absolute -top-3 right-6 rounded-full bg-gold px-3 py-0.5 text-[11px] font-black text-ink shadow-sm flex items-center gap-1">
+                    <div className="absolute top-3 right-6 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-0.5 text-[11px] font-black text-slate-950 shadow-xs flex items-center gap-1">
                       <span>⭐</span>
                       <span>فرمت پیشنهادی تورنمنت‌ها</span>
                     </div>
@@ -1273,14 +1289,14 @@ function PlannerWizard() {
                     {/* Header Row */}
                     <div className="flex items-start justify-between gap-3 mb-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pitch/10 text-2xl group-hover:bg-pitch group-hover:text-gold transition-colors shrink-0 shadow-xs">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-2xl group-hover:scale-105 transition-transform shrink-0 shadow-2xs border border-slate-200/80">
                           {opt.icon}
                         </div>
                         <div>
-                          <h3 className="text-lg font-black text-pitch group-hover:text-pitch-light transition-colors">
+                          <h3 className="text-lg font-black text-slate-900 group-hover:text-pitch transition-colors">
                             {opt.title}
                           </h3>
-                          <p className="text-[11px] font-mono text-ink/45 mt-0.5">
+                          <p className="text-[11px] font-mono text-slate-400 mt-0.5">
                             {opt.subtitle}
                           </p>
                         </div>
@@ -1294,23 +1310,23 @@ function PlannerWizard() {
                     </div>
 
                     {/* Description */}
-                    <p className="text-xs text-ink/75 leading-6 mb-4">
+                    <p className="text-xs text-slate-600 leading-6 mb-4">
                       {opt.desc}
                     </p>
 
                     {/* Ideal For Box */}
-                    <div className="mb-4 rounded-xl bg-chalk/80 border border-line/60 p-2.5 text-[11px] text-ink/70 flex items-start gap-2">
-                      <span className="text-pitch font-bold shrink-0 mt-0.5">📍</span>
+                    <div className="mb-4 rounded-xl bg-slate-50 border border-slate-200/70 p-2.5 text-[11px] text-slate-700 flex items-start gap-2">
+                      <span className="text-emerald-700 font-bold shrink-0 mt-0.5">📍</span>
                       <div className="leading-5">
-                        <strong className="text-pitch font-bold">مناسب برای:</strong> {opt.idealFor}
+                        <strong className="text-slate-900 font-bold">مناسب برای:</strong> {opt.idealFor}
                       </div>
                     </div>
 
                     {/* Features List */}
-                    <ul className="space-y-2 mb-6 border-t border-line/50 pt-3">
+                    <ul className="space-y-2 mb-6 border-t border-slate-100 pt-3">
                       {opt.features.map((feat, idx) => (
-                        <li key={idx} className="flex items-center gap-2 text-xs text-ink/80">
-                          <span className="text-pitch font-bold text-xs shrink-0">✓</span>
+                        <li key={idx} className="flex items-center gap-2 text-xs text-slate-700">
+                          <span className="text-emerald-700 font-bold text-xs shrink-0">✓</span>
                           <span className="text-[11px] sm:text-xs">{feat}</span>
                         </li>
                       ))}
@@ -1318,10 +1334,10 @@ function PlannerWizard() {
                   </div>
 
                   {/* Action Button */}
-                  <div className="pt-2 border-t border-line/50">
-                    <div className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-pitch bg-pitch/5 py-2.5 text-xs font-bold text-pitch group-hover:bg-pitch group-hover:text-chalk transition-all shadow-xs">
+                  <div className="pt-2 border-t border-slate-100">
+                    <div className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-xs font-bold text-slate-800 group-hover:bg-pitch group-hover:text-white group-hover:border-pitch transition-all shadow-2xs">
                       <span>انتخاب این فرمت و ادامه</span>
-                      <span className="text-gold group-hover:translate-x-1 transition-transform">←</span>
+                      <span className="text-amber-500 group-hover:text-amber-300 group-hover:translate-x-1 transition-transform">←</span>
                     </div>
                   </div>
                 </div>
@@ -1354,26 +1370,26 @@ function PlannerWizard() {
         <section className="animate-fade-in space-y-8">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h1 className="text-2xl sm:text-3xl font-black text-ink">تعداد تیم‌های مسابقه</h1>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900">تعداد تیم‌های مسابقه</h1>
               {format && (
-                <span className="rounded-full bg-pitch/10 px-3.5 py-1 text-xs font-bold text-pitch border border-pitch/20">
+                <span className="rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-bold text-emerald-800 border border-emerald-200/80 shadow-2xs">
                   فرمت انتخابی: {FORMAT_OPTIONS.find((f) => f.key === format)?.title}
                 </span>
               )}
             </div>
-            <p className="text-xs sm:text-sm text-ink/65 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
               می‌توانید عدد دلخواه خود را مستقیماً در کادر تایپ کنید، از دکمه‌های بزرگ + و − استفاده کنید، یا با یک کلیک از دکمه‌های آماده زیر انتخاب فرمایید:
             </p>
           </div>
 
           {/* Stepper Controls & Direct Input */}
-          <div className="rounded-2xl border border-line/80 bg-white p-5 sm:p-6 shadow-xs space-y-6">
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-7 shadow-card space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
               <div>
-                <span className="text-xs sm:text-sm font-bold text-ink/80 block mb-1">
+                <span className="text-xs sm:text-sm font-black text-slate-800 block mb-1">
                   تعداد تیم‌های حاضر در مسابقات:
                 </span>
-                <span className="text-xs text-ink/50">
+                <span className="text-xs text-slate-500">
                   حداقل ۲ و حداکثر ۱۲۸ تیم مجاز است (می‌توانید مستقیماً عدد بنویسید).
                 </span>
               </div>
@@ -1384,7 +1400,7 @@ function PlannerWizard() {
                   type="button"
                   onClick={() => handleTeamCountChange(teamCount - 1)}
                   disabled={teamCount <= 2}
-                  className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl border-2 border-line bg-chalk/50 text-2xl font-black text-ink hover:border-pitch hover:bg-pitch/5 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs"
+                  className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl border-2 border-slate-200 bg-slate-50 text-2xl font-black text-slate-800 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-700 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
                   title="کاهش یک تیم"
                   aria-label="کاهش یک تیم"
                 >
@@ -1399,10 +1415,10 @@ function PlannerWizard() {
                     value={teamCountInput}
                     onChange={(e) => handleTypingTeamCount(e.target.value)}
                     onBlur={handleBlurTeamCount}
-                    className="h-12 w-28 sm:h-14 sm:w-36 rounded-2xl border-2 border-pitch bg-white text-center text-2xl sm:text-3xl font-black text-pitch focus:outline-none focus:ring-4 focus:ring-pitch/15 shadow-inner transition-all"
+                    className="h-12 w-28 sm:h-14 sm:w-36 rounded-2xl border-2 border-emerald-500 bg-emerald-50/20 text-center text-2xl sm:text-3xl font-black text-emerald-950 focus:outline-none focus:ring-4 focus:ring-emerald-500/20 shadow-inner transition-all"
                     placeholder="مثلاً ۳۲"
                   />
-                  <span className="absolute -bottom-5 left-0 right-0 text-center text-[10px] text-ink/40 font-semibold select-none">
+                  <span className="absolute -bottom-5 left-0 right-0 text-center text-[10px] text-slate-400 font-bold select-none">
                     تایپ مستقیم عددی
                   </span>
                 </div>
@@ -1411,25 +1427,25 @@ function PlannerWizard() {
                   type="button"
                   onClick={() => handleTeamCountChange(teamCount + 1)}
                   disabled={teamCount >= 128}
-                  className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl border-2 border-line bg-chalk/50 text-2xl font-black text-ink hover:border-pitch hover:bg-pitch/5 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xs"
+                  className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl border-2 border-slate-200 bg-slate-50 text-2xl font-black text-slate-800 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-700 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
                   title="افزایش یک تیم"
                   aria-label="افزایش یک تیم"
                 >
                   +
                 </button>
 
-                <span className="text-base sm:text-lg font-bold text-ink/70 mr-1">تیم</span>
+                <span className="text-base sm:text-lg font-bold text-slate-700 mr-1">تیم</span>
               </div>
             </div>
 
             {/* Quick Selection Presets */}
-            <div className="border-t border-line/60 pt-5 space-y-3">
+            <div className="border-t border-slate-100 pt-5 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-ink/80 flex items-center gap-1.5">
-                  <span>⚡</span>
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="text-amber-500">⚡</span>
                   <span>انتخاب سریع و فوری تعداد تیم‌های رایج (بدون نیاز به کلیک‌های متوالی):</span>
                 </span>
-                <span className="text-[11px] text-ink/40 hidden sm:inline">
+                <span className="text-[11px] text-slate-400 hidden sm:inline">
                   با یک ضربه فوری اعمال می‌شود
                 </span>
               </div>
@@ -1443,17 +1459,17 @@ function PlannerWizard() {
                       onClick={() => handleTeamCountChange(p.count)}
                       className={`flex flex-col items-start p-3 rounded-xl border text-right transition-all cursor-pointer ${
                         isCurrent
-                          ? "border-pitch bg-pitch text-chalk shadow-md scale-[1.02] ring-2 ring-gold/40"
-                          : "border-line/80 bg-chalk/30 hover:border-pitch/50 hover:bg-white text-ink"
+                          ? "border-emerald-500 bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-glow scale-[1.02] ring-2 ring-emerald-400/40"
+                          : "border-slate-200/90 bg-slate-50/70 hover:border-emerald-500/50 hover:bg-white text-slate-800 hover:shadow-2xs"
                       }`}
                     >
                       <div className="flex items-center justify-between w-full">
                         <span className="text-sm font-black">{p.label}</span>
                         {isCurrent && (
-                          <span className="text-xs font-bold text-gold">✓ انتخاب شد</span>
+                          <span className="text-xs font-bold text-amber-300">✓ انتخاب شد</span>
                         )}
                       </div>
-                      <span className={`text-[10px] mt-0.5 ${isCurrent ? "text-chalk/80" : "text-ink/50"}`}>
+                      <span className={`text-[10px] mt-0.5 ${isCurrent ? "text-emerald-100" : "text-slate-500"}`}>
                         {p.note}
                       </span>
                     </button>
@@ -1464,18 +1480,18 @@ function PlannerWizard() {
           </div>
 
           {/* Contextual Tournament Overview Box */}
-          <div className="rounded-2xl border border-pitch/20 bg-pitch/5 p-4 sm:p-5 text-xs text-ink/80 space-y-1.5 shadow-2xs">
-            <div className="font-bold text-pitch flex items-center gap-2">
-              <span>📋</span>
-              <span className="text-sm">ساختار مسابقات شما با {teamCount} تیم:</span>
+          <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-50/70 to-teal-50/50 p-4 sm:p-5 text-xs text-slate-700 space-y-2 shadow-2xs">
+            <div className="font-black text-emerald-800 flex items-center gap-2">
+              <span className="text-base">📋</span>
+              <span className="text-sm font-black">ساختار مسابقات شما با {teamCount} تیم:</span>
             </div>
             {format === "groups-knockout" && (
-              <p className="leading-6 pr-6">
+              <p className="leading-6 pr-6 text-slate-700">
                 با <strong>{teamCount} تیم</strong>، مسابقات در <strong>{numGroups} گروه</strong> ({formatGroupDistribution(teamCount, numGroups)}) آغاز می‌شود و سپس تیم‌های اول و دوم وارد جدول حذفی خواهند شد.
               </p>
             )}
             {format === "knockout" && (
-              <p className="leading-6 pr-6">
+              <p className="leading-6 pr-6 text-slate-700">
                 {Math.log2(teamCount) % 1 === 0 ? (
                   <>تعداد {teamCount} تیم دقیقاً توان ۲ است؛ بنابراین مسابقات بدون استراحت و در <strong>{Math.log2(teamCount)} مرحله کامل</strong> برگزار خواهد شد.</>
                 ) : (
@@ -1486,22 +1502,22 @@ function PlannerWizard() {
               </p>
             )}
             {format === "double-knockout" && (
-              <p className="leading-6 pr-6">
+              <p className="leading-6 pr-6 text-slate-700">
                 در فرمت دو حذفی با <strong>{teamCount} تیم</strong>، مسابقات در دو جدول موازی «برندگان» و «شانس مجدد / بازندگان» برگزار می‌شود. هیچ تیمی با اولین شکست حذف نمی‌شود و با دو باخت از گردونه رقابت‌ها کنار می‌رود. قهرمانان دو جدول در فینال بزرگ به مصاف یکدیگر خواهند رفت.
               </p>
             )}
             {format === "league" && (
-              <p className="leading-6 pr-6">
+              <p className="leading-6 pr-6 text-slate-700">
                 هر تیم با تمام {teamCount - 1} رقیب خود یک مسابقه می‌دهد؛ مجموعاً <strong>{teamCount % 2 === 0 ? teamCount - 1 : teamCount} هفته مسابقاتی</strong> و <strong>{(teamCount * (teamCount - 1)) / 2} بازی عادلانه</strong> بدون مسابقه تکراری برگزار می‌شود.
               </p>
             )}
             {format === "double-league" && (
-              <p className="leading-6 pr-6">
+              <p className="leading-6 pr-6 text-slate-700">
                 هر دو تیم یک‌بار در زمین خود و یک‌بار در زمین حریف بازی می‌کنند؛ مجموعاً <strong>{2 * (teamCount % 2 === 0 ? teamCount - 1 : teamCount)} هفته مسابقاتی</strong> و <strong>{teamCount * (teamCount - 1)} بازی رفت‌وبرگشت</strong> برگزار خواهد شد.
               </p>
             )}
             {format === "groups" && (
-              <p className="leading-6 pr-6">
+              <p className="leading-6 pr-6 text-slate-700">
                 تیم‌ها به <strong>{numGroups} گروه</strong> ({formatGroupDistribution(teamCount, numGroups)}) تقسیم شده و درون هر گروه جدول امتیازات اختصاصی محاسبه می‌شود.
               </p>
             )}
@@ -1526,7 +1542,7 @@ function PlannerWizard() {
 
       {/* STEP 2: TEAM NAMES & BULK IMPORT */}
       {step === 2 && (
-        <section>
+        <section className="animate-fade-in space-y-6">
           {/* Hidden Excel File Input */}
           <input
             type="file"
@@ -1536,15 +1552,15 @@ function PlannerWizard() {
             className="hidden"
           />
 
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">نام تیم‌ها</h1>
-                <span className="rounded-full bg-pitch/10 px-3 py-0.5 text-xs font-bold text-pitch border border-pitch/20">
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900">نام تیم‌ها</h1>
+                <span className="rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-black text-emerald-800 border border-emerald-200/80 shadow-2xs">
                   ظرفیت: {teamCount} تیم
                 </span>
               </div>
-              <p className="text-sm text-ink/60 mt-1">
+              <p className="text-xs sm:text-sm text-slate-600 mt-1">
                 نام‌ها باید یکتا باشند؛ می‌توانید تایپ کنید، از فایل اکسل بخوانید یا پیست کنید.
               </p>
             </div>
@@ -1555,7 +1571,7 @@ function PlannerWizard() {
                   setShowBulkModal(true);
                   excelInputRef.current?.click();
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/40 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50 px-3.5 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
                 title="بارگذاری اسامی آماده از فایل اکسل (.xlsx یا .csv)"
               >
                 <span>📊 بارگذاری از اکسل</span>
@@ -1563,7 +1579,7 @@ function PlannerWizard() {
               <button
                 type="button"
                 onClick={() => setShowBulkModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/40 bg-pitch/5 px-3.5 py-2 text-xs font-bold text-pitch hover:bg-pitch hover:text-chalk transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors shadow-2xs cursor-pointer"
               >
                 <span>📋 ورود متنی / چسباندن</span>
               </button>
@@ -1572,23 +1588,24 @@ function PlannerWizard() {
 
           {/* Bulk Paste Modal / Drawer */}
           {showBulkModal && (
-            <div className="mb-6 rounded-xl border border-pitch/30 bg-pitch/5 p-5 animate-fade-in space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-pitch/15 pb-2.5">
-                <h3 className="font-bold text-sm text-pitch">
-                  ورود اسامی تیم‌ها (از طریق فایل اکسل یا چسباندن متن)
+            <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-white to-emerald-50/20 p-5 sm:p-6 shadow-card animate-fade-in space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <h3 className="font-black text-sm text-emerald-950 flex items-center gap-2">
+                  <span>📥</span>
+                  <span>ورود سریع اسامی تیم‌ها (فایل اکسل یا متن)</span>
                 </h3>
-                <span className="rounded-full bg-pitch/10 px-3 py-0.5 text-xs font-bold text-pitch border border-pitch/20">
+                <span className="rounded-full bg-emerald-50 px-3 py-0.5 text-xs font-black text-emerald-800 border border-emerald-200/80">
                   🎯 ظرفیت مسابقه: {teamCount} تیم
                 </span>
               </div>
 
               {/* Excel notice & upload button & Header checkbox */}
-              <div className="rounded-lg border border-emerald-300/80 bg-emerald-50/80 p-3.5 text-xs text-emerald-950 space-y-3 shadow-xs">
+              <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/70 p-4 text-xs text-emerald-950 space-y-3 shadow-2xs">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-start gap-2 max-w-md">
                     <span className="text-base mt-0.5">📊</span>
                     <div className="leading-5">
-                      <span className="font-extrabold text-emerald-900">
+                      <span className="font-black text-emerald-900">
                         قانون بارگذاری اکسل:
                       </span>{" "}
                       اسامی تیم‌ها را صرفاً در{" "}
@@ -1602,14 +1619,14 @@ function PlannerWizard() {
                     <button
                       type="button"
                       onClick={() => excelInputRef.current?.click()}
-                      className="rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 transition-colors shadow-xs"
+                      className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 text-white font-black px-3.5 py-1.5 transition-all shadow-xs cursor-pointer"
                     >
                       📁 بارگذاری فایل اکسل (.xlsx)
                     </button>
                     <button
                       type="button"
                       onClick={handleDownloadExcelTemplate}
-                      className="text-xs text-emerald-800 underline hover:text-emerald-950 font-semibold"
+                      className="text-xs text-emerald-800 underline hover:text-emerald-950 font-bold"
                     >
                       دانلود قالب نمونه
                     </button>
@@ -1617,7 +1634,7 @@ function PlannerWizard() {
                 </div>
 
                 {/* Checkbox: Does Excel have a header row? */}
-                <div className="pt-2 border-t border-emerald-200/80 flex flex-wrap items-center justify-between gap-2">
+                <div className="pt-2 border-t border-emerald-200/70 flex flex-wrap items-center justify-between gap-2">
                   <label className="inline-flex items-center gap-2.5 cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -1629,7 +1646,7 @@ function PlannerWizard() {
                       فایل اکسل عنوان دارد؟ (ردیف اول به عنوان سرستون خوانده نشود)
                     </span>
                   </label>
-                  <span className="rounded bg-emerald-200/60 px-2 py-0.5 text-[11px] font-semibold text-emerald-900">
+                  <span className="rounded-full bg-emerald-200/60 px-2.5 py-0.5 text-[11px] font-bold text-emerald-900">
                     {excelHasHeader
                       ? "✓ ردیف اول عنوان است و نادیده گرفته می‌شود (پیش‌فرض)"
                       : "⚠️ ردیف اول نیز به عنوان نام تیم خوانده می‌شود"}
@@ -1638,7 +1655,7 @@ function PlannerWizard() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-ink/70">
+                <label className="block text-xs font-bold text-slate-700">
                   یا اسامی را در کادر زیر پیست / تایپ کنید (هر تیم در یک سطر):
                 </label>
                 <textarea
@@ -1646,15 +1663,15 @@ function PlannerWizard() {
                   value={bulkText}
                   onChange={(e) => setBulkText(e.target.value)}
                   placeholder={"پرسپولیس\nاستقلال\nسپاهان\nتراکتور"}
-                  className="w-full rounded-md border border-line bg-white p-3 text-sm focus:border-pitch focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium text-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none shadow-inner"
                 />
               </div>
 
               {bulkText.trim().length > 0 && (
-                <div className="text-xs">
+                <div className="text-xs font-bold">
                   {bulkText.split(/[\n,]+/).map((s) => s.trim()).filter((s) => s.length > 0)
                     .length < teamCount && (
-                    <span className="text-gold-dark font-medium">
+                    <span className="text-amber-700">
                       ℹ️{" "}
                       {
                         bulkText
@@ -1668,7 +1685,7 @@ function PlannerWizard() {
                   )}
                   {bulkText.split(/[\n,]+/).map((s) => s.trim()).filter((s) => s.length > 0)
                     .length > teamCount && (
-                    <span className="text-brick font-medium">
+                    <span className="text-rose-600">
                       ⚠️{" "}
                       {
                         bulkText
@@ -1682,20 +1699,20 @@ function PlannerWizard() {
                   )}
                   {bulkText.split(/[\n,]+/).map((s) => s.trim()).filter((s) => s.length > 0)
                     .length === teamCount && (
-                    <span className="text-pitch font-bold">
+                    <span className="text-emerald-700">
                       ✓ {teamCount} تیم شناسایی شد (دقیقاً برابر با ظرفیت انتخابی مسابقه).
                     </span>
                   )}
                 </div>
               )}
 
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-1">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="text-ink/50">درج خودکار نمونه‌ها در کادر:</span>
+                  <span className="text-slate-500 font-bold">درج خودکار نمونه‌ها در کادر:</span>
                   <button
                     type="button"
                     onClick={() => setBulkText(PRESET_IRAN_LEAGUE.join("\n"))}
-                    className="rounded bg-white border border-line px-2.5 py-1 hover:border-pitch text-ink/75 font-medium"
+                    className="rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-1 hover:border-emerald-500 hover:text-emerald-700 text-slate-700 font-bold transition-colors cursor-pointer"
                     title="درج ۱۶ تیم لیگ برتر در کادر بالا"
                   >
                     🇮🇷 لیگ برتر ایران
@@ -1703,7 +1720,7 @@ function PlannerWizard() {
                   <button
                     type="button"
                     onClick={() => setBulkText(PRESET_EUROPE.join("\n"))}
-                    className="rounded bg-white border border-line px-2.5 py-1 hover:border-pitch text-ink/75 font-medium"
+                    className="rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-1 hover:border-emerald-500 hover:text-emerald-700 text-slate-700 font-bold transition-colors cursor-pointer"
                     title="درج ۱۶ باشگاه برتر اروپا در کادر بالا"
                   >
                     ⚽ باشگاه‌های اروپا
@@ -1729,20 +1746,102 @@ function PlannerWizard() {
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {Array.from({ length: teamCount }).map((_, i) => (
-              <input
-                key={i}
-                value={teamNames[i] ?? ""}
-                onChange={(e) => {
-                  const next = [...teamNames];
-                  next[i] = e.target.value;
+          {/* Quick Preset Fill Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+              <span className="font-black text-slate-800">تکمیل سریع اسامی:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const sample = PRESET_IRAN_LEAGUE.slice(0, teamCount);
+                  const next = [...sample];
+                  while (next.length < teamCount) next.push(`تیم ${next.length + 1}`);
                   setTeamNames(next);
                 }}
-                className="rounded-md border border-line px-4 py-2 text-sm"
-                placeholder={`تیم ${i + 1}`}
-              />
-            ))}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer"
+              >
+                🇮🇷 لیگ برتر ایران
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const sample = PRESET_EUROPE.slice(0, teamCount);
+                  const next = [...sample];
+                  while (next.length < teamCount) next.push(`تیم ${next.length + 1}`);
+                  setTeamNames(next);
+                }}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer"
+              >
+                ⚽ باشگاه‌های اروپا
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTeamNames(Array.from({ length: teamCount }).map((_, i) => `تیم ${i + 1}`));
+                }}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer"
+              >
+                🔢 تیم ۱ تا {teamCount}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setTeamNames(Array.from({ length: teamCount }).map(() => ""))}
+                className="text-rose-600 hover:underline font-black cursor-pointer"
+              >
+                پاک‌سازی همه
+              </button>
+            </div>
+          </div>
+
+          {/* Modern Athletic Team Input Grid */}
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: teamCount }).map((_, i) => {
+              const name = teamNames[i] ?? "";
+              const pot = getTeamPot(name);
+              return (
+                <div
+                  key={i}
+                  className="group relative flex items-center gap-2.5 rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs transition-all hover:border-emerald-400/80 hover:shadow-xs focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 font-mono text-xs font-black text-slate-700 group-hover:bg-emerald-50 group-hover:text-emerald-800 transition-colors">
+                    {i + 1}
+                  </div>
+                  <input
+                    value={name}
+                    onChange={(e) => {
+                      const next = [...teamNames];
+                      next[i] = e.target.value;
+                      setTeamNames(next);
+                    }}
+                    className="w-full bg-transparent text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:outline-none"
+                    placeholder={`تیم ${i + 1}`}
+                  />
+                  {pot && (
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800">
+                      سید {pot}
+                    </span>
+                  )}
+                  {name && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => {
+                        const next = [...teamNames];
+                        next[i] = "";
+                        setTeamNames(next);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 hover:text-rose-600 text-slate-400 p-1 text-xs transition-opacity cursor-pointer"
+                      title="پاک کردن نام تیم"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <div className="mt-10 flex gap-3">
@@ -1762,36 +1861,39 @@ function PlannerWizard() {
 
       {/* STEP 3: SETTINGS, SEEDING, METADATA & AVOIDANCE */}
       {step === 3 && format && (
-        <section className="space-y-8">
+        <section className="animate-fade-in space-y-8">
           <div>
-            <h1 className="text-2xl font-bold mb-2">تنظیمات و قوانین مسابقه</h1>
-            <p className="text-sm text-ink/60">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">تنظیمات و قوانین مسابقه</h1>
+            <p className="text-xs sm:text-sm text-slate-600">
               این بخش کاملاً اختیاری است؛ در صورت عدم انتخاب، همه‌چیز استاندارد و عادلانه اجرا می‌شود.
             </p>
           </div>
 
           {/* Tournament Title & Venue Info */}
-          <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-4">
-            <h3 className="font-bold text-sm text-pitch">اطلاعات تورنمنت (جهت سربرگ رسمی و چاپ)</h3>
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4">
+            <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
+              <span className="text-base text-amber-500">🏆</span>
+              <span>اطلاعات تورنمنت (جهت سربرگ رسمی و چاپ)</span>
+            </h3>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className="text-xs font-semibold text-ink/70">نام مسابقه یا جام</span>
+                <span className="text-xs font-bold text-slate-700">نام مسابقه یا جام</span>
                 <input
                   type="text"
                   value={metadata.title ?? ""}
                   onChange={(e) => setMetadata({ ...metadata, title: e.target.value })}
                   placeholder="مثال: مسابقات جام رمضان یا لیگ فوتسال"
-                  className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all shadow-inner"
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-semibold text-ink/70">محل برگزاری / سالن / زمین</span>
+                <span className="text-xs font-bold text-slate-700">محل برگزاری / سالن / زمین</span>
                 <input
                   type="text"
                   value={metadata.venue ?? ""}
                   onChange={(e) => setMetadata({ ...metadata, venue: e.target.value })}
                   placeholder="مثال: سالن ورزشی چمران - زمین شماره ۱"
-                  className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all shadow-inner"
                 />
               </label>
             </div>
@@ -1802,29 +1904,31 @@ function PlannerWizard() {
             format === "double-league" ||
             format === "groups" ||
             format === "groups-knockout") && (
-            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-3">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4">
               <div>
-                <h3 className="text-sm font-bold text-pitch flex items-center gap-1.5">
-                  <span>📊</span>
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <span className="text-base">📊</span>
                   <span>سیستم امتیازدهی جدول رده‌بندی</span>
                 </h3>
-                <p className="text-xs text-ink/60 mt-0.5">
+                <p className="text-xs text-slate-600 mt-1">
                   نحوه محاسبه امتیازات را متناسب با رشته ورزشی مسابقات خود انتخاب فرمایید:
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
                 {[
                   {
                     id: "football",
                     title: "⚽ فوتبال و فوتسال (FIFA)",
                     desc: "برد: ۳ امتیاز | مساوی: ۱ | باخت: ۰",
+                    badge: "۳-۱-۰",
                     rule: { sport: "football" as const, win: 3, draw: 1, loss: 0, name: "فوتبال و فوتسال (۳-۱-۰)" },
                   },
                   {
                     id: "volleyball",
                     title: "🏐 والیبال (قوانین رسمی FIVB)",
                     desc: "۳-۰/۳-۱ (۳ پوئن) | ۳-۲ (۲ برنده، ۱ بازنده) | اولویت اول: بردها",
+                    badge: "FIVB",
                     rule: {
                       sport: "volleyball" as const,
                       win: 3,
@@ -1838,18 +1942,21 @@ function PlannerWizard() {
                     id: "basketball",
                     title: "🏀 بسکتبال (FIBA)",
                     desc: "برد: ۲ امتیاز | باخت: ۱ امتیاز | تساوی ندارد",
+                    badge: "۲-۱",
                     rule: { sport: "basketball" as const, win: 2, draw: 0, loss: 1, name: "بسکتبال FIBA (۲-۱)" },
                   },
                   {
                     id: "handball",
                     title: "🤾 هندبال (IHF)",
                     desc: "برد: ۲ امتیاز | مساوی: ۱ | باخت: ۰",
+                    badge: "۲-۱-۰",
                     rule: { sport: "handball" as const, win: 2, draw: 1, loss: 0, name: "هندبال IHF (۲-۱-۰)" },
                   },
                   {
                     id: "beach-soccer",
                     title: "🏖️ فوتبال ساحلی (FIFA)",
                     desc: "برد قانونی: ۳ | وقت اضافه: ۲ | پنالتی: ۱ | باخت: ۰",
+                    badge: "۳-۲-۱-۰",
                     rule: {
                       sport: "beach-soccer" as const,
                       win: 3,
@@ -1864,6 +1971,7 @@ function PlannerWizard() {
                     id: "chess",
                     title: "♟️ شطرنج و انفرادی (پینگ‌پنگ)",
                     desc: "برد: ۲ | مساوی: ۱ | باخت: ۰",
+                    badge: "۲-۱-۰",
                     rule: { sport: "chess" as const, win: 2, draw: 1, loss: 0, name: "انفرادی و شطرنج (۲-۱-۰)" },
                   },
                 ].map((pts) => {
@@ -1873,16 +1981,23 @@ function PlannerWizard() {
                       key={pts.id}
                       type="button"
                       onClick={() => setPointsRule(pts.rule)}
-                      className={`flex flex-col text-right p-3 rounded-xl border transition-all ${
+                      className={`flex flex-col text-right p-3.5 rounded-xl border transition-all cursor-pointer relative overflow-hidden ${
                         isSelected
-                          ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20 font-bold"
-                          : "border-line bg-white/70 hover:bg-white text-ink/80"
+                          ? "border-emerald-500 bg-emerald-50/40 shadow-sm ring-2 ring-emerald-500/20"
+                          : "border-slate-200/90 bg-slate-50/60 hover:border-slate-300 hover:bg-white text-slate-800"
                       }`}
                     >
-                      <span className={isSelected ? "text-pitch font-bold text-xs" : "text-ink text-xs font-semibold"}>
-                        {pts.title}
-                      </span>
-                      <span className="text-[11px] text-ink/60 mt-1 leading-normal">
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className={`text-xs font-black ${isSelected ? "text-emerald-950" : "text-slate-800"}`}>
+                          {pts.title}
+                        </span>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                          isSelected ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"
+                        }`}>
+                          {pts.badge}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-600 leading-relaxed">
                         {pts.desc}
                       </span>
                     </button>
@@ -1892,12 +2007,12 @@ function PlannerWizard() {
 
               {/* Sport-specific rule details */}
               {pointsRule.sport === "volleyball" && (
-                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-950 space-y-1.5">
-                  <div className="font-bold flex items-center gap-1.5 text-emerald-900">
-                    <span>🏐</span>
+                <div className="rounded-xl bg-amber-50/90 border border-amber-200/90 p-4 text-xs text-amber-950 space-y-1.5 shadow-2xs">
+                  <div className="font-black flex items-center gap-1.5 text-amber-900">
+                    <span className="text-base">🏐</span>
                     <span>نحوه محاسبه خودکار امتیازات و رده‌بندی والیبال بر اساس قوانین رسمی فدراسیون جهانی (FIVB):</span>
                   </div>
-                  <ul className="list-disc list-inside space-y-0.5 text-[11px] text-emerald-900/90 pr-2">
+                  <ul className="list-disc list-inside space-y-1 text-[11px] text-amber-900/90 pr-2 leading-relaxed">
                     <li><b>برد ۳-۰ یا ۳-۱:</b> تیم برنده ۳ امتیاز کامل کسب می‌کند و بازنده ۰ امتیاز.</li>
                     <li><b>برد ۳-۲ (ست پنجم سرنوشت‌ساز):</b> برنده ۲ امتیاز و بازنده به پاداش مقاومت تا ست پنجم ۱ امتیاز می‌گیرد.</li>
                     <li><b>قانون طلایی جدول رده‌بندی:</b> اولویت اول رتبه‌بندی در FIVB <b>«تعداد بردها»</b> است و در صورت برابری تعداد برد، امتیاز مسابقات و تفاضل ست محاسبه می‌شود.</li>
@@ -1906,36 +2021,36 @@ function PlannerWizard() {
               )}
 
               {pointsRule.sport === "basketball" && (
-                <div className="rounded-lg bg-sky-50 border border-sky-200 p-3 text-xs text-sky-950 space-y-1">
-                  <div className="font-bold flex items-center gap-1.5 text-sky-900">
-                    <span>🏀</span>
+                <div className="rounded-xl bg-sky-50/90 border border-sky-200/90 p-4 text-xs text-sky-950 space-y-1.5 shadow-2xs">
+                  <div className="font-black flex items-center gap-1.5 text-sky-900">
+                    <span className="text-base">🏀</span>
                     <span>قوانین امتیازدهی بسکتبال (FIBA):</span>
                   </div>
-                  <p className="text-[11px] text-sky-900/90 pr-2">
+                  <p className="text-[11px] text-sky-900/90 pr-2 leading-relaxed">
                     تیم برنده ۲ امتیاز و بازنده ۱ امتیاز دریافت می‌کند (تساوی وجود ندارد و بازی تا تعیین برنده در وقت‌های اضافه ۵ دقیقه‌ای ادامه می‌یابد). در صورت عدم حضور در زمین (باخت انضباطی)، ۰ امتیاز ثبت می‌شود.
                   </p>
                 </div>
               )}
 
               {pointsRule.sport === "handball" && (
-                <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-3 text-xs text-indigo-950 space-y-1">
-                  <div className="font-bold flex items-center gap-1.5 text-indigo-900">
-                    <span>🤾</span>
+                <div className="rounded-xl bg-indigo-50/90 border border-indigo-200/90 p-4 text-xs text-indigo-950 space-y-1.5 shadow-2xs">
+                  <div className="font-black flex items-center gap-1.5 text-indigo-900">
+                    <span className="text-base">🤾</span>
                     <span>قوانین امتیازدهی هندبال (IHF):</span>
                   </div>
-                  <p className="text-[11px] text-indigo-900/90 pr-2">
+                  <p className="text-[11px] text-indigo-900/90 pr-2 leading-relaxed">
                     در مسابقات لیگ، برد دارای ۲ امتیاز، تساوی ۱ امتیاز و باخت ۰ امتیاز است. در مراحل حذفی بازی با وقت‌های اضافه و پنالتی ادامه می‌یابد.
                   </p>
                 </div>
               )}
 
               {pointsRule.sport === "beach-soccer" && (
-                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-950 space-y-1.5">
-                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
-                    <span>🏖️</span>
+                <div className="rounded-xl bg-amber-50/90 border border-amber-200/90 p-4 text-xs text-amber-950 space-y-1.5 shadow-2xs">
+                  <div className="font-black flex items-center gap-1.5 text-amber-900">
+                    <span className="text-base">🏖️</span>
                     <span>قوانین امتیازدهی فوتبال ساحلی (تساوی وجود ندارد):</span>
                   </div>
-                  <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-900/90 pr-2">
+                  <ul className="list-disc list-inside space-y-1 text-[11px] text-amber-900/90 pr-2 leading-relaxed">
                     <li><b>برد در وقت قانونی (۳۶ دقیقه):</b> ۳ امتیاز برای برنده | ۰ امتیاز برای بازنده</li>
                     <li><b>برد در وقت اضافه (۳ دقیقه):</b> ۲ امتیاز برای برنده | ۰ امتیاز برای بازنده</li>
                     <li><b>برد در ضربات پنالتی:</b> ۱ امتیاز برای برنده | ۰ امتیاز برای بازنده</li>
@@ -1947,16 +2062,19 @@ function PlannerWizard() {
 
           {/* Group Rules */}
           {needsGroupRules && (
-            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-4">
-              <h3 className="font-bold text-sm text-pitch">تنظیمات گروه‌بندی</h3>
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-5">
+              <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                <span className="text-base text-emerald-600">⚽</span>
+                <span>تنظیمات گروه‌بندی مسابقات</span>
+              </h3>
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="block">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-ink/70">تعداد گروه‌ها</span>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-slate-700">تعداد گروه‌ها</span>
                     <button
                       type="button"
                       onClick={() => setNumGroups(calculateDefaultNumGroups(teamCount))}
-                      className="text-[11px] text-pitch hover:underline font-bold"
+                      className="text-[11px] text-emerald-700 hover:underline font-bold cursor-pointer"
                       title="تنظیم خودکار بر اساس حداکثر ۴ تیم در هر گروه"
                     >
                       پیش‌فرض ({calculateDefaultNumGroups(teamCount)} گروه)
@@ -1970,25 +2088,25 @@ function PlannerWizard() {
                     onChange={(e) =>
                       setNumGroups(Math.max(1, Number(e.target.value) || 1))
                     }
-                    className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all shadow-inner"
                   />
-                  <p className="text-[11px] text-ink/60 mt-1">
+                  <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
                     {teamCount % Math.max(1, numGroups) === 0 ? (
                       <>
                         با {teamCount} تیم در {numGroups} گروه، هر گروه شامل{" "}
-                        <strong className="text-pitch">{teamCount / Math.max(1, numGroups)} تیم</strong> خواهد بود.
+                        <strong className="text-emerald-700">{teamCount / Math.max(1, numGroups)} تیم</strong> خواهد بود.
                       </>
                     ) : (
                       <>
                         با {teamCount} تیم در {numGroups} گروه،{" "}
-                        <strong className="text-pitch">{formatGroupDistribution(teamCount, numGroups)}</strong> تشکیل خواهد شد.
+                        <strong className="text-emerald-700">{formatGroupDistribution(teamCount, numGroups)}</strong> تشکیل خواهد شد.
                       </>
                     )}
                   </p>
                 </div>
                 {format === "groups-knockout" && (
                   <label className="block">
-                    <span className="text-xs font-semibold text-ink/70">
+                    <span className="text-xs font-bold text-slate-700 mb-1.5 block">
                       تعداد صعودکننده مستقیم از هر گروه
                     </span>
                     <input
@@ -1998,10 +2116,10 @@ function PlannerWizard() {
                       onChange={(e) =>
                         setQualifiersPerGroup(Math.max(1, Number(e.target.value) || 1))
                       }
-                      className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all shadow-inner"
                     />
-                    <span className="text-[11px] text-ink/50 mt-1 block">
-                      استاندارد بین‌المللی: ۲ تیم از هر گروه
+                    <span className="text-[11px] text-slate-500 mt-1.5 block font-medium">
+                      استاندارد بین‌المللی: ۲ تیم برتر از هر گروه
                     </span>
                   </label>
                 )}
@@ -2009,14 +2127,14 @@ function PlannerWizard() {
 
               {/* Notice & Guidelines on Power-of-2 and Euro-style 3rd Place Qualifiers */}
               {format === "groups-knockout" && (
-                <div className="mt-4 rounded-xl border border-line bg-white p-4 space-y-3">
+                <div className="rounded-xl border border-slate-200/90 bg-slate-50/60 p-4 space-y-3">
                   <div className="flex items-start gap-2.5">
-                    <span className="text-base">📌</span>
+                    <span className="text-base mt-0.5">📌</span>
                     <div className="space-y-0.5">
-                      <h4 className="text-xs font-bold text-pitch">
+                      <h4 className="text-xs font-black text-slate-900">
                         قانون استاندارد تقارن مرحله حذفی (توان عدد ۲):
                       </h4>
-                      <p className="text-xs text-ink/70 leading-relaxed">
+                      <p className="text-xs text-slate-600 leading-relaxed">
                         تعداد تیم‌های راه‌یافته به مرحله حذفی باید توان عدد ۲ (۴، ۸، ۱۶، ۳۲ تیم) باشد تا جدول بدون استراحت‌های نابرابر و با عدالت کامل برگزار شود.
                       </p>
                     </div>
@@ -2024,37 +2142,37 @@ function PlannerWizard() {
 
                   {/* Dynamic Status Display */}
                   {isPowerOfTwo ? (
-                    <div className="flex items-center gap-2 rounded-lg bg-pitch/5 border border-pitch/20 p-3 text-xs text-pitch">
-                      <span className="font-bold text-sm">✅ ساختار ایده‌آل:</span>
+                    <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-950 font-medium">
+                      <span className="font-black text-emerald-800">✅ ساختار ایده‌آل:</span>
                       <span>
                         با {numGroups} گروه و صعود {qualifiersPerGroup} تیم، مجموعاً <strong>{baseQualifiers} تیم</strong> به مرحله <strong>{targetBracketSize} تیمی</strong> صعود می‌کنند و جدول حذفی کاملاً متقارن است.
                       </span>
                     </div>
                   ) : canUseBestThirds ? (
-                    <div className="rounded-lg bg-gold/15 border border-gold/40 p-3.5 space-y-2 text-xs text-ink">
-                      <div className="flex items-center justify-between font-bold text-ink">
-                        <div className="flex items-center gap-1.5">
+                    <div className="rounded-xl bg-amber-50/90 border border-amber-200/90 p-4 space-y-2 text-xs text-amber-950">
+                      <div className="flex items-center justify-between font-black">
+                        <div className="flex items-center gap-1.5 text-amber-900">
                           <span>🏆</span>
                           <span>فرمت استاندارد جام ملت‌های اروپا (UEFA Euro / جام جهانی ۲۰۲۶)</span>
                         </div>
-                        <span className="text-[10px] bg-gold/30 text-ink px-2.5 py-0.5 rounded-full font-bold">
+                        <span className="text-[10px] bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-full font-black">
                           بدون استراحت (BYE)
                         </span>
                       </div>
-                      <p className="leading-relaxed text-ink/85">
+                      <p className="leading-relaxed text-amber-950/90">
                         با صعود ۲ تیم اول هر گروه، مجموعاً <strong>{baseQualifiers} تیم</strong> صعود می‌کنند که توان ۲ نیست. برای تشکیل جدول استاندارد <strong>{targetBracketSize} تیمی</strong>، دقیقاً <strong>{missingForPowerOfTwo} تیم</strong> کم است. سیستم هوشمند NexSport مشابه مسابقات یورو، این {missingForPowerOfTwo} تیم را از میان <strong>برترین تیم‌های رتبه سوم گروه‌ها</strong> تکمیل می‌کند تا مرحله حذفی بدون استراحت و با نهایت هیجان برگزار شود.
                       </p>
                     </div>
                   ) : (
-                    <div className="rounded-lg bg-ink/5 border border-line p-3 text-xs text-ink/80 leading-relaxed">
-                      <span className="font-bold text-ink">ℹ️ وضعیت جدول حذفی:</span> با صعود {baseQualifiers} تیم، مرحله حذفی {targetBracketSize} تیمی تشکیل می‌شود و {missingForPowerOfTwo} جایگاه استراحت (BYE) به سرگروه‌های برتر تعلق می‌گیرد.
+                    <div className="rounded-xl bg-slate-100 border border-slate-200 p-3 text-xs text-slate-700 leading-relaxed">
+                      <span className="font-black text-slate-900">ℹ️ وضعیت جدول حذفی:</span> با صعود {baseQualifiers} تیم، مرحله حذفی {targetBracketSize} تیمی تشکیل می‌شود و {missingForPowerOfTwo} جایگاه استراحت (BYE) به سرگروه‌های برتر تعلق می‌گیرد.
                     </div>
                   )}
 
                   {/* Smart Preset Buttons */}
                   {teamCount === 24 && (
-                    <div className="pt-2 border-t border-line/60">
-                      <span className="text-[11px] font-bold text-ink/60 block mb-2">
+                    <div className="pt-2 border-t border-slate-200/80">
+                      <span className="text-[11px] font-black text-slate-700 block mb-2">
                         چیدمان‌های استاندارد و متداول برای مسابقات ۲۴ تیمی:
                       </span>
                       <div className="flex flex-wrap gap-2">
@@ -2064,10 +2182,10 @@ function PlannerWizard() {
                             setNumGroups(6);
                             setQualifiersPerGroup(2);
                           }}
-                          className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-all ${
+                          className={`rounded-xl px-3 py-1.5 text-xs font-bold border transition-all cursor-pointer ${
                             numGroups === 6 && qualifiersPerGroup === 2
-                              ? "border-pitch bg-pitch text-white shadow-sm"
-                              : "border-line bg-chalk/50 hover:bg-white text-ink/80"
+                              ? "border-emerald-600 bg-emerald-600 text-white shadow-xs"
+                              : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                           }`}
                         >
                           🏆 ۶ گروه ۴ تیمی (فرمت یورو: ۱۲ صعودکننده مستقیم + ۴ تیم برتر سوم = ۱۶ تیمی)
@@ -2078,10 +2196,10 @@ function PlannerWizard() {
                             setNumGroups(4);
                             setQualifiersPerGroup(2);
                           }}
-                          className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-all ${
+                          className={`rounded-xl px-3 py-1.5 text-xs font-bold border transition-all cursor-pointer ${
                             numGroups === 4 && qualifiersPerGroup === 2
-                              ? "border-pitch bg-pitch text-white shadow-sm"
-                              : "border-line bg-chalk/50 hover:bg-white text-ink/80"
+                              ? "border-emerald-600 bg-emerald-600 text-white shadow-xs"
+                              : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                           }`}
                         >
                           ۴ گروه ۶ تیمی (۸ صعودکننده مستقیم به یک‌چهارم نهایی)
@@ -2092,10 +2210,10 @@ function PlannerWizard() {
                             setNumGroups(8);
                             setQualifiersPerGroup(2);
                           }}
-                          className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-all ${
+                          className={`rounded-xl px-3 py-1.5 text-xs font-bold border transition-all cursor-pointer ${
                             numGroups === 8 && qualifiersPerGroup === 2
-                              ? "border-pitch bg-pitch text-white shadow-sm"
-                              : "border-line bg-chalk/50 hover:bg-white text-ink/80"
+                              ? "border-emerald-600 bg-emerald-600 text-white shadow-xs"
+                              : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                           }`}
                         >
                           ۸ گروه ۳ تیمی (۱۶ صعودکننده مستقیم به یک‌هشتم نهایی)
@@ -2105,8 +2223,8 @@ function PlannerWizard() {
                   )}
 
                   {teamCount === 12 && (
-                    <div className="pt-2 border-t border-line/60">
-                      <span className="text-[11px] font-bold text-ink/60 block mb-2">
+                    <div className="pt-2 border-t border-slate-200/80">
+                      <span className="text-[11px] font-black text-slate-700 block mb-2">
                         چیدمان‌های استاندارد پیشنهادی برای ۱۲ تیم:
                       </span>
                       <div className="flex flex-wrap gap-2">
@@ -2116,10 +2234,10 @@ function PlannerWizard() {
                             setNumGroups(3);
                             setQualifiersPerGroup(2);
                           }}
-                          className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-all ${
+                          className={`rounded-xl px-3 py-1.5 text-xs font-bold border transition-all cursor-pointer ${
                             numGroups === 3 && qualifiersPerGroup === 2
-                              ? "border-pitch bg-pitch text-white shadow-sm"
-                              : "border-line bg-chalk/50 hover:bg-white text-ink/80"
+                              ? "border-emerald-600 bg-emerald-600 text-white shadow-xs"
+                              : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                           }`}
                         >
                           🏆 ۳ گروه ۴ تیمی (۶ تیم اول و دوم + ۲ تیم برتر سوم = ۸ تیمی)
@@ -2130,10 +2248,10 @@ function PlannerWizard() {
                             setNumGroups(4);
                             setQualifiersPerGroup(2);
                           }}
-                          className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-all ${
+                          className={`rounded-xl px-3 py-1.5 text-xs font-bold border transition-all cursor-pointer ${
                             numGroups === 4 && qualifiersPerGroup === 2
-                              ? "border-pitch bg-pitch text-white shadow-sm"
-                              : "border-line bg-chalk/50 hover:bg-white text-ink/80"
+                              ? "border-emerald-600 bg-emerald-600 text-white shadow-xs"
+                              : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                           }`}
                         >
                           ۴ گروه ۳ تیمی (۸ صعودکننده مستقیم به یک‌چهارم نهایی)
@@ -2148,17 +2266,18 @@ function PlannerWizard() {
 
           {/* Advance Best 3rd-Place Teams Option (Euro / World Cup Style) */}
           {format === "groups-knockout" && canUseBestThirds && (
-            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h3 className="font-bold text-sm text-pitch">
-                    نحوه تکمیل جدول مرحله حذفی ({targetBracketSize} تیمی)
+                  <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                    <span className="text-base text-amber-500">🏆</span>
+                    <span>نحوه تکمیل جدول مرحله حذفی ({targetBracketSize} تیمی)</span>
                   </h3>
-                  <p className="text-xs text-ink/60 mt-0.5">
+                  <p className="text-xs text-slate-600 mt-0.5">
                     با صعود {baseQualifiers} تیم اول و دوم، برای تکمیل مرحله {targetBracketSize} تیمی شیوه موردنظر خود را انتخاب کنید:
                   </p>
                 </div>
-                <span className="text-[10px] font-bold bg-pitch/10 text-pitch px-2.5 py-1 rounded-full">
+                <span className="text-[11px] font-black bg-amber-100 text-amber-900 px-3 py-1 rounded-full border border-amber-200/80">
                   فرمت جام ملت‌های اروپا
                 </span>
               </div>
@@ -2167,8 +2286,8 @@ function PlannerWizard() {
                 <label
                   className={`relative flex cursor-pointer flex-col rounded-xl border p-4 transition-all ${
                     advanceBestThirds
-                      ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20"
-                      : "border-line bg-white/70 hover:border-pitch/40"
+                      ? "border-emerald-500 bg-emerald-50/40 shadow-sm ring-2 ring-emerald-500/20"
+                      : "border-slate-200/90 bg-slate-50/60 hover:border-slate-300 hover:bg-white"
                   }`}
                 >
                   <div className="flex items-start justify-between">
@@ -2178,17 +2297,17 @@ function PlannerWizard() {
                         name="advanceBestThirdsOption"
                         checked={advanceBestThirds}
                         onChange={() => setAdvanceBestThirds(true)}
-                        className="text-pitch focus:ring-pitch"
+                        className="text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                       />
-                      <span className="font-bold text-sm text-pitch">
+                      <span className="font-black text-sm text-slate-900">
                         صعود {missingForPowerOfTwo} تیم برتر رتبه سوم (استاندارد یورو)
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold bg-pitch/10 text-pitch px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
                       پیشنهادی
                     </span>
                   </div>
-                  <p className="mt-2 text-xs text-ink/70 leading-relaxed">
+                  <p className="mt-2 text-xs text-slate-600 leading-relaxed pr-6">
                     {baseQualifiers} تیم اول و دوم به همراه {missingForPowerOfTwo} تیم برتر رتبه سوم صعود می‌کنند تا جدول {targetBracketSize} تیمی کاملاً پر شده و هیچ تیمی در دور اول استراحت نابرابر نداشته باشد.
                   </p>
                 </label>
@@ -2196,8 +2315,8 @@ function PlannerWizard() {
                 <label
                   className={`relative flex cursor-pointer flex-col rounded-xl border p-4 transition-all ${
                     !advanceBestThirds
-                      ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20"
-                      : "border-line bg-white/70 hover:border-pitch/40"
+                      ? "border-emerald-500 bg-emerald-50/40 shadow-sm ring-2 ring-emerald-500/20"
+                      : "border-slate-200/90 bg-slate-50/60 hover:border-slate-300 hover:bg-white"
                   }`}
                 >
                   <div className="flex items-start justify-between">
@@ -2207,17 +2326,17 @@ function PlannerWizard() {
                         name="advanceBestThirdsOption"
                         checked={!advanceBestThirds}
                         onChange={() => setAdvanceBestThirds(false)}
-                        className="text-pitch focus:ring-pitch"
+                        className="text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                       />
-                      <span className="font-bold text-sm text-pitch">
+                      <span className="font-black text-sm text-slate-900">
                         صرفاً صعود تیم‌های اول و دوم (با استراحت / BYE)
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold bg-ink/10 text-ink/70 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full">
                       سنتی
                     </span>
                   </div>
-                  <p className="mt-2 text-xs text-ink/70 leading-relaxed">
+                  <p className="mt-2 text-xs text-slate-600 leading-relaxed pr-6">
                     فقط {baseQualifiers} تیم صعود می‌کنند و {missingForPowerOfTwo} تیم سرگروه برتر در دور اول حذفی استراحت (BYE) خواهند داشت.
                   </p>
                 </label>
@@ -2227,23 +2346,24 @@ function PlannerWizard() {
 
           {/* Avoidance Rule (Section 12 of spec) */}
           {needsGroupRules && numGroups > 1 && (
-            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-3">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-sm text-pitch">
-                  قانون عدم برخورد در یک گروه (Avoidance Rule)
+                <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                  <span className="text-base text-rose-500">🛡️</span>
+                  <span>قانون عدم برخورد در یک گروه (Avoidance Rule)</span>
                 </h3>
-                <span className="text-[11px] text-ink/50">اختیاری</span>
+                <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">اختیاری</span>
               </div>
-              <p className="text-xs text-ink/60">
+              <p className="text-xs text-slate-600">
                 اگر دو تیم از یک باشگاه یا یک شهر هستند و نباید در یک گروه قرار بگیرند، جفت آن‌ها را
                 انتخاب کنید:
               </p>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 <select
                   value={avoidTeamA}
                   onChange={(e) => setAvoidTeamA(e.target.value)}
-                  className="rounded-md border border-line bg-white px-3 py-1.5 text-xs"
+                  className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-bold text-slate-800 focus:border-emerald-500 focus:outline-none"
                 >
                   <option value="">انتخاب تیم اول...</option>
                   {teamNames.map((t) => (
@@ -2252,11 +2372,11 @@ function PlannerWizard() {
                     </option>
                   ))}
                 </select>
-                <span className="text-xs text-ink/40">↮</span>
+                <span className="text-xs font-bold text-slate-400">↮</span>
                 <select
                   value={avoidTeamB}
                   onChange={(e) => setAvoidTeamB(e.target.value)}
-                  className="rounded-md border border-line bg-white px-3 py-1.5 text-xs"
+                  className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-bold text-slate-800 focus:border-emerald-500 focus:outline-none"
                 >
                   <option value="">انتخاب تیم دوم...</option>
                   {teamNames
@@ -2270,7 +2390,7 @@ function PlannerWizard() {
                 <button
                   onClick={handleAddAvoidPair}
                   disabled={!avoidTeamA || !avoidTeamB || avoidTeamA === avoidTeamB}
-                  className="rounded-md bg-pitch/10 px-3 py-1.5 text-xs font-bold text-pitch hover:bg-pitch hover:text-chalk disabled:opacity-40"
+                  className="rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-100 disabled:opacity-40 transition-colors cursor-pointer"
                 >
                   + افزودن قانون عدم هم‌گروهی
                 </button>
@@ -2281,14 +2401,14 @@ function PlannerWizard() {
                   {avoidPairs.map(([a, b], idx) => (
                     <span
                       key={idx}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1 text-xs text-ink"
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-1 text-xs text-slate-800 shadow-2xs"
                     >
-                      <span className="font-semibold text-pitch">{a}</span>
-                      <span className="text-ink/40">↮</span>
-                      <span className="font-semibold text-pitch">{b}</span>
+                      <span className="font-black text-emerald-800">{a}</span>
+                      <span className="text-slate-400">↮</span>
+                      <span className="font-black text-emerald-800">{b}</span>
                       <button
                         onClick={() => handleRemoveAvoidPair(idx)}
-                        className="mr-1 text-brick hover:font-bold"
+                        className="mr-1 text-rose-500 hover:text-rose-700 font-black cursor-pointer"
                         title="حذف این قانون"
                       >
                         ✕
@@ -2302,12 +2422,13 @@ function PlannerWizard() {
 
           {/* Double League Round Style */}
           {format === "double-league" && (
-            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-4">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4">
               <div>
-                <h3 className="text-sm font-bold text-pitch">
-                  نحوه زمان‌بندی و تقویم دور برگشت (Double Round-Robin)
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <span className="text-base text-amber-500">🔄</span>
+                  <span>نحوه زمان‌بندی و تقویم دور برگشت (Double Round-Robin)</span>
                 </h3>
-                <p className="text-xs text-ink/60 mt-1">
+                <p className="text-xs text-slate-600 mt-1">
                   شما می‌توانید نحوه ترتیب مسابقات در نیم‌فصل دوم را مطابق استانداردهای روز دنیا یا تقویم کلاسیک انتخاب کنید:
                 </p>
               </div>
@@ -2316,8 +2437,8 @@ function PlannerWizard() {
                 <label
                   className={`relative flex cursor-pointer flex-col rounded-xl border p-4 transition-all ${
                     independentSecondLeg
-                      ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20"
-                      : "border-line bg-white/70 hover:border-pitch/40"
+                      ? "border-emerald-500 bg-emerald-50/40 shadow-sm ring-2 ring-emerald-500/20"
+                      : "border-slate-200/90 bg-slate-50/60 hover:border-slate-300 hover:bg-white"
                   }`}
                 >
                   <div className="flex items-start justify-between">
@@ -2327,17 +2448,17 @@ function PlannerWizard() {
                         name="secondLegStyle"
                         checked={independentSecondLeg}
                         onChange={() => setIndependentSecondLeg(true)}
-                        className="text-pitch focus:ring-pitch"
+                        className="text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                       />
-                      <span className="font-bold text-sm text-pitch">
+                      <span className="font-black text-sm text-slate-900">
                         تقویم نامتقارن (مدرن اروپایی)
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold bg-pitch/10 text-pitch px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
                       پیش‌فرض لیگ‌های معتبر
                     </span>
                   </div>
-                  <p className="mt-2 text-xs text-ink/70 leading-relaxed">
+                  <p className="mt-2 text-xs text-slate-600 leading-relaxed pr-6">
                     مشابه لیگ برتر انگلیس و لالیگا؛ ترتیب هفته‌های دور برگشت به شکل متوازن چیده می‌شود تا هیجان مسابقات بالا بماند و تیم‌ها بلافاصله در هفته بعد با همان حریف قبلی روبه‌رو نشوند.
                   </p>
                 </label>
@@ -2345,8 +2466,8 @@ function PlannerWizard() {
                 <label
                   className={`relative flex cursor-pointer flex-col rounded-xl border p-4 transition-all ${
                     !independentSecondLeg
-                      ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20"
-                      : "border-line bg-white/70 hover:border-pitch/40"
+                      ? "border-emerald-500 bg-emerald-50/40 shadow-sm ring-2 ring-emerald-500/20"
+                      : "border-slate-200/90 bg-slate-50/60 hover:border-slate-300 hover:bg-white"
                   }`}
                 >
                   <div className="flex items-start justify-between">
@@ -2356,17 +2477,17 @@ function PlannerWizard() {
                         name="secondLegStyle"
                         checked={!independentSecondLeg}
                         onChange={() => setIndependentSecondLeg(false)}
-                        className="text-pitch focus:ring-pitch"
+                        className="text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                       />
-                      <span className="font-bold text-sm text-pitch">
+                      <span className="font-black text-sm text-slate-900">
                         تقویم قرینه (کلاسیک و آینه‌ای)
                       </span>
                     </div>
-                    <span className="text-[10px] font-bold bg-ink/10 text-ink/70 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full">
                       سنتی
                     </span>
                   </div>
-                  <p className="mt-2 text-xs text-ink/70 leading-relaxed">
+                  <p className="mt-2 text-xs text-slate-600 leading-relaxed pr-6">
                     هفته‌های دور برگشت عیناً به ترتیب دور رفت تکرار می‌شوند (هفته اول دور برگشت تکرار بازی‌های هفته اول دور رفت با جابه‌جایی میزبان و میهمان است).
                   </p>
                 </label>
@@ -2376,19 +2497,20 @@ function PlannerWizard() {
 
           {/* Third Place Playoff Option */}
           {supportsThirdPlace && (
-            <div className="rounded-xl border border-line bg-chalk/40 p-5">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={hasThirdPlace}
                   onChange={(e) => setHasThirdPlace(e.target.checked)}
-                  className="h-4 w-4 rounded border-line text-pitch focus:ring-pitch"
+                  className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                 />
                 <div>
-                  <span className="text-sm font-bold text-pitch">
-                    برگزاری مسابقه رده‌بندی برای مقام سوم (Third Place Playoff)
+                  <span className="text-sm font-black text-slate-900 flex items-center gap-2">
+                    <span>🥉</span>
+                    <span>برگزاری مسابقه رده‌بندی برای مقام سوم (Third Place Playoff)</span>
                   </span>
-                  <p className="text-xs text-ink/60 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     بازنده‌های دو نیمه‌نهایی برای کسب مدال برنز و جایگاه سوم با یکدیگر رقابت خواهند کرد.
                   </p>
                 </div>
@@ -2398,19 +2520,20 @@ function PlannerWizard() {
 
           {/* Double Knockout Options (Bracket Reset) */}
           {format === "double-knockout" && (
-            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-3">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card space-y-3">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={hasResetFinal}
                   onChange={(e) => setHasResetFinal(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-line text-pitch focus:ring-pitch"
+                  className="mt-0.5 h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                 />
                 <div>
-                  <span className="text-sm font-bold text-pitch">
-                    برگزاری فینال مجدد در صورت باخت قهرمان برندگان (Bracket Reset)
+                  <span className="text-sm font-black text-slate-900 flex items-center gap-2">
+                    <span>🔄</span>
+                    <span>برگزاری فینال مجدد در صورت باخت قهرمان برندگان (Bracket Reset)</span>
                   </span>
-                  <p className="text-xs text-ink/70 mt-1 leading-relaxed">
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                     در فرمت رسمی دو حذفی، چون قهرمان جدول برندگان تا پیش از فینال هیچ شکستی نداشته است، در صورتی که در فینال اول از قهرمان بازندگان شکست بخورد، یک مسابقه سرنوشت‌ساز دوم برای تعیین قهرمان نهایی تورنمنت برگزار می‌شود.
                   </p>
                 </div>
@@ -2420,14 +2543,15 @@ function PlannerWizard() {
 
           {/* Seeded Teams Selection for Knockout and Double Knockout */}
           {(format === "knockout" || format === "double-knockout") && (
-            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-3">
-              <p className="text-sm font-bold text-pitch">
-                تیم‌های شاخص مسابقات {format === "double-knockout" ? "دو حذفی" : "تک‌حذفی"} (اختیاری)
-              </p>
-              <p className="text-xs text-ink/60">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-3">
+              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <span className="text-base text-amber-500">🌟</span>
+                <span>تیم‌های شاخص مسابقات {format === "double-knockout" ? "دو حذفی" : "تک‌حذفی"} (اختیاری)</span>
+              </h3>
+              <p className="text-xs text-slate-600">
                 به ترتیبی که کلیک می‌کنید، اولویت سیدبندی حذفی تعیین می‌شود تا تیم‌های برتر در مراحل اولیه به یکدیگر برخورد نکنند. برای لغو دوباره روی نام تیم کلیک کنید.
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 pt-1">
                 {teamNames.map((team) => {
                   const idx = seededTeams.indexOf(team);
                   const selected = idx !== -1;
@@ -2437,14 +2561,14 @@ function PlannerWizard() {
                       type="button"
                       onClick={() => toggleSeed(team)}
                       className={
-                        "rounded-full border px-3.5 py-1.5 text-sm transition-colors " +
+                        "rounded-full border px-4 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 " +
                         (selected
-                          ? "border-gold bg-gold/20 text-ink font-bold"
-                          : "border-line bg-white text-ink/70 hover:border-pitch/40")
+                          ? "border-amber-500 bg-amber-50 text-amber-950 shadow-xs ring-2 ring-amber-400/30"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-emerald-500/60 hover:bg-slate-50")
                       }
                     >
-                      {selected && <span className="ml-1.5 font-bold">{idx + 1}</span>}
-                      {team}
+                      {selected && <span className="font-black text-amber-600">سید {idx + 1}</span>}
+                      <span>{team}</span>
                     </button>
                   );
                 })}
@@ -2454,18 +2578,18 @@ function PlannerWizard() {
 
           {/* Multi-Pot Seeding for Group Stages (Pots 1, 2, 3, 4) */}
           {needsGroupRules && (
-            <div className="rounded-xl border border-line bg-chalk/40 p-5 space-y-4">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-sm font-bold text-pitch flex items-center gap-1.5">
-                    <span>🎲</span>
+                  <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                    <span className="text-base">🎲</span>
                     <span>سیدبندی گروه‌ها (اختیاری - سیدهای ۱، ۲، ۳ و ۴)</span>
                   </h3>
-                  <p className="text-xs text-ink/60 mt-0.5">
+                  <p className="text-xs text-slate-600 mt-0.5">
                     تعیین سیدها اختیاری است. تیم‌های هر سید در گروه‌های مجزا قرعه‌کشی می‌شوند تا با یکدیگر در یک گروه قرار نگیرند (حداکثر {numGroups} تیم در هر سید).
                   </p>
                 </div>
-                <span className="text-[11px] font-bold bg-pitch/10 text-pitch px-2.5 py-1 rounded-full">
+                <span className="text-[11px] font-black bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-3 py-1 rounded-full shadow-2xs">
                   حداکثر {numGroups} تیم در هر سید
                 </span>
               </div>
@@ -2484,20 +2608,20 @@ function PlannerWizard() {
                       key={pot.num}
                       type="button"
                       onClick={() => setActivePotTab(pot.num)}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-right ${
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-center cursor-pointer ${
                         isActive
-                          ? "border-pitch bg-white shadow-sm ring-2 ring-pitch/20 font-bold"
-                          : "border-line bg-white/70 hover:bg-white text-ink/70"
+                          ? "border-emerald-500 bg-emerald-50/50 shadow-sm ring-2 ring-emerald-500/20 font-black"
+                          : "border-slate-200/90 bg-slate-50/70 hover:bg-white text-slate-700"
                       }`}
                     >
-                      <div className="flex items-center gap-1.5 text-xs">
+                      <div className="flex items-center gap-1.5 text-xs font-black">
                         <span>{pot.icon}</span>
-                        <span className={isActive ? "text-pitch font-bold" : "text-ink"}>{pot.title}</span>
+                        <span className={isActive ? "text-emerald-950 font-black" : "text-slate-800 font-bold"}>{pot.title}</span>
                       </div>
                       <div className="mt-1 flex items-center gap-1">
                         <span
-                          className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                            pot.count > 0 ? "bg-pitch/10 text-pitch" : "bg-ink/5 text-ink/50"
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                            pot.count > 0 ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-600"
                           }`}
                         >
                           {pot.count} از {numGroups} تیم
@@ -2509,9 +2633,9 @@ function PlannerWizard() {
               </div>
 
               {/* Active Pot Info & Team Selector */}
-              <div className="rounded-xl border border-line bg-white p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/60 pb-2.5">
-                  <div className="text-xs text-ink/80">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/70 pb-2.5">
+                  <div className="text-xs text-slate-700">
                     {activePotTab === 1 && (
                       <span>
                         🌟 <strong>سرگروه‌ها (سید ۱):</strong> در رأس هر یک از {numGroups} گروه قرعه‌کشی می‌شوند (حداکثر {numGroups} تیم).
@@ -2547,7 +2671,7 @@ function PlannerWizard() {
                         if (activePotTab === 3) setPot3Teams([]);
                         if (activePotTab === 4) setPot4Teams([]);
                       }}
-                      className="text-[11px] text-brick hover:underline font-bold"
+                      className="text-[11px] text-rose-600 hover:underline font-black cursor-pointer"
                     >
                       ✕ پاک‌کردن تیم‌های سید {activePotTab}
                     </button>
@@ -2561,22 +2685,22 @@ function PlannerWizard() {
                     const isInOtherPot = currentPot !== null && currentPot !== activePotTab;
 
                     let buttonClass =
-                      "rounded-full border px-3.5 py-1.5 text-xs transition-all flex items-center gap-1.5 ";
+                      "rounded-full border px-3.5 py-1.5 text-xs transition-all flex items-center gap-1.5 cursor-pointer ";
 
                     if (isInActivePot) {
                       if (activePotTab === 1) {
-                        buttonClass += "border-gold bg-gold/25 text-ink font-bold shadow-sm";
+                        buttonClass += "border-amber-400 bg-amber-100 text-amber-950 font-black shadow-xs ring-2 ring-amber-400/30";
                       } else if (activePotTab === 2) {
-                        buttonClass += "border-sky-500 bg-sky-100 text-sky-950 font-bold shadow-sm";
+                        buttonClass += "border-sky-400 bg-sky-100 text-sky-950 font-black shadow-xs ring-2 ring-sky-400/30";
                       } else if (activePotTab === 3) {
-                        buttonClass += "border-amber-600 bg-amber-100 text-amber-950 font-bold shadow-sm";
+                        buttonClass += "border-teal-400 bg-teal-100 text-teal-950 font-black shadow-xs ring-2 ring-teal-400/30";
                       } else {
-                        buttonClass += "border-purple-500 bg-purple-100 text-purple-950 font-bold shadow-sm";
+                        buttonClass += "border-purple-400 bg-purple-100 text-purple-950 font-black shadow-xs ring-2 ring-purple-400/30";
                       }
                     } else if (isInOtherPot) {
-                      buttonClass += "border-line bg-chalk/60 text-ink/60 hover:border-pitch/40";
+                      buttonClass += "border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300";
                     } else {
-                      buttonClass += "border-line bg-white text-ink/80 hover:border-pitch/40 hover:bg-chalk/30";
+                      buttonClass += "border-slate-200 bg-white text-slate-800 hover:border-emerald-500 hover:bg-slate-50";
                     }
 
                     return (
@@ -2594,11 +2718,11 @@ function PlannerWizard() {
                         }
                       >
                         {isInActivePot && (
-                          <span className="font-bold text-[11px]">✓</span>
+                          <span className="font-black text-[11px]">✓</span>
                         )}
                         <span>{team}</span>
                         {isInOtherPot && (
-                          <span className="text-[10px] text-ink/50 bg-ink/5 px-1.5 py-0.5 rounded-full">
+                          <span className="text-[10px] text-slate-600 bg-slate-200 px-1.5 py-0.5 rounded-full font-bold">
                             سید {currentPot}
                           </span>
                         )}
@@ -2609,27 +2733,27 @@ function PlannerWizard() {
               </div>
 
               {/* Pots Summary Bar */}
-              <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-ink/70">
-                <span className="font-bold text-ink/80">خلاصه سیدبندی:</span>
-                <span className="inline-flex items-center gap-1 bg-white border border-line px-2.5 py-1 rounded-lg">
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-600">
+                <span className="font-black text-slate-800">خلاصه سیدبندی:</span>
+                <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs">
                   <span>🌟 سید ۱:</span>
-                  <strong className="text-pitch">{seededTeams.length}</strong>
+                  <strong className="text-emerald-700">{seededTeams.length}</strong>
                 </span>
-                <span className="inline-flex items-center gap-1 bg-white border border-line px-2.5 py-1 rounded-lg">
+                <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs">
                   <span>🥈 سید ۲:</span>
-                  <strong className="text-pitch">{pot2Teams.length}</strong>
+                  <strong className="text-emerald-700">{pot2Teams.length}</strong>
                 </span>
-                <span className="inline-flex items-center gap-1 bg-white border border-line px-2.5 py-1 rounded-lg">
+                <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs">
                   <span>🥉 سید ۳:</span>
-                  <strong className="text-pitch">{pot3Teams.length}</strong>
+                  <strong className="text-emerald-700">{pot3Teams.length}</strong>
                 </span>
-                <span className="inline-flex items-center gap-1 bg-white border border-line px-2.5 py-1 rounded-lg">
+                <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs">
                   <span>🏅 سید ۴:</span>
-                  <strong className="text-pitch">{pot4Teams.length}</strong>
+                  <strong className="text-emerald-700">{pot4Teams.length}</strong>
                 </span>
-                <span className="inline-flex items-center gap-1 bg-white border border-line px-2.5 py-1 rounded-lg">
+                <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs">
                   <span>⚪ قرعه آزاد:</span>
-                  <strong className="text-pitch">
+                  <strong className="text-emerald-700">
                     {teamCount - (seededTeams.length + pot2Teams.length + pot3Teams.length + pot4Teams.length)}
                   </strong>
                 </span>
@@ -2638,8 +2762,8 @@ function PlannerWizard() {
           )}
 
           {error && (
-            <p className="rounded-md border border-brick/30 bg-brick/5 px-4 py-3 text-sm text-brick">
-              {error}
+            <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800 shadow-2xs">
+              ⚠️ {error}
             </p>
           )}
 
@@ -2656,25 +2780,29 @@ function PlannerWizard() {
 
       {/* STEP 4: RESULTS VIEW */}
       {step === 4 && result && (
-        <section>
+        <section className="animate-fade-in space-y-6">
           {/* Action Toolbar */}
-          <div className="no-print mb-8 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-white/70 p-4 shadow-sm">
+          <div className="no-print flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-card">
             <div>
-              <h1 className="text-xl font-bold text-pitch">
-                {result.metadata?.title || "برنامه مسابقات NexSport"}
-              </h1>
-              <p className="text-xs text-ink/60 mt-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🏆</span>
+                <h1 className="text-xl font-black text-slate-900">
+                  {result.metadata?.title || "برنامه مسابقات NexSport"}
+                </h1>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
                 ثبت نتایج، ضربات پنالتی، چاپ رسمی، خروجی اکسل یا اشتراک در پیام‌رسان‌ها.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <button
-                className="inline-flex items-center justify-center rounded-md border border-gold/40 bg-gold/15 px-3.5 py-2 text-sm font-bold text-gold-dark transition-colors hover:bg-gold hover:text-white cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-black text-amber-900 hover:bg-amber-100 hover:shadow-xs transition-all cursor-pointer"
                 onClick={handleOpenSaveCloud}
                 title="ذخیره این مسابقه و نتایج آن در فضای ابری حساب کاربری"
               >
-                ☁️ ذخیره ابری
+                <span>☁️</span>
+                <span>ذخیره ابری</span>
               </button>
 
               <button
@@ -2682,7 +2810,8 @@ function PlannerWizard() {
                 onClick={handleOpenSavedList}
                 title="مشاهده و بارگذاری مسابقات ذخیره شده در حساب کاربری"
               >
-                📂 مسابقات من
+                <span>📂</span>
+                <span>مسابقات من</span>
               </button>
 
               <button
@@ -2690,7 +2819,8 @@ function PlannerWizard() {
                 onClick={handleCopyText}
                 title="کپی متن کامل برنامه برای پیام‌رسان‌ها (تلگرام و واتس‌اپ)"
               >
-                {copiedText ? "✅ کپی شد!" : "📋 کپی متن"}
+                <span>{copiedText ? "✅" : "📋"}</span>
+                <span>{copiedText ? "کپی شد!" : "کپی متن"}</span>
               </button>
 
               <button
@@ -2698,7 +2828,8 @@ function PlannerWizard() {
                 onClick={handleDownloadCsv}
                 title="دریافت فایل اکسل / CSV با پشتیبانی کامل از زبان فارسی"
               >
-                📊 خروجی اکسل
+                <span>📊</span>
+                <span>خروجی اکسل</span>
               </button>
 
               <button
@@ -2706,7 +2837,8 @@ function PlannerWizard() {
                 onClick={handleExportJson}
                 title="دانلود فایل پشتیبان مسابقه (.json) برای ذخیره روی سیستم یا انتقال به دستگاه دیگر"
               >
-                💾 ذخیره فایل (JSON)
+                <span>💾</span>
+                <span>ذخیره فایل</span>
               </button>
 
               <button
@@ -2714,7 +2846,8 @@ function PlannerWizard() {
                 onClick={() => jsonFileInputRef.current?.click()}
                 title="بارگذاری مسابقه قبلی از فایل JSON"
               >
-                📂 باز کردن مسابقه
+                <span>📂</span>
+                <span>باز کردن</span>
               </button>
 
               <button
@@ -2722,7 +2855,8 @@ function PlannerWizard() {
                 onClick={() => setStep(3)}
                 title="تغییر گروه‌ها، سرگروه‌ها یا تنظیمات"
               >
-                ⚙️ ویرایش تنظیمات
+                <span>⚙️</span>
+                <span>تنظیمات</span>
               </button>
 
               <button
@@ -2732,7 +2866,8 @@ function PlannerWizard() {
                 }}
                 title="تنظیمات پیشرفته چاپ و دریافت فایل PDF"
               >
-                🖨️ چاپ / PDF
+                <span>🖨️</span>
+                <span>چاپ / PDF</span>
               </button>
             </div>
           </div>

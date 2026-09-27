@@ -177,19 +177,21 @@ export function ScheduleView({
   return (
     <div id="print-area" className="space-y-6">
       {/* Official Header for Print & Web */}
-      <div className="rounded-xl border border-line bg-chalk/80 p-5 shadow-sm print:border-pitch/40 print:bg-white print:p-4 print-avoid-break">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🏆</span>
-              <h1 className="text-xl font-black text-pitch">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card print:border-slate-300 print:p-4 print-avoid-break">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black text-lg shadow-xs">
+                🏆
+              </span>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                 {meta?.title || "جدول و برنامه رسمی مسابقات"}
               </h1>
             </div>
             {meta?.venue && (
-              <p className="text-xs text-ink/70 mt-1 flex items-center gap-1.5 font-medium">
+              <p className="text-xs text-slate-600 flex items-center gap-1.5 font-medium pr-1">
                 <span>📍 محل برگزاری:</span>
-                <span className="text-ink font-semibold">{meta.venue}</span>
+                <span className="text-slate-900 font-bold">{meta.venue}</span>
               </p>
             )}
           </div>
@@ -197,18 +199,18 @@ export function ScheduleView({
             <button
               type="button"
               onClick={() => setIsPrintModalOpen(true)}
-              className="no-print inline-flex items-center gap-1.5 rounded-lg bg-pitch hover:bg-pitch-light active:bg-pitch-dark text-white px-3.5 py-2 text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+              className="no-print inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-pitch hover:from-emerald-500 hover:to-pitch-light text-white px-4 py-2.5 text-xs font-bold transition-all shadow-xs cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
               title="تنظیمات پیشرفته چاپ و دریافت فایل PDF"
             >
               <span>🖨️</span>
               <span>تنظیمات و چاپ PDF</span>
             </button>
             <div className="text-left text-xs space-y-0.5">
-              <div className="flex items-center gap-1.5 font-bold text-pitch justify-end">
+              <div className="flex items-center gap-1.5 font-black text-slate-800 justify-end">
                 <span>سامانه برنامه‌ریزی مسابقات NexSport</span>
                 <NexSportIcon size={20} className="shrink-0 drop-shadow-2xs" />
               </div>
-              <div className="font-mono text-pitch font-bold dir-ltr text-xs">
+              <div className="font-mono text-emerald-700 font-bold dir-ltr text-xs">
                 https://nexsport.ir
               </div>
             </div>
@@ -218,15 +220,15 @@ export function ScheduleView({
 
       {/* Tab bar (matches vs standings) */}
       {hasStandings && (
-        <div className="no-print flex items-center justify-between border-b border-line">
-          <div className="flex">
+        <div className="no-print flex flex-wrap items-center justify-between gap-3 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setActiveTab("matches")}
               className={
-                "px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors " +
+                "px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all " +
                 (activeTab === "matches"
-                  ? "border-pitch text-pitch"
-                  : "border-transparent text-ink/60 hover:text-ink")
+                  ? "bg-white text-slate-900 shadow-xs border border-slate-200/80"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/50")
               }
             >
               ⚽ برنامه و نتایج مسابقات
@@ -234,10 +236,10 @@ export function ScheduleView({
             <button
               onClick={() => setActiveTab("standings")}
               className={
-                "px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 " +
+                "px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center gap-1.5 " +
                 (activeTab === "standings"
-                  ? "border-pitch text-pitch"
-                  : "border-transparent text-ink/60 hover:text-ink")
+                  ? "bg-white text-slate-900 shadow-xs border border-slate-200/80"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white/50")
               }
             >
               📊 جدول رده‌بندی و امتیازات
@@ -247,7 +249,7 @@ export function ScheduleView({
           {onResetScores && Object.keys(scores).length > 0 && (
             <button
               onClick={onResetScores}
-              className="text-xs text-brick hover:underline font-semibold px-2 py-1"
+              className="text-xs text-rose-700 hover:text-rose-900 hover:underline font-bold px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200/60 transition-colors"
               title="پاک کردن گل‌ها و نتایج ثبت‌شده بدون تغییر در قرعه‌کشی مسابقات"
             >
               🧹 پاک کردن نتایج بازی‌ها
@@ -768,11 +770,14 @@ function RoundsTable({
           return (
             <div
               key={round.round}
-              className="rounded-lg border border-line bg-white/60 p-4 shadow-sm"
+              className="sport-card p-4 space-y-3"
             >
-              <div className="mb-3 flex items-center justify-between border-b border-line/60 pb-2">
-                <span className="font-semibold text-sm text-pitch">هفته {round.round}</span>
-                <span className="text-xs text-ink/50">{visibleMatches.length} مسابقه</span>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <span className="font-black text-sm text-slate-900 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span>هفته {round.round}</span>
+                </span>
+                <span className="text-xs text-slate-500 font-semibold bg-slate-100 px-2.5 py-0.5 rounded-full">{visibleMatches.length} مسابقه</span>
               </div>
               <div className="space-y-2.5">
                 {visibleMatches.map((m, idx) => {
@@ -785,21 +790,29 @@ function RoundsTable({
                   return (
                     <div
                       key={matchId}
-                      className="rounded-md border border-line/80 bg-chalk/60 px-3 py-2 text-sm space-y-1.5"
+                      className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs hover:border-slate-300 hover:shadow-card transition-all space-y-2"
                     >
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={
-                            "flex-1 text-right truncate font-medium " +
-                            (homeWon ? "text-pitch font-bold" : "text-ink")
-                          }
-                          title={m.home}
-                        >
-                          {m.home}
-                        </span>
+                      <div className="flex items-center justify-between gap-2">
+                        {/* Home Team */}
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-black shrink-0 ${
+                            homeWon ? "bg-emerald-500 text-white shadow-2xs" : "bg-slate-100 text-slate-700 border border-slate-200"
+                          }`}>
+                            {m.home.trim().charAt(0)}
+                          </span>
+                          <span
+                            className={
+                              "truncate text-xs sm:text-sm " +
+                              (homeWon ? "text-emerald-800 font-black" : "text-slate-800 font-bold")
+                            }
+                            title={m.home}
+                          >
+                            {m.home}
+                          </span>
+                        </div>
 
                         {/* Score inputs */}
-                        <div className="mx-2 flex items-center gap-1.5">
+                        <div className="mx-1 flex items-center gap-1.5 shrink-0 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200">
                           <input
                             type="number"
                             min="0"
@@ -813,9 +826,9 @@ function RoundsTable({
                               onScoreChange(matchId, val, sc.away ?? null);
                             }}
                             placeholder="-"
-                            className="w-10 rounded border border-line bg-white py-1 text-center font-bold text-sm text-ink focus:border-gold focus:outline-none"
+                            className="w-8 sm:w-9 h-7 rounded-lg border border-slate-300 bg-white text-center font-black text-xs sm:text-sm text-slate-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
                           />
-                          <span className="text-ink/40 font-bold">:</span>
+                          <span className="text-slate-400 font-bold">:</span>
                           <input
                             type="number"
                             min="0"
@@ -829,25 +842,33 @@ function RoundsTable({
                               onScoreChange(matchId, sc.home ?? null, val);
                             }}
                             placeholder="-"
-                            className="w-10 rounded border border-line bg-white py-1 text-center font-bold text-sm text-ink focus:border-gold focus:outline-none"
+                            className="w-8 sm:w-9 h-7 rounded-lg border border-slate-300 bg-white text-center font-black text-xs sm:text-sm text-slate-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
                           />
                         </div>
 
-                        <span
-                          className={
-                            "flex-1 text-left truncate font-medium " +
-                            (awayWon ? "text-pitch font-bold" : "text-ink")
-                          }
-                          title={m.away}
-                        >
-                          {m.away}
-                        </span>
+                        {/* Away Team */}
+                        <div className="flex items-center justify-end gap-2 flex-1 min-w-0">
+                          <span
+                            className={
+                              "truncate text-xs sm:text-sm text-left " +
+                              (awayWon ? "text-emerald-800 font-black" : "text-slate-800 font-bold")
+                            }
+                            title={m.away}
+                          >
+                            {m.away}
+                          </span>
+                          <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-black shrink-0 ${
+                            awayWon ? "bg-emerald-500 text-white shadow-2xs" : "bg-slate-100 text-slate-700 border border-slate-200"
+                          }`}>
+                            {m.away.trim().charAt(0)}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Match Time / Pitch details */}
-                      <div className="flex items-center justify-between text-[11px] text-ink/70 pt-1 border-t border-line/40">
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100">
                         {dt?.date || dt?.time || dt?.pitch ? (
-                          <span className="inline-flex items-center gap-1 text-pitch font-medium truncate">
+                          <span className="inline-flex items-center gap-1 text-emerald-800 font-bold truncate bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
                             <span>🕒</span>
                             <span>
                               {[
@@ -860,7 +881,7 @@ function RoundsTable({
                             </span>
                           </span>
                         ) : (
-                          <span className="text-ink/40 text-[10px]">
+                          <span className="text-slate-400 text-[10px]">
                             زمان و زمین ثبت نشده
                           </span>
                         )}
@@ -868,9 +889,9 @@ function RoundsTable({
                           <button
                             type="button"
                             onClick={() => onOpenEditModal(matchId, m.home, m.away)}
-                            className="text-[10px] text-pitch font-semibold hover:underline mr-1"
+                            className="text-[10px] text-pitch font-bold hover:underline mr-1 cursor-pointer bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded transition-colors"
                           >
-                            {dt?.date || dt?.time || dt?.pitch ? "ویرایش" : "🕒 زمان / زمین"}
+                            {dt?.date || dt?.time || dt?.pitch ? "ویرایش" : "🕒 تنظیم زمان/زمین"}
                           </button>
                         )}
                       </div>
@@ -1160,66 +1181,73 @@ function StandingsTable({
                 className={
                   "transition-colors print-avoid-break " +
                   (isChampion
-                    ? "bg-gold/15 font-bold"
+                    ? "bg-amber-50/70 font-bold"
                     : isClinched
                     ? "bg-emerald-50/50 font-semibold"
-                    : "hover:bg-chalk/30")
+                    : "hover:bg-slate-50")
                 }
               >
                 <td className="py-2.5 px-3 print:py-1.5 print:px-2">
                   <span
                     className={
-                      "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold " +
+                      "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-black shadow-2xs " +
                       (isChampion
-                        ? "bg-gold text-ink"
+                        ? "bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950"
                         : isClinched
-                        ? "bg-pitch text-chalk"
-                        : "bg-chalk text-ink/70 border border-line")
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-100 text-slate-600 border border-slate-200")
                     }
                   >
                     {idx + 1}
                   </span>
                 </td>
                 <td className="py-2.5 px-4 text-right print:py-1.5 print:px-2">
-                  <span className="font-semibold text-ink">{s.team}</span>
-                  {isChampion && (
-                    <span className="mr-2 rounded bg-gold/25 border border-gold/40 px-1.5 py-0.5 text-[10px] font-bold text-gold-dark print:py-0 print:px-1 print:text-[9px]">
-                      👑 قهرمان
+                  <div className="inline-flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-black shrink-0 no-print">
+                      {s.team.trim().charAt(0)}
                     </span>
-                  )}
-                  {isDirectClinched && !isChampion && (
-                    <span className="mr-2 rounded bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 print:py-0 print:px-1 print:text-[9px]">
-                      ✓ {clinch.isAllMatchesFinished ? qualifierLabel : "صعود قطعی"}
-                    </span>
-                  )}
-                  {!isDirectClinched && isExtraQualified && (
-                    <span className="mr-2 rounded bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 print:py-0 print:px-1 print:text-[9px]">
-                      ✓ {extraQualifierLabel}
-                    </span>
-                  )}
+                    <span className="font-bold text-slate-900">{s.team}</span>
+                    {isChampion && (
+                      <span className="mr-1.5 rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-900 print:py-0 print:px-1 print:text-[9px]">
+                        👑 قهرمان
+                      </span>
+                    )}
+                    {isDirectClinched && !isChampion && (
+                      <span className="mr-1.5 rounded-full bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[10px] font-black text-emerald-900 print:py-0 print:px-1 print:text-[9px]">
+                        ✓ {clinch.isAllMatchesFinished ? qualifierLabel : "صعود قطعی"}
+                      </span>
+                    )}
+                    {!isDirectClinched && isExtraQualified && (
+                      <span className="mr-1.5 rounded-full bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[10px] font-black text-emerald-900 print:py-0 print:px-1 print:text-[9px]">
+                        ✓ {extraQualifierLabel}
+                      </span>
+                    )}
+                  </div>
                 </td>
-                <td className="py-2.5 px-2.5 text-ink/80 print:py-1.5 print:px-1.5">{s.played}</td>
-                <td className="py-2.5 px-2.5 font-bold text-pitch print:py-1.5 print:px-1.5">{s.won}</td>
+                <td className="py-2.5 px-2.5 text-slate-700 font-medium print:py-1.5 print:px-1.5">{s.played}</td>
+                <td className="py-2.5 px-2.5 font-bold text-emerald-800 print:py-1.5 print:px-1.5">{s.won}</td>
                 {!isVolleyball && (
-                  <td className="py-2.5 px-2.5 text-ink/60 print:py-1.5 print:px-1.5">{s.drawn}</td>
+                  <td className="py-2.5 px-2.5 text-slate-500 font-medium print:py-1.5 print:px-1.5">{s.drawn}</td>
                 )}
-                <td className="py-2.5 px-2.5 text-brick print:py-1.5 print:px-1.5">{s.lost}</td>
-                <td className="py-2.5 px-2.5 text-ink/80 print:py-1.5 print:px-1.5">{s.goalsFor}</td>
-                <td className="py-2.5 px-2.5 text-ink/80 print:py-1.5 print:px-1.5">{s.goalsAgainst}</td>
+                <td className="py-2.5 px-2.5 text-rose-600 font-bold print:py-1.5 print:px-1.5">{s.lost}</td>
+                <td className="py-2.5 px-2.5 text-slate-600 font-medium print:py-1.5 print:px-1.5">{s.goalsFor}</td>
+                <td className="py-2.5 px-2.5 text-slate-600 font-medium print:py-1.5 print:px-1.5">{s.goalsAgainst}</td>
                 <td
                   className={
                     "py-2.5 px-2.5 font-bold print:py-1.5 print:px-1.5 " +
                     (s.goalDifference > 0
-                      ? "text-pitch"
+                      ? "text-emerald-700"
                       : s.goalDifference < 0
-                      ? "text-brick"
-                      : "text-ink/50")
+                      ? "text-rose-600"
+                      : "text-slate-400")
                   }
                 >
                   {s.goalDifference > 0 ? `+${s.goalDifference}` : s.goalDifference}
                 </td>
-                <td className="py-2.5 px-3 bg-pitch/5 font-extrabold text-pitch text-base print:py-1.5 print:px-2 print:text-xs print:bg-chalk">
-                  {s.points}
+                <td className="py-2.5 px-3 print:py-1.5 print:px-2">
+                  <span className="inline-block bg-pitch/10 text-pitch font-black text-sm px-2.5 py-0.5 rounded-lg border border-pitch/15 font-mono">
+                    {s.points}
+                  </span>
                 </td>
               </tr>
             );
@@ -2401,8 +2429,8 @@ function MatchBracketCard({
   return (
     <div
       className={
-        "rounded-lg border shadow-xs transition-all overflow-hidden print-avoid-break " +
-        (isFilteredTeam ? "ring-2 ring-gold border-gold bg-gold/5 " : "") +
+        "rounded-xl border shadow-card transition-all overflow-hidden print-avoid-break " +
+        (isFilteredTeam ? "ring-2 ring-amber-400 border-amber-400 bg-amber-50/10 " : "") +
         (isEmptyDoubleBye
           ? "border-slate-200 bg-slate-50/40 opacity-75"
           : isPending
@@ -2410,8 +2438,8 @@ function MatchBracketCard({
           : isSingleBye
           ? "border-emerald-200 bg-emerald-50/15"
           : isFinal
-          ? "border-gold/80 bg-white"
-          : "border-line bg-white/95")
+          ? "border-amber-400/80 bg-white"
+          : "border-slate-200/90 bg-white/95")
       }
     >
       {/* Match Header */}
