@@ -28,6 +28,7 @@ import {
   SavedTournamentsModal,
   SavedTournamentItem,
 } from "@/components/planner/SavedTournamentsModal";
+import { DrawCeremonyModal } from "@/components/planner/DrawCeremonyModal";
 
 const STORAGE_KEY = "nexsport_wizard_state_v4";
 
@@ -293,6 +294,10 @@ function PlannerWizard() {
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
   const [savedModalOpen, setSavedModalOpen] = useState(false);
   const [savedModalMode, setSavedModalMode] = useState<"save" | "list">("list");
+
+  // Live Draw Ceremony state
+  const [showDrawCeremony, setShowDrawCeremony] = useState(false);
+  const [isRedrawCeremony, setIsRedrawCeremony] = useState(false);
 
   // Bulk input & file input refs
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -784,12 +789,8 @@ function PlannerWizard() {
       }
 
       setResult(r);
-      if (isRedraw) {
-        setScores({});
-        setInfoMessage("🎲 قرعه‌کشی مجدد با موفقیت انجام شد!");
-        setTimeout(() => setInfoMessage(null), 3500);
-      }
-      setStep(4);
+      setIsRedrawCeremony(isRedraw);
+      setShowDrawCeremony(true);
     } catch (e) {
       setError(
         e instanceof ScheduleValidationError
@@ -797,6 +798,17 @@ function PlannerWizard() {
           : "خطایی رخ داد. لطفاً دوباره تلاش کنید."
       );
     }
+  }
+
+  function handleCeremonyComplete() {
+    setShowDrawCeremony(false);
+    setStep(4);
+    if (isRedrawCeremony) {
+      setScores({});
+      setInfoMessage("🎲 قرعه‌کشی جدید با موفقیت اعمال و ثبت شد!");
+      setTimeout(() => setInfoMessage(null), 3500);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function handleReset() {
@@ -2797,6 +2809,24 @@ function PlannerWizard() {
 
             <div className="flex flex-wrap items-center gap-2">
               <button
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50 px-3.5 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-100 hover:shadow-xs transition-all cursor-pointer"
+                onClick={() => setShowDrawCeremony(true)}
+                title="مشاهده مجدد انیمیشن و مراسم زنده قرعه‌کشی مسابقات"
+              >
+                <span>🎬</span>
+                <span>پخش مراسم قرعه‌کشی</span>
+              </button>
+
+              <button
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-50 px-3.5 py-2 text-xs font-black text-teal-800 hover:bg-teal-100 hover:shadow-xs transition-all cursor-pointer"
+                onClick={() => handleGenerate(true)}
+                title="تولید مجدد و تصادفی تقویم و قرعه‌کشی مسابقات"
+              >
+                <span>🎲</span>
+                <span>قرعه‌کشی مجدد</span>
+              </button>
+
+              <button
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-black text-amber-900 hover:bg-amber-100 hover:shadow-xs transition-all cursor-pointer"
                 onClick={handleOpenSaveCloud}
                 title="ذخیره این مسابقه و نتایج آن در فضای ابری حساب کاربری"
@@ -2879,6 +2909,7 @@ function PlannerWizard() {
             onScoreChange={handleScoreChange}
             onMatchDetailChange={handleMatchDetailChange}
             onResetScores={handleResetScores}
+            onReplayDrawCeremony={() => setShowDrawCeremony(true)}
             teams={teamNames}
             qualifiersPerGroup={qualifiersPerGroup}
           />
@@ -2927,6 +2958,16 @@ function PlannerWizard() {
         }
         onLoadTournament={handleLoadCloudTournament}
         onSavedSuccess={handleCloudSaveSuccess}
+      />
+
+      {/* Live Draw Ceremony Modal */}
+      <DrawCeremonyModal
+        isOpen={showDrawCeremony}
+        format={format}
+        teams={teamNames}
+        result={result}
+        tournamentTitle={metadata.title}
+        onComplete={handleCeremonyComplete}
       />
     </main>
   );

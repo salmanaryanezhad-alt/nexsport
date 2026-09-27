@@ -38,6 +38,7 @@ interface ScheduleViewProps {
     detail: MatchScheduleDetail
   ) => void;
   onResetScores?: () => void;
+  onReplayDrawCeremony?: () => void;
   teams: string[];
   qualifiersPerGroup?: number;
 }
@@ -49,6 +50,7 @@ export function ScheduleView({
   onScoreChange,
   onMatchDetailChange,
   onResetScores,
+  onReplayDrawCeremony,
   teams,
   qualifiersPerGroup = 2,
 }: ScheduleViewProps) {
@@ -195,7 +197,19 @@ export function ScheduleView({
               </p>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {onReplayDrawCeremony && (
+              <button
+                type="button"
+                onClick={onReplayDrawCeremony}
+                className="no-print inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 px-3.5 py-2.5 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                title="مشاهده دوباره مراسم زنده قرعه‌کشی"
+              >
+                <span>🎬</span>
+                <span>مراسم قرعه‌کشی</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setIsPrintModalOpen(true)}
