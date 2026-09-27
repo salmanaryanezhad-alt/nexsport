@@ -2818,15 +2818,6 @@ function PlannerWizard() {
               </button>
 
               <button
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-50 px-3.5 py-2 text-xs font-black text-teal-800 hover:bg-teal-100 hover:shadow-xs transition-all cursor-pointer"
-                onClick={() => handleGenerate(true)}
-                title="تولید مجدد و تصادفی تقویم و قرعه‌کشی مسابقات"
-              >
-                <span>🎲</span>
-                <span>قرعه‌کشی مجدد</span>
-              </button>
-
-              <button
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-black text-amber-900 hover:bg-amber-100 hover:shadow-xs transition-all cursor-pointer"
                 onClick={handleOpenSaveCloud}
                 title="ذخیره این مسابقه و نتایج آن در فضای ابری حساب کاربری"
@@ -2909,7 +2900,6 @@ function PlannerWizard() {
             onScoreChange={handleScoreChange}
             onMatchDetailChange={handleMatchDetailChange}
             onResetScores={handleResetScores}
-            onReplayDrawCeremony={() => setShowDrawCeremony(true)}
             teams={teamNames}
             qualifiersPerGroup={qualifiersPerGroup}
           />
