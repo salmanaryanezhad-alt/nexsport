@@ -2881,7 +2881,7 @@ function PlannerWizard() {
               </button>
 
               <button
-                className={btnPrimary}
+                className={btnGhost}
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent("nexsport-open-print"));
                 }}

@@ -260,6 +260,15 @@ export function DrawCeremonyModal({
     return () => clearTimeout(stepTimer);
   }, [stage, currentStepIndex, drawSequence, isPaused, soundEnabled]);
 
+  // Auto-advance to schedule page after completion celebration (~1.8s)
+  useEffect(() => {
+    if (stage !== "completed" || !isOpen) return;
+    const tAuto = setTimeout(() => {
+      handleFinish();
+    }, 1800);
+    return () => clearTimeout(tAuto);
+  }, [stage, isOpen]);
+
   if (!isOpen) return null;
 
   const handleFinish = () => {

@@ -175,9 +175,9 @@ export function ScheduleView({
   }, [result, scores, qualifiersPerGroup, meta?.pointsRule]);
 
   return (
-    <div id="print-area" className="space-y-6">
+    <div id="print-area" className="space-y-6 print:space-y-3">
       {/* Official Header for Print & Web */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card print:border-slate-300 print:p-4 print-avoid-break">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card print:border-slate-300 print:p-3.5 print:mb-3 print:rounded-xl print:shadow-none print-avoid-break">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
@@ -196,15 +196,6 @@ export function ScheduleView({
             )}
           </div>
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsPrintModalOpen(true)}
-              className="no-print inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-pitch hover:from-emerald-500 hover:to-pitch-light text-white px-4 py-2.5 text-xs font-bold transition-all shadow-xs cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
-              title="تنظیمات پیشرفته چاپ و دریافت فایل PDF"
-            >
-              <span>🖨️</span>
-              <span>تنظیمات و چاپ PDF</span>
-            </button>
             <div className="text-left text-xs space-y-0.5">
               <div className="flex items-center gap-1.5 font-black text-slate-800 justify-end">
                 <span>سامانه برنامه‌ریزی مسابقات NexSport</span>
@@ -333,7 +324,7 @@ export function ScheduleView({
 
           {result.format === "groups-knockout" && (
             <div className="space-y-12 print:space-y-6">
-              <div className="print-avoid-break">
+              <div>
                 <h2 className="text-lg font-bold text-pitch mb-4 print:text-base print:mb-2">
                   مرحله اول: مسابقات گروهی
                 </h2>
@@ -350,7 +341,7 @@ export function ScheduleView({
                 />
               </div>
 
-              <div className="print-avoid-break">
+              <div>
                 <div className="border-t border-line pt-8 mb-6 print:pt-4 print:mb-3">
                   <h2 className="text-lg font-bold text-pitch print:text-base">
                     مرحله دوم: براکت حذفی صعودکننده‌ها
@@ -921,12 +912,12 @@ function RoundsTable({
           }
 
           return (
-            <div key={round.round} className="space-y-1.5 print-avoid-break">
+            <div key={round.round} className="space-y-1.5">
               <div className="bg-pitch/10 text-pitch font-bold text-xs py-1 px-3 rounded flex items-center justify-between border-r-4 border-pitch">
                 <span className="font-extrabold">هفته {round.round}</span>
                 <span className="text-[10px] text-ink/70">{visibleMatches.length} مسابقه</span>
               </div>
-              <div className="w-full overflow-hidden rounded-lg border border-line bg-white print-avoid-break">
+              <div className="w-full overflow-hidden rounded-lg border border-line bg-white print:border-line/70">
                 <table className="w-full text-right text-xs print:text-[11px]">
                   <thead>
                     <tr className="border-b border-line bg-chalk/80 font-bold text-ink/80 print:bg-chalk">
@@ -1055,9 +1046,9 @@ function GroupsMatchesView({
         </div>
       )}
 
-      <div className={`space-y-8 ${selectedGroupIndex !== "all" ? "no-print" : ""}`}>
+      <div className={`space-y-8 print:space-y-4 ${selectedGroupIndex !== "all" ? "no-print" : ""}`}>
         {filteredGroups.map((g) => (
-          <div key={g.name} className="rounded-lg border border-line bg-chalk/30 p-5 print:p-3 print:bg-white print-avoid-break">
+          <div key={g.name} className="rounded-lg border border-line bg-chalk/30 p-5 print:p-2.5 print:bg-white">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3 print:mb-2 print:pb-1">
               <h3 className="font-bold text-pitch text-base print:text-sm">{g.name}</h3>
               <span className="text-xs text-ink/60 print:text-[10px]">تیم‌ها: {g.teams.join(" · ")}</span>
@@ -1076,9 +1067,9 @@ function GroupsMatchesView({
       </div>
 
       {selectedGroupIndex !== "all" && (
-        <div className="hidden print:block space-y-6">
+        <div className="hidden print:block space-y-6 print:space-y-4">
           {groups.map((g) => (
-            <div key={g.name} className="rounded-lg border border-line bg-white p-3 print-avoid-break">
+            <div key={g.name} className="rounded-lg border border-line bg-white p-3 print:p-2.5">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-1">
                 <h3 className="font-bold text-pitch text-sm">{g.name}</h3>
                 <span className="text-[10px] text-ink/60">تیم‌ها: {g.teams.join(" · ")}</span>
@@ -1136,7 +1127,7 @@ function StandingsTable({
   const isVolleyball = pointsRule?.sport === "volleyball";
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-line bg-white shadow-sm print-avoid-break print:border-line/70">
+    <div className="overflow-x-auto rounded-lg border border-line bg-white shadow-sm print:border-line/70">
       <table className="w-full text-center text-sm print:text-xs">
         <thead>
           <tr className="border-b border-line bg-chalk/80 text-xs font-bold text-ink/70 print:bg-chalk print-avoid-break">
@@ -1431,7 +1422,7 @@ function KnockoutPrintSchedule({
   if (!knockout || !knockout.rounds) return null;
 
   return (
-    <div className="space-y-4 print-avoid-break w-full">
+    <div className="space-y-3 w-full">
       <div className="border-b-2 border-pitch pb-2">
         <h2 className="text-base font-black text-pitch flex items-center gap-2">
           <span>🏆</span>
@@ -1442,7 +1433,7 @@ function KnockoutPrintSchedule({
         </p>
       </div>
 
-      <div className="w-full overflow-hidden rounded-xl border border-line bg-white print-avoid-break">
+      <div className="w-full overflow-hidden rounded-xl border border-line bg-white">
         <table className="w-full text-right text-xs print:text-[11px]">
           <thead>
             <tr className="border-b border-line bg-chalk/80 font-bold text-ink/80 print:bg-chalk">
@@ -1499,7 +1490,7 @@ function DoubleKnockoutPrintSchedule({
   if (!doubleKnockout) return null;
 
   return (
-    <div className="space-y-5 print-avoid-break w-full">
+    <div className="space-y-4 w-full">
       <div className="border-b-2 border-pitch pb-2">
         <h2 className="text-base font-black text-pitch flex items-center gap-2">
           <span>🛡️</span>
@@ -1511,11 +1502,11 @@ function DoubleKnockoutPrintSchedule({
       </div>
 
       {/* Winners Bracket Table */}
-      <div className="space-y-2 print-avoid-break">
+      <div className="space-y-2">
         <div className="bg-pitch/10 text-pitch font-black text-xs py-1.5 px-3 rounded flex items-center justify-between border-r-4 border-pitch">
           <span>🏆 جدول برندگان (Winners Bracket)</span>
         </div>
-        <div className="w-full overflow-hidden rounded-xl border border-line bg-white print-avoid-break">
+        <div className="w-full overflow-hidden rounded-xl border border-line bg-white">
           <table className="w-full text-right text-xs print:text-[11px]">
             <thead>
               <tr className="border-b border-line bg-chalk/80 font-bold text-ink/80 print:bg-chalk">
@@ -1548,11 +1539,11 @@ function DoubleKnockoutPrintSchedule({
       </div>
 
       {/* Losers Bracket Table */}
-      <div className="space-y-2 print-avoid-break">
+      <div className="space-y-2">
         <div className="bg-amber-100 text-amber-950 font-black text-xs py-1.5 px-3 rounded flex items-center justify-between border-r-4 border-amber-600">
           <span>🛡️ جدول شانس مجدد / بازندگان (Losers Bracket)</span>
         </div>
-        <div className="w-full overflow-hidden rounded-xl border border-line bg-white print-avoid-break">
+        <div className="w-full overflow-hidden rounded-xl border border-line bg-white">
           <table className="w-full text-right text-xs print:text-[11px]">
             <thead>
               <tr className="border-b border-line bg-chalk/80 font-bold text-ink/80 print:bg-chalk">
@@ -1586,11 +1577,11 @@ function DoubleKnockoutPrintSchedule({
 
       {/* Finals Table */}
       {(doubleKnockout.grandFinal || doubleKnockout.bracketResetMatch) && (
-        <div className="space-y-2 print-avoid-break">
+        <div className="space-y-2">
           <div className="bg-gold/25 text-pitch font-black text-xs py-1.5 px-3 rounded flex items-center justify-between border-r-4 border-gold">
             <span>👑 فینال نهایی مسابقات (Grand Final)</span>
           </div>
-          <div className="w-full overflow-hidden rounded-xl border border-line bg-white print-avoid-break">
+          <div className="w-full overflow-hidden rounded-xl border border-line bg-white">
             <table className="w-full text-right text-xs print:text-[11px]">
               <thead>
                 <tr className="border-b border-line bg-chalk/80 font-bold text-ink/80 print:bg-chalk">
@@ -1999,7 +1990,7 @@ function InteractiveDoubleKnockoutBracket({
       {/* Section 1: Winners Bracket */}
       {(bracketView === "all" || bracketView === "winners") && (
         <div
-          className={`rounded-xl border border-line bg-chalk/30 p-5 space-y-4 print-avoid-break ${
+          className={`rounded-xl border border-line bg-chalk/30 p-5 space-y-4 ${
             printBracketStyle === "stages" ? "print:hidden" : "print:overflow-visible print:p-2"
           }`}
         >
@@ -2055,7 +2046,7 @@ function InteractiveDoubleKnockoutBracket({
       {/* Section 2: Losers Bracket */}
       {(bracketView === "all" || bracketView === "losers") && (
         <div
-          className={`rounded-xl border border-amber-600/30 bg-amber-50/30 p-5 space-y-4 print-avoid-break ${
+          className={`rounded-xl border border-amber-600/30 bg-amber-50/30 p-5 space-y-4 ${
             printBracketStyle === "stages" ? "print:hidden" : "print:overflow-visible print:p-2"
           }`}
         >
@@ -2130,7 +2121,7 @@ function InteractiveDoubleKnockoutBracket({
       {/* Section 3: Grand Final */}
       {(bracketView === "all" || bracketView === "finals") && (
         <div
-          className={`rounded-xl border-2 border-gold/70 bg-white p-5 space-y-4 shadow-sm print-avoid-break ${
+          className={`rounded-xl border-2 border-gold/70 bg-white p-5 space-y-4 shadow-sm ${
             printBracketStyle === "stages" ? "print:hidden" : "print:p-2"
           }`}
         >
