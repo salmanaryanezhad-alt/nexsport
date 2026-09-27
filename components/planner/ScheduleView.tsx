@@ -102,7 +102,6 @@ export function ScheduleView({
     result.format === "double-knockout" ||
     result.format === "groups-knockout";
 
-  const [matchesViewMode, setMatchesViewMode] = useState<"list" | "classic">("list");
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [printSettings, setPrintSettings] = useState<PrintSettings>(() => ({
     orientation: isKoFormat ? "landscape" : "portrait",
@@ -300,73 +299,42 @@ export function ScheduleView({
         printSettings.section === "both" ||
         printSettings.section === "matches") && (
         <div
-          className={`space-y-6 ${
+          className={`space-y-8 ${
             activeTab !== "matches" ? "print-only" : ""
           } ${printSettings.section === "standings" ? "print:hidden" : ""}`}
         >
-          {/* View Switcher: Simple List (Default) vs Classic Bracket/Stage View */}
-          <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white/90 p-3 shadow-2xs">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-pitch">نحوه نمایش مسابقات:</span>
-              <div className="inline-flex rounded-lg border border-line bg-chalk/80 p-0.5 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setMatchesViewMode("list")}
-                  className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
-                    matchesViewMode === "list"
-                      ? "bg-pitch text-chalk shadow-xs font-bold"
-                      : "text-ink/70 hover:text-ink"
-                  }`}
-                >
-                  <span>📋</span>
-                  <span>لیست ساده مسابقات (تمام‌صفحه)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMatchesViewMode("classic")}
-                  className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
-                    matchesViewMode === "classic"
-                      ? "bg-pitch text-chalk shadow-xs font-bold"
-                      : "text-ink/70 hover:text-ink"
-                  }`}
-                >
-                  <span>{isKoFormat ? "🌳" : "🗂️"}</span>
-                  <span>{isKoFormat ? "نمودار درختی / ساختار سنتی" : "تفکیک هفته‌ها"}</span>
-                </button>
-              </div>
-            </div>
-            <span className="text-xs text-ink/60 hidden sm:inline">
-              {matchesViewMode === "list"
-                ? "فهرست ساده، سطری و کامل کلیه مسابقات در تمام عرض صفحه"
-                : "نمای ساختاری و دسته‌بندی‌شده مسابقات"}
-            </span>
-          </div>
-
-          {matchesViewMode === "list" ? (
-            <SimpleMatchListView
-              result={result}
+          {(result.format === "league" || result.format === "double-league") && (
+            <RoundsTable
+              rounds={result.rounds}
               scores={scores}
               onScoreChange={onScoreChange}
+              metadata={meta}
               matchDetails={matchDetails}
               onOpenEditModal={handleOpenEditModal}
               filterTeam={filterTeam}
-              metadata={meta}
             />
-          ) : (
-            <div className="space-y-8">
-              {(result.format === "league" || result.format === "double-league") && (
-                <RoundsTable
-                  rounds={result.rounds}
-                  scores={scores}
-                  onScoreChange={onScoreChange}
-                  metadata={meta}
-                  matchDetails={matchDetails}
-                  onOpenEditModal={handleOpenEditModal}
-                  filterTeam={filterTeam}
-                />
-              )}
+          )}
 
-              {result.format === "groups" && (
+          {result.format === "groups" && (
+            <GroupsMatchesView
+              groups={result.groups}
+              scores={scores}
+              onScoreChange={onScoreChange}
+              selectedGroupIndex={selectedGroupIndex}
+              onSelectGroup={setSelectedGroupIndex}
+              metadata={meta}
+              matchDetails={matchDetails}
+              onOpenEditModal={handleOpenEditModal}
+              filterTeam={filterTeam}
+            />
+          )}
+
+          {result.format === "groups-knockout" && (
+            <div className="space-y-12 print:space-y-6">
+              <div className="print-avoid-break">
+                <h2 className="text-lg font-bold text-pitch mb-4 print:text-base print:mb-2">
+                  مرحله اول: مسابقات گروهی
+                </h2>
                 <GroupsMatchesView
                   groups={result.groups}
                   scores={scores}
@@ -378,96 +346,75 @@ export function ScheduleView({
                   onOpenEditModal={handleOpenEditModal}
                   filterTeam={filterTeam}
                 />
-              )}
+              </div>
 
-              {result.format === "groups-knockout" && (
-                <div className="space-y-12 print:space-y-6">
-                  <div className="print-avoid-break">
-                    <h2 className="text-lg font-bold text-pitch mb-4 print:text-base print:mb-2">
-                      مرحله اول: مسابقات گروهی
-                    </h2>
-                    <GroupsMatchesView
-                      groups={result.groups}
-                      scores={scores}
-                      onScoreChange={onScoreChange}
-                      selectedGroupIndex={selectedGroupIndex}
-                      onSelectGroup={setSelectedGroupIndex}
-                      metadata={meta}
-                      matchDetails={matchDetails}
-                      onOpenEditModal={handleOpenEditModal}
-                      filterTeam={filterTeam}
-                    />
-                  </div>
-
-                  <div className="print-avoid-break">
-                    <div className="border-t border-line pt-8 mb-6 print:pt-4 print:mb-3">
-                      <h2 className="text-lg font-bold text-pitch print:text-base">
-                        مرحله دوم: براکت حذفی صعودکننده‌ها
-                      </h2>
-                      <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
-                        با مسجل شدن وضعیت یا اتمام بازی‌های هر گروه، تیم‌های اول و دوم صعودکننده به صورت خودکار به جایگاه‌های خود در این براکت منتقل می‌شوند.
-                      </p>
-                    </div>
-                    <InteractiveBracket
-                      originalKnockout={result.knockout}
-                      groups={result.groups}
-                      pointsRule={meta?.pointsRule}
-                      scores={scores}
-                      onScoreChange={onScoreChange}
-                      matchDetails={matchDetails}
-                      onOpenEditModal={handleOpenEditModal}
-                      filterTeam={filterTeam}
-                      printBracketStyle={printSettings.bracketStyle}
-                    />
-                  </div>
+              <div className="print-avoid-break">
+                <div className="border-t border-line pt-8 mb-6 print:pt-4 print:mb-3">
+                  <h2 className="text-lg font-bold text-pitch print:text-base">
+                    مرحله دوم: براکت حذفی صعودکننده‌ها
+                  </h2>
+                  <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
+                    با مسجل شدن وضعیت یا اتمام بازی‌های هر گروه، تیم‌های اول و دوم صعودکننده به صورت خودکار به جایگاه‌های خود در این براکت منتقل می‌شوند.
+                  </p>
                 </div>
-              )}
+                <InteractiveBracket
+                  originalKnockout={result.knockout}
+                  groups={result.groups}
+                  pointsRule={meta?.pointsRule}
+                  scores={scores}
+                  onScoreChange={onScoreChange}
+                  matchDetails={matchDetails}
+                  onOpenEditModal={handleOpenEditModal}
+                  filterTeam={filterTeam}
+                  printBracketStyle={printSettings.bracketStyle}
+                />
+              </div>
+            </div>
+          )}
 
-              {result.format === "knockout" && (
-                <div>
-                  <div className="mb-6 print:mb-3">
-                    <h2 className="text-lg font-bold text-pitch print:text-base">براکت حذفی مسابقات</h2>
-                    <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
-                      نتایج هر مسابقه را ثبت کنید تا تیم‌های برنده مستقیماً به مراحل بعدی و فینال راه پیدا
-                      کنند. در صورت تساوی، فیلد ضربات پنالتی فعال می‌شود.
-                    </p>
-                  </div>
-                  <InteractiveBracket
-                    originalKnockout={result.knockout}
-                    scores={scores}
-                    onScoreChange={onScoreChange}
-                    matchDetails={matchDetails}
-                    onOpenEditModal={handleOpenEditModal}
-                    filterTeam={filterTeam}
-                    printBracketStyle={printSettings.bracketStyle}
-                  />
-                </div>
-              )}
+          {result.format === "knockout" && (
+            <div>
+              <div className="mb-6 print:mb-3">
+                <h2 className="text-lg font-bold text-pitch print:text-base">براکت حذفی مسابقات</h2>
+                <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
+                  نتایج هر مسابقه را ثبت کنید تا تیم‌های برنده مستقیماً به مراحل بعدی و فینال راه پیدا
+                  کنند. در صورت تساوی، فیلد ضربات پنالتی فعال می‌شود.
+                </p>
+              </div>
+              <InteractiveBracket
+                originalKnockout={result.knockout}
+                scores={scores}
+                onScoreChange={onScoreChange}
+                matchDetails={matchDetails}
+                onOpenEditModal={handleOpenEditModal}
+                filterTeam={filterTeam}
+                printBracketStyle={printSettings.bracketStyle}
+              />
+            </div>
+          )}
 
-              {result.format === "double-knockout" && (
-                <div>
-                  <div className="mb-6 print:mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">🛡️</span>
-                      <h2 className="text-lg font-bold text-pitch print:text-base">
-                        تورنمنت دو حذفی (Double Elimination)
-                      </h2>
-                    </div>
-                    <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
-                      در این تورنمنت هیچ تیمی با یک باخت حذف نمی‌شود. بازنده‌ها به جدول شانس مجدد (Losers Bracket) منتقل می‌شوند و فینال بین قهرمان جدول برندگان و قهرمان شانس مجدد برگزار خواهد شد.
-                    </p>
-                  </div>
-                  <InteractiveDoubleKnockoutBracket
-                    originalDoubleKnockout={result.doubleKnockout}
-                    scores={scores}
-                    onScoreChange={onScoreChange}
-                    matchDetails={matchDetails}
-                    onOpenEditModal={handleOpenEditModal}
-                    filterTeam={filterTeam}
-                    printBracketStyle={printSettings.bracketStyle}
-                  />
+          {result.format === "double-knockout" && (
+            <div>
+              <div className="mb-6 print:mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🛡️</span>
+                  <h2 className="text-lg font-bold text-pitch print:text-base">
+                    تورنمنت دو حذفی (Double Elimination)
+                  </h2>
                 </div>
-              )}
+                <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
+                  در این تورنمنت هیچ تیمی با یک باخت حذف نمی‌شود. بازنده‌ها به جدول شانس مجدد (Losers Bracket) منتقل می‌شوند و فینال بین قهرمان جدول برندگان و قهرمان شانس مجدد برگزار خواهد شد.
+                </p>
+              </div>
+              <InteractiveDoubleKnockoutBracket
+                originalDoubleKnockout={result.doubleKnockout}
+                scores={scores}
+                onScoreChange={onScoreChange}
+                matchDetails={matchDetails}
+                onOpenEditModal={handleOpenEditModal}
+                filterTeam={filterTeam}
+                printBracketStyle={printSettings.bracketStyle}
+              />
             </div>
           )}
         </div>
@@ -773,749 +720,6 @@ export function ScheduleView({
 }
 
 /* =========================================================
-   SIMPLE MATCH LIST VIEW (CLEAN, FULL-WIDTH FLAT LIST)
-   ========================================================= */
-
-interface FlatMatchItem {
-  id: string;
-  stageLabel: string;
-  stageCategory: "league" | "group" | "knockout" | "winners" | "losers" | "finals";
-  matchCode: string;
-  home: string | null;
-  away: string | null;
-  homePlaceholder?: string | null;
-  awayPlaceholder?: string | null;
-  isBye?: boolean;
-  autoAdvance?: string | null;
-  winner?: string | null;
-  homeScore?: number | null;
-  awayScore?: number | null;
-  homePenalty?: number | null;
-  awayPenalty?: number | null;
-  isKnockout?: boolean;
-}
-
-function SimpleMatchListView({
-  result,
-  scores,
-  onScoreChange,
-  matchDetails,
-  onOpenEditModal,
-  filterTeam,
-  metadata,
-}: {
-  result: ScheduleResult;
-  scores: Record<string, MatchScore>;
-  onScoreChange: (
-    matchId: string,
-    home: number | null,
-    away: number | null,
-    homePenalty?: number | null,
-    awayPenalty?: number | null,
-    winner?: string | null
-  ) => void;
-  matchDetails?: Record<string, MatchScheduleDetail>;
-  onOpenEditModal?: (id: string, home: string, away: string) => void;
-  filterTeam?: string;
-  metadata?: TournamentMetadata;
-}) {
-  const [selectedStage, setSelectedStage] = useState<string>("all");
-
-  const { allMatches, flatMatches } = useMemo(() => {
-    const list: FlatMatchItem[] = [];
-    const rawMatches: any[] = [];
-
-    // 1. League / Double-League
-    if (result.format === "league" || result.format === "double-league") {
-      result.rounds.forEach((r) => {
-        r.matches.forEach((m, idx) => {
-          rawMatches.push(m);
-          const matchId = m.id ?? `r${r.round}-m${idx + 1}`;
-          const sc = scores[matchId];
-          list.push({
-            id: matchId,
-            stageLabel: `هفته ${r.round}`,
-            stageCategory: "league",
-            matchCode: `بازی ${idx + 1}`,
-            home: m.home,
-            away: m.away,
-            isBye: m.isBye,
-            winner: (m as any).winner ?? sc?.winner ?? null,
-            homeScore: sc?.home ?? null,
-            awayScore: sc?.away ?? null,
-            isKnockout: false,
-          });
-        });
-      });
-    }
-
-    // 2. Groups
-    if (result.format === "groups") {
-      result.groups.forEach((g) => {
-        g.rounds.forEach((r) => {
-          r.matches.forEach((m, idx) => {
-            rawMatches.push(m);
-            const matchId = m.id ?? `${g.name}-r${r.round}-m${idx + 1}`;
-            const sc = scores[matchId];
-            list.push({
-              id: matchId,
-              stageLabel: `${g.name} - هفته ${r.round}`,
-              stageCategory: "group",
-              matchCode: `بازی ${idx + 1}`,
-              home: m.home,
-              away: m.away,
-              isBye: m.isBye,
-              winner: (m as any).winner ?? sc?.winner ?? null,
-              homeScore: sc?.home ?? null,
-              awayScore: sc?.away ?? null,
-              isKnockout: false,
-            });
-          });
-        });
-      });
-    }
-
-    // 3. Groups + Knockout
-    if (result.format === "groups-knockout") {
-      result.groups.forEach((g) => {
-        g.rounds.forEach((r) => {
-          r.matches.forEach((m, idx) => {
-            rawMatches.push(m);
-            const matchId = m.id ?? `${g.name}-r${r.round}-m${idx + 1}`;
-            const sc = scores[matchId];
-            list.push({
-              id: matchId,
-              stageLabel: `${g.name} - هفته ${r.round}`,
-              stageCategory: "group",
-              matchCode: `بازی ${idx + 1}`,
-              home: m.home,
-              away: m.away,
-              isBye: m.isBye,
-              winner: (m as any).winner ?? sc?.winner ?? null,
-              homeScore: sc?.home ?? null,
-              awayScore: sc?.away ?? null,
-              isKnockout: false,
-            });
-          });
-        });
-      });
-
-      if (result.knockout) {
-        const { knockout } = computeKnockoutWithScores(
-          result.knockout,
-          scores,
-          result.groups,
-          metadata?.pointsRule
-        );
-        knockout?.rounds?.forEach((r: any) => {
-          r.matches?.forEach((m: any) => {
-            rawMatches.push(m);
-            const sc = scores[m.id];
-            list.push({
-              id: m.id,
-              stageLabel: r.label,
-              stageCategory: "knockout",
-              matchCode: m.matchCode || `بازی ${m.slot !== undefined ? m.slot + 1 : m.id}`,
-              home: m.home,
-              away: m.away,
-              homePlaceholder: m.homePlaceholder,
-              awayPlaceholder: m.awayPlaceholder,
-              isBye: Boolean(m.isBye || m.autoAdvance),
-              autoAdvance: m.autoAdvance,
-              winner: m.winner,
-              homeScore: sc?.home ?? m.homeScore ?? null,
-              awayScore: sc?.away ?? m.awayScore ?? null,
-              homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
-              awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
-              isKnockout: true,
-            });
-          });
-        });
-
-        if (knockout?.thirdPlaceMatch) {
-          const m = knockout.thirdPlaceMatch;
-          rawMatches.push(m);
-          const sc = scores[m.id];
-          list.push({
-            id: m.id,
-            stageLabel: "دیدار رده‌بندی (مقام سوم)",
-            stageCategory: "knockout",
-            matchCode: m.matchCode || "رده‌بندی",
-            home: m.home,
-            away: m.away,
-            homePlaceholder: m.homePlaceholder,
-            awayPlaceholder: m.awayPlaceholder,
-            isBye: Boolean(m.isBye || m.autoAdvance),
-            autoAdvance: m.autoAdvance,
-            winner: m.winner,
-            homeScore: sc?.home ?? m.homeScore ?? null,
-            awayScore: sc?.away ?? m.awayScore ?? null,
-            homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
-            awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
-            isKnockout: true,
-          });
-        }
-      }
-    }
-
-    // 4. Knockout
-    if (result.format === "knockout" && result.knockout) {
-      const { knockout } = computeKnockoutWithScores(
-        result.knockout,
-        scores,
-        undefined,
-        metadata?.pointsRule
-      );
-      knockout?.rounds?.forEach((r: any) => {
-        r.matches?.forEach((m: any) => {
-          rawMatches.push(m);
-          const sc = scores[m.id];
-          list.push({
-            id: m.id,
-            stageLabel: r.label,
-            stageCategory: "knockout",
-            matchCode: m.matchCode || `بازی ${m.slot !== undefined ? m.slot + 1 : m.id}`,
-            home: m.home,
-            away: m.away,
-            homePlaceholder: m.homePlaceholder,
-            awayPlaceholder: m.awayPlaceholder,
-            isBye: Boolean(m.isBye || m.autoAdvance),
-            autoAdvance: m.autoAdvance,
-            winner: m.winner,
-            homeScore: sc?.home ?? m.homeScore ?? null,
-            awayScore: sc?.away ?? m.awayScore ?? null,
-            homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
-            awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
-            isKnockout: true,
-          });
-        });
-      });
-
-      if (knockout?.thirdPlaceMatch) {
-        const m = knockout.thirdPlaceMatch;
-        rawMatches.push(m);
-        const sc = scores[m.id];
-        list.push({
-          id: m.id,
-          stageLabel: "دیدار رده‌بندی (مقام سوم)",
-          stageCategory: "knockout",
-          matchCode: m.matchCode || "رده‌بندی",
-          home: m.home,
-          away: m.away,
-          homePlaceholder: m.homePlaceholder,
-          awayPlaceholder: m.awayPlaceholder,
-          isBye: Boolean(m.isBye || m.autoAdvance),
-          autoAdvance: m.autoAdvance,
-          winner: m.winner,
-          homeScore: sc?.home ?? m.homeScore ?? null,
-          awayScore: sc?.away ?? m.awayScore ?? null,
-          homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
-          awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
-          isKnockout: true,
-        });
-      }
-    }
-
-    // 5. Double Knockout
-    if (result.format === "double-knockout" && result.doubleKnockout) {
-      const { doubleKnockout } = computeDoubleKnockoutWithScores(result.doubleKnockout, scores);
-      doubleKnockout?.winnersBracket?.forEach((r) => {
-        r.matches?.forEach((m) => {
-          rawMatches.push(m);
-          const sc = scores[m.id];
-          list.push({
-            id: m.id,
-            stageLabel: `جدول برندگان - ${r.label}`,
-            stageCategory: "winners",
-            matchCode: m.matchCode || m.id,
-            home: m.home,
-            away: m.away,
-            homePlaceholder: m.homePlaceholder,
-            awayPlaceholder: m.awayPlaceholder,
-            isBye: Boolean(m.isBye || m.autoAdvance),
-            autoAdvance: m.autoAdvance,
-            winner: m.winner,
-            homeScore: sc?.home ?? m.homeScore ?? null,
-            awayScore: sc?.away ?? m.awayScore ?? null,
-            homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
-            awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
-            isKnockout: true,
-          });
-        });
-      });
-
-      doubleKnockout?.losersBracket?.forEach((r) => {
-        r.matches?.forEach((m) => {
-          rawMatches.push(m);
-          const sc = scores[m.id];
-          list.push({
-            id: m.id,
-            stageLabel: `جدول شانس مجدد - ${r.label}`,
-            stageCategory: "losers",
-            matchCode: m.matchCode || m.id,
-            home: m.home,
-            away: m.away,
-            homePlaceholder: m.homePlaceholder,
-            awayPlaceholder: m.awayPlaceholder,
-            isBye: Boolean(m.isBye || m.autoAdvance),
-            autoAdvance: m.autoAdvance,
-            winner: m.winner,
-            homeScore: sc?.home ?? m.homeScore ?? null,
-            awayScore: sc?.away ?? m.awayScore ?? null,
-            homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
-            awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
-            isKnockout: true,
-          });
-        });
-      });
-
-      if (doubleKnockout?.grandFinal) {
-        const m = doubleKnockout.grandFinal;
-        rawMatches.push(m);
-        const sc = scores[m.id];
-        list.push({
-          id: m.id,
-          stageLabel: "فینال نهایی مسابقات (Grand Final)",
-          stageCategory: "finals",
-          matchCode: m.matchCode || "فینال اصلی",
-          home: m.home,
-          away: m.away,
-          homePlaceholder: m.homePlaceholder,
-          awayPlaceholder: m.awayPlaceholder,
-          isBye: Boolean(m.isBye || m.autoAdvance),
-          winner: m.winner,
-          homeScore: sc?.home ?? m.homeScore ?? null,
-          awayScore: sc?.away ?? m.awayScore ?? null,
-          homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
-          awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
-          isKnockout: true,
-        });
-      }
-
-      if (doubleKnockout?.bracketResetMatch) {
-        const m = doubleKnockout.bracketResetMatch;
-        rawMatches.push(m);
-        const sc = scores[m.id];
-        list.push({
-          id: m.id,
-          stageLabel: "فینال مجدد (Bracket Reset)",
-          stageCategory: "finals",
-          matchCode: m.matchCode || "فینال مجدد",
-          home: m.home,
-          away: m.away,
-          homePlaceholder: m.homePlaceholder,
-          awayPlaceholder: m.awayPlaceholder,
-          isBye: Boolean(m.isBye || m.autoAdvance),
-          winner: m.winner,
-          homeScore: sc?.home ?? m.homeScore ?? null,
-          awayScore: sc?.away ?? m.awayScore ?? null,
-          homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
-          awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
-          isKnockout: true,
-        });
-      }
-    }
-
-    return { allMatches: rawMatches, flatMatches: list };
-  }, [result, scores, metadata?.pointsRule]);
-
-  const stages = useMemo(() => {
-    const set = new Set<string>();
-    flatMatches.forEach((m) => set.add(m.stageLabel));
-    return Array.from(set);
-  }, [flatMatches]);
-
-  const visibleMatches = useMemo(() => {
-    return flatMatches.filter((m) => {
-      if (filterTeam && filterTeam !== "all") {
-        if (m.home !== filterTeam && m.away !== filterTeam) return false;
-      }
-      if (selectedStage !== "all" && m.stageLabel !== selectedStage) {
-        return false;
-      }
-      return true;
-    });
-  }, [flatMatches, filterTeam, selectedStage]);
-
-  const stats = useMemo(() => {
-    let played = 0;
-    flatMatches.forEach((m) => {
-      const hasScore =
-        m.homeScore !== null &&
-        m.awayScore !== null &&
-        m.homeScore !== undefined &&
-        m.awayScore !== undefined;
-      if (hasScore || m.isBye || m.winner) {
-        played++;
-      }
-    });
-    return {
-      total: flatMatches.length,
-      played,
-      remaining: Math.max(0, flatMatches.length - played),
-    };
-  }, [flatMatches]);
-
-  const checkDownstreamPlayed = useCallback(
-    (matchId: string) => {
-      return findPlayedDownstreamMatch(matchId, allMatches, scores);
-    },
-    [allMatches, scores]
-  );
-
-  return (
-    <div className="space-y-4 w-full">
-      {/* Stats and filter bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-chalk/60 px-4 py-2.5 text-xs">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5 font-bold text-pitch">
-            <span>📊 آمار مسابقات:</span>
-            <span>{stats.total} مسابقه کل</span>
-          </div>
-          <span className="text-ink/30">•</span>
-          <span className="text-emerald-700 font-semibold">{stats.played} بازی انجام شده</span>
-          <span className="text-ink/30">•</span>
-          <span className="text-amber-800 font-semibold">{stats.remaining} بازی در انتظار</span>
-        </div>
-
-        {stages.length > 1 && (
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-ink/70">فیلتر مرحله:</span>
-            <select
-              value={selectedStage}
-              onChange={(e) => setSelectedStage(e.target.value)}
-              className="rounded-lg border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink focus:border-pitch focus:outline-none cursor-pointer"
-            >
-              <option value="all">تمام مراحل و هفته‌ها ({stages.length})</option>
-              {stages.map((st) => (
-                <option key={st} value={st}>
-                  {st}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* The Simple List Table */}
-      <div className="w-full overflow-x-auto rounded-2xl border border-line bg-white shadow-xs print-avoid-break">
-        <table className="w-full text-right text-sm print:text-xs">
-          <thead>
-            <tr className="border-b border-line bg-chalk/80 text-xs font-bold text-ink/75 print:bg-chalk print-avoid-break">
-              <th className="py-3 px-3 text-center w-12 print:py-1.5 print:px-1.5">#</th>
-              <th className="py-3 px-3 text-center w-40 print:py-1.5 print:px-2">مرحله / هفته</th>
-              <th className="py-3 px-2 text-center w-24 print:py-1.5 print:px-1">کد مسابقه</th>
-              <th className="py-3 px-3 text-center w-52 print:py-1.5 print:px-2">زمان و مکان برگزاری</th>
-              <th className="py-3 px-4 text-left font-bold w-1/4 print:py-1.5 print:px-2">تیم اول (میزبان)</th>
-              <th className="py-3 px-3 text-center w-36 print:py-1.5 print:px-1.5">نتیجه مسابقه</th>
-              <th className="py-3 px-4 text-right font-bold w-1/4 print:py-1.5 print:px-2">تیم دوم (میهمان)</th>
-              <th className="py-3 px-3 text-center w-40 print:py-1.5 print:px-2">وضعیت / برنده</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line/60">
-            {visibleMatches.map((m, idx) => {
-              const sc = scores[m.id] || {
-                home: m.homeScore ?? null,
-                away: m.awayScore ?? null,
-                homePenalty: m.homePenalty ?? null,
-                awayPenalty: m.awayPenalty ?? null,
-                winner: m.winner ?? null,
-              };
-              const dt = matchDetails?.[m.id];
-              const isHomeReal = Boolean(m.home && !isPlaceholderTeam(m.home));
-              const isAwayReal = Boolean(m.away && !isPlaceholderTeam(m.away));
-              const isBye = Boolean(m.isBye || m.autoAdvance);
-              const isPending = !isBye && (!isHomeReal || !isAwayReal);
-              const isReadyToPlay = !isBye && isHomeReal && isAwayReal;
-
-              const hasScores =
-                sc.home !== null &&
-                sc.away !== null &&
-                sc.home !== undefined &&
-                sc.away !== undefined;
-
-              const homeWon = m.winner
-                ? m.winner === m.home
-                : Boolean(hasScores && (sc.home as number) > (sc.away as number));
-              const awayWon = m.winner
-                ? m.winner === m.away
-                : Boolean(hasScores && (sc.away as number) > (sc.home as number));
-              const isTied = Boolean(isReadyToPlay && hasScores && (sc.home as number) === (sc.away as number));
-
-              const downstreamPlayed = m.isKnockout ? checkDownstreamPlayed(m.id) : null;
-              const downstreamBlocked = Boolean(downstreamPlayed);
-              const warnDownstream = () => {
-                const nextCode =
-                  downstreamPlayed?.matchCode ||
-                  downstreamPlayed?.label ||
-                  (downstreamPlayed?.slot !== undefined
-                    ? `بازی ${downstreamPlayed.slot + 1}`
-                    : "مرحله بعد");
-                alert(
-                  `امکان تغییر یا لغو نتیجه این مسابقه وجود ندارد، زیرا نتیجه مسابقه مرحله بعد (${nextCode}) قبلاً ثبت شده است.\n\nلطفاً ابتدا نتیجه مسابقه مرحله بعد را پاک یا لغو نمایید.`
-                );
-              };
-
-              return (
-                <tr
-                  key={m.id}
-                  className="even:bg-chalk/30 hover:bg-gold/5 transition-colors print-avoid-break"
-                >
-                  {/* Row # */}
-                  <td className="py-3 px-3 text-center font-mono text-xs text-ink/60 print:py-1.5 print:px-1.5">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-chalk border border-line/80 font-bold text-xs text-ink/70">
-                      {idx + 1}
-                    </span>
-                  </td>
-
-                  {/* Stage */}
-                  <td className="py-3 px-3 text-center text-xs print:py-1.5 print:px-2">
-                    <span className="inline-block rounded-md bg-pitch/5 px-2.5 py-1 text-pitch font-bold border border-pitch/15">
-                      {m.stageLabel}
-                    </span>
-                  </td>
-
-                  {/* Code */}
-                  <td className="py-3 px-2 text-center font-mono text-xs text-pitch font-bold print:py-1.5 print:px-1">
-                    <span className="rounded bg-line/40 px-2 py-0.5">
-                      {m.matchCode}
-                    </span>
-                  </td>
-
-                  {/* Date, Time & Pitch */}
-                  <td className="py-3 px-3 text-center text-xs print:py-1.5 print:px-2">
-                    {dt && (dt.date || dt.time || dt.pitch) ? (
-                      <button
-                        type="button"
-                        onClick={() => onOpenEditModal && onOpenEditModal(m.id, m.home || "", m.away || "")}
-                        className="inline-flex items-center gap-1 text-[11px] text-ink/80 hover:text-pitch font-medium transition-colors cursor-pointer group"
-                        title="کلیک برای ویرایش زمان و مکان برگزاری"
-                      >
-                        <span className="text-pitch/70 group-hover:text-pitch">🕒</span>
-                        <span className="font-mono">
-                          {[dt.date, dt.time ? `ساعت ${dt.time}` : "", dt.pitch ? `زمین ${dt.pitch}` : ""]
-                            .filter(Boolean)
-                            .join(" • ")}
-                        </span>
-                      </button>
-                    ) : onOpenEditModal ? (
-                      <button
-                        type="button"
-                        onClick={() => onOpenEditModal(m.id, m.home || "", m.away || "")}
-                        className="text-[11px] text-pitch/60 hover:text-pitch hover:underline cursor-pointer no-print font-medium"
-                        title="ثبت زمان و زمین برگزاری"
-                      >
-                        + تنظیم زمان/زمین
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-ink/30">—</span>
-                    )}
-                  </td>
-
-                  {/* Home Team */}
-                  <td className="py-3 px-4 text-left print:py-1.5 print:px-2">
-                    {isHomeReal ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!isReadyToPlay || hasScores) return;
-                          if (downstreamBlocked) { warnDownstream(); return; }
-                          if (homeWon) {
-                            onScoreChange(m.id, null, null, null, null, null);
-                          } else {
-                            onScoreChange(m.id, sc.home, sc.away, sc.homePenalty, sc.awayPenalty, m.home);
-                          }
-                        }}
-                        disabled={!isReadyToPlay || hasScores}
-                        className={`text-left text-xs font-bold transition-all ${
-                          homeWon
-                            ? "text-pitch bg-pitch/10 px-2.5 py-1 rounded-md border border-pitch/25"
-                            : isReadyToPlay && !hasScores
-                            ? "text-ink hover:text-pitch cursor-pointer"
-                            : "text-ink cursor-default"
-                        }`}
-                        title={
-                          homeWon
-                            ? `تیم برنده: ${m.home}`
-                            : isReadyToPlay && !hasScores
-                            ? `کلیک برای انتخاب دستی ${m.home} به عنوان برنده`
-                            : undefined
-                        }
-                      >
-                        {homeWon && <span className="ml-1 text-pitch font-black">✓</span>}
-                        <span>{m.home}</span>
-                      </button>
-                    ) : isBye ? (
-                      <span className="text-xs text-ink/40 italic">— استراحت قرعه —</span>
-                    ) : (
-                      <span className="text-[11px] text-amber-800 font-medium italic">
-                        ⏳ {m.home || m.homePlaceholder || "در انتظار برنده مسابقه قبل"}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Score */}
-                  <td className="py-3 px-3 text-center print:py-1.5 print:px-1.5">
-                    {isBye ? (
-                      <span className="text-xs text-emerald-800 font-semibold bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
-                        صعود بدون بازی
-                      </span>
-                    ) : isPending ? (
-                      <span className="text-xs text-ink/40 font-mono">— : —</span>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center gap-1">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <input
-                            type="number"
-                            min="0"
-                            max="99"
-                            value={sc.home !== null && sc.home !== undefined ? sc.home : ""}
-                            onChange={(e) => {
-                              if (downstreamBlocked) { warnDownstream(); return; }
-                              const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
-                              onScoreChange(m.id, val, sc.away ?? null, sc.homePenalty, sc.awayPenalty, undefined);
-                            }}
-                            placeholder="-"
-                            className="w-10 h-7 rounded border border-line bg-white text-center font-bold text-xs text-ink focus:border-pitch focus:outline-none"
-                          />
-                          <span className="text-ink/40 font-bold">:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max="99"
-                            value={sc.away !== null && sc.away !== undefined ? sc.away : ""}
-                            onChange={(e) => {
-                              if (downstreamBlocked) { warnDownstream(); return; }
-                              const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
-                              onScoreChange(m.id, sc.home ?? null, val, sc.homePenalty, sc.awayPenalty, undefined);
-                            }}
-                            placeholder="-"
-                            className="w-10 h-7 rounded border border-line bg-white text-center font-bold text-xs text-ink focus:border-pitch focus:outline-none"
-                          />
-                        </div>
-                        {m.isKnockout && isTied && (
-                          <div
-                            className="flex items-center justify-center gap-1 text-[10px] text-amber-800 font-mono bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 mt-0.5"
-                            title="ضربات پنالتی در صورت تساوی"
-                          >
-                            <span>پنالتی:</span>
-                            <input
-                              type="number"
-                              min="0"
-                              max="99"
-                              value={sc.homePenalty !== null && sc.homePenalty !== undefined ? sc.homePenalty : ""}
-                              onChange={(e) => {
-                                if (downstreamBlocked) { warnDownstream(); return; }
-                                const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
-                                onScoreChange(m.id, sc.home, sc.away, val, sc.awayPenalty ?? null, undefined);
-                              }}
-                              placeholder="-"
-                              className="w-7 h-5 rounded border border-amber-300 text-center font-bold text-[10px]"
-                            />
-                            <span>:</span>
-                            <input
-                              type="number"
-                              min="0"
-                              max="99"
-                              value={sc.awayPenalty !== null && sc.awayPenalty !== undefined ? sc.awayPenalty : ""}
-                              onChange={(e) => {
-                                if (downstreamBlocked) { warnDownstream(); return; }
-                                const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
-                                onScoreChange(m.id, sc.home, sc.away, sc.homePenalty ?? null, val, undefined);
-                              }}
-                              placeholder="-"
-                              className="w-7 h-5 rounded border border-amber-300 text-center font-bold text-[10px]"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Away Team */}
-                  <td className="py-3 px-4 text-right print:py-1.5 print:px-2">
-                    {isAwayReal ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!isReadyToPlay || hasScores) return;
-                          if (downstreamBlocked) { warnDownstream(); return; }
-                          if (awayWon) {
-                            onScoreChange(m.id, null, null, null, null, null);
-                          } else {
-                            onScoreChange(m.id, sc.home, sc.away, sc.homePenalty, sc.awayPenalty, m.away);
-                          }
-                        }}
-                        disabled={!isReadyToPlay || hasScores}
-                        className={`text-right text-xs font-bold transition-all ${
-                          awayWon
-                            ? "text-pitch bg-pitch/10 px-2.5 py-1 rounded-md border border-pitch/25"
-                            : isReadyToPlay && !hasScores
-                            ? "text-ink hover:text-pitch cursor-pointer"
-                            : "text-ink cursor-default"
-                        }`}
-                        title={
-                          awayWon
-                            ? `تیم برنده: ${m.away}`
-                            : isReadyToPlay && !hasScores
-                            ? `کلیک برای انتخاب دستی ${m.away} به عنوان برنده`
-                            : undefined
-                        }
-                      >
-                        <span>{m.away}</span>
-                        {awayWon && <span className="mr-1 text-pitch font-black">✓</span>}
-                      </button>
-                    ) : isBye ? (
-                      <span className="text-xs text-ink/40 italic">— استراحت قرعه —</span>
-                    ) : (
-                      <span className="text-[11px] text-amber-800 font-medium italic">
-                        ⏳ {m.away || m.awayPlaceholder || "در انتظار برنده مسابقه قبل"}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Status / Winner */}
-                  <td className="py-3 px-3 text-center print:py-1.5 print:px-2">
-                    {m.winner ? (
-                      <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        <span>✓ برنده: {m.winner}</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (downstreamBlocked) { warnDownstream(); return; }
-                            onScoreChange(m.id, null, null, null, null, null);
-                          }}
-                          className="text-rose-600 hover:text-rose-800 text-[11px] font-bold mr-0.5 cursor-pointer no-print"
-                          title="لغو برنده و پاک کردن نتیجه"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : isBye ? (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        🟢 استراحت
-                      </span>
-                    ) : isReadyToPlay ? (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
-                        ⚽ آماده برگزاری
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                        ⏳ در انتظار حریف
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
    ROUNDS TABLE & MATCH ROWS
    ========================================================= */
 
@@ -1546,9 +750,11 @@ function RoundsTable({
   filterTeam?: string;
 }) {
   return (
-    <div className="space-y-6 w-full">
+    <div className="space-y-6">
       {title && <h3 className="font-bold text-pitch text-base">{title}</h3>}
-      <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 w-full">
+
+      {/* Screen View: Interactive Card Grid */}
+      <div className="no-print grid gap-6 sm:grid-cols-2">
         {rounds.map((round) => {
           const visibleMatches =
             filterTeam && filterTeam !== "all"
@@ -1562,7 +768,7 @@ function RoundsTable({
           return (
             <div
               key={round.round}
-              className="rounded-lg border border-line bg-white/60 p-4 shadow-sm print-avoid-break"
+              className="rounded-lg border border-line bg-white/60 p-4 shadow-sm"
             >
               <div className="mb-3 flex items-center justify-between border-b border-line/60 pb-2">
                 <span className="font-semibold text-sm text-pitch">هفته {round.round}</span>
@@ -1654,7 +860,7 @@ function RoundsTable({
                             </span>
                           </span>
                         ) : (
-                          <span className="text-ink/40 text-[10px] print:hidden">
+                          <span className="text-ink/40 text-[10px]">
                             زمان و زمین ثبت نشده
                           </span>
                         )}
@@ -1662,7 +868,7 @@ function RoundsTable({
                           <button
                             type="button"
                             onClick={() => onOpenEditModal(matchId, m.home, m.away)}
-                            className="no-print text-[10px] text-pitch font-semibold hover:underline mr-1"
+                            className="text-[10px] text-pitch font-semibold hover:underline mr-1"
                           >
                             {dt?.date || dt?.time || dt?.pitch ? "ویرایش" : "🕒 زمان / زمین"}
                           </button>
@@ -1675,6 +881,87 @@ function RoundsTable({
                 {visibleMatches.length === 0 && (
                   <p className="text-center py-2 text-xs text-ink/40">استراحت (Bye)</p>
                 )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Print View: Clean Simple Tabular List (No Cards) */}
+      <div className="hidden print:block space-y-4 w-full">
+        {rounds.map((round) => {
+          const visibleMatches =
+            filterTeam && filterTeam !== "all"
+              ? round.matches.filter((m) => m.home === filterTeam || m.away === filterTeam)
+              : round.matches;
+
+          if (filterTeam && filterTeam !== "all" && visibleMatches.length === 0) {
+            return null;
+          }
+
+          return (
+            <div key={round.round} className="space-y-1.5 print-avoid-break">
+              <div className="bg-pitch/10 text-pitch font-bold text-xs py-1 px-3 rounded flex items-center justify-between border-r-4 border-pitch">
+                <span className="font-extrabold">هفته {round.round}</span>
+                <span className="text-[10px] text-ink/70">{visibleMatches.length} مسابقه</span>
+              </div>
+              <div className="w-full overflow-hidden rounded-lg border border-line bg-white print-avoid-break">
+                <table className="w-full text-right text-xs print:text-[11px]">
+                  <thead>
+                    <tr className="border-b border-line bg-chalk/80 font-bold text-ink/80 print:bg-chalk">
+                      <th className="py-1.5 px-2 text-center w-10">#</th>
+                      <th className="py-1.5 px-2 text-center w-20">کد بازی</th>
+                      <th className="py-1.5 px-3 text-left w-1/3">تیم اول (میزبان)</th>
+                      <th className="py-1.5 px-2 text-center w-20">نتیجه</th>
+                      <th className="py-1.5 px-3 text-right w-1/3">تیم دوم (میهمان)</th>
+                      <th className="py-1.5 px-3 text-center">زمان و مکان برگزاری</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line/60">
+                    {visibleMatches.map((m, idx) => {
+                      const matchId = m.id ?? `r${round.round}-m${idx + 1}`;
+                      const sc = scores[matchId] || { home: null, away: null };
+                      const hasScore =
+                        sc.home !== null &&
+                        sc.away !== null &&
+                        sc.home !== undefined &&
+                        sc.away !== undefined;
+                      const homeWon = Boolean(hasScore && (sc.home as number) > (sc.away as number));
+                      const awayWon = Boolean(hasScore && (sc.away as number) > (sc.home as number));
+                      const dt = matchDetails?.[matchId];
+                      const datePitchStr = [
+                        dt?.date,
+                        dt?.time ? `ساعت ${dt.time}` : "",
+                        dt?.pitch ? `زمین ${dt.pitch}` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" • ");
+
+                      return (
+                        <tr key={matchId} className="even:bg-chalk/30 print-avoid-break">
+                          <td className="py-1.5 px-2 text-center font-mono text-ink/60">{idx + 1}</td>
+                          <td className="py-1.5 px-2 text-center font-mono text-pitch font-bold text-[10px]">
+                            بازی {idx + 1}
+                          </td>
+                          <td className={`py-1.5 px-3 text-left ${homeWon ? "font-bold text-pitch" : "text-ink"}`}>
+                            {homeWon && <span className="ml-1 text-pitch font-bold">✓</span>}
+                            {m.home}
+                          </td>
+                          <td className="py-1.5 px-2 text-center font-mono font-bold">
+                            {hasScore ? `${sc.home} - ${sc.away}` : "—"}
+                          </td>
+                          <td className={`py-1.5 px-3 text-right ${awayWon ? "font-bold text-pitch" : "text-ink"}`}>
+                            {m.away}
+                            {awayWon && <span className="mr-1 text-pitch font-bold">✓</span>}
+                          </td>
+                          <td className="py-1.5 px-3 text-center text-[10px] text-ink/70">
+                            {datePitchStr || "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           );
@@ -1973,117 +1260,134 @@ function StandingsTable({
    ========================================================= */
 
 /* =========================================================
-   KNOCKOUT PRINTABLE CARD & STAGE-BY-STAGE SCHEDULE
-   (Provides 100% clean, non-clipped print output for any bracket size)
+   KNOCKOUT PRINTABLE SIMPLE TABULAR LIST
+   (Provides 100% clean, non-clipped tabular list print output)
    ========================================================= */
 
-function renderPrintMatchCard(
+function renderPrintMatchRow(
   m: any,
   scores: Record<string, MatchScore>,
   matchDetails?: Record<string, MatchScheduleDetail>,
-  overrideLabel?: string
+  idx?: number,
+  stageLabel?: string
 ) {
   const sc = scores[m.id];
-  const detail = matchDetails?.[m.id];
-  const isBye = m.isBye || m.autoAdvance;
+  const dt = matchDetails?.[m.id];
+  const isBye = Boolean(m.isBye || m.autoAdvance);
+  const isHomeReal = Boolean(m.home && !isPlaceholderTeam(m.home));
+  const isAwayReal = Boolean(m.away && !isPlaceholderTeam(m.away));
+  const isPending = !isBye && (!isHomeReal || !isAwayReal);
+  const isReadyToPlay = !isBye && isHomeReal && isAwayReal;
+
   const hasScore =
     sc &&
     sc.home !== null &&
     sc.away !== null &&
     sc.home !== undefined &&
     sc.away !== undefined;
-  const homeWon = m.winner && m.winner === m.home;
-  const awayWon = m.winner && m.winner === m.away;
+
+  const homeWon = m.winner ? m.winner === m.home : Boolean(hasScore && (sc.home as number) > (sc.away as number));
+  const awayWon = m.winner ? m.winner === m.away : Boolean(hasScore && (sc.away as number) > (sc.home as number));
+
+  const datePitchStr = [
+    dt?.date,
+    dt?.time ? `ساعت ${dt.time}` : "",
+    dt?.pitch ? `زمین ${dt.pitch}` : "",
+  ]
+    .filter(Boolean)
+    .join(" • ");
 
   return (
-    <div
-      key={m.id}
-      className="rounded-lg border border-line/90 bg-white p-2.5 text-xs print-avoid-break shadow-2xs space-y-1.5"
-    >
-      <div className="flex items-center justify-between text-[10px] text-ink/70 pb-1 border-b border-line/60">
-        <div className="flex items-center gap-1.5 font-bold">
-          {m.matchCode && (
-            <span className="rounded bg-pitch/10 text-pitch px-1.5 py-0.2 font-mono text-[9px]">
-              {m.matchCode}
-            </span>
-          )}
-          <span className="text-pitch">
-            {overrideLabel || (m.matchCode ? "" : `مسابقه ${m.slot !== undefined ? m.slot + 1 : m.id}`)}
-          </span>
-        </div>
-        {detail && (detail.date || detail.time || detail.pitch) ? (
-          <span className="font-mono text-[9px] text-ink/65">
-            {[detail.date, detail.time ? `ساعت ${detail.time}` : "", detail.pitch ? `زمین ${detail.pitch}` : ""]
-              .filter(Boolean)
-              .join(" • ")}
-          </span>
-        ) : (
-          <span className="text-[9px] text-ink/40">مسابقه حذفی</span>
-        )}
-      </div>
-
-      {isBye ? (
-        <div className="text-center py-1 font-semibold text-emerald-800 bg-emerald-50/60 rounded text-[11px]">
-          {m.home || m.away} (صعود مستقیم - استراحت قرعه)
-        </div>
-      ) : (
-        <div className="space-y-1">
-          <div
-            className={`flex items-center justify-between px-2 py-1 rounded ${
-              homeWon ? "bg-emerald-50 font-bold text-pitch border border-emerald-200" : "bg-chalk/40"
-            }`}
-          >
-            <div className="flex items-center gap-1.5 truncate">
-              {homeWon && <span className="text-emerald-700 text-xs">✓</span>}
-              <span
-                className={`truncate ${
-                  homeWon
-                    ? "text-pitch font-bold"
-                    : isPlaceholderTeam(m.home)
-                    ? "text-ink/40 italic"
-                    : "text-ink"
-                }`}
-              >
-                {m.home || "در انتظار برنده دور قبل"}
-              </span>
-            </div>
-            <div className="font-mono font-bold text-xs shrink-0 flex items-center gap-1 dir-ltr">
-              <span>{hasScore ? sc.home : "—"}</span>
-              {sc?.homePenalty !== null && sc?.homePenalty !== undefined && (
-                <span className="text-[10px] text-ink/60">({sc.homePenalty})</span>
-              )}
-            </div>
-          </div>
-
-          <div
-            className={`flex items-center justify-between px-2 py-1 rounded ${
-              awayWon ? "bg-emerald-50 font-bold text-pitch border border-emerald-200" : "bg-chalk/40"
-            }`}
-          >
-            <div className="flex items-center gap-1.5 truncate">
-              {awayWon && <span className="text-emerald-700 text-xs">✓</span>}
-              <span
-                className={`truncate ${
-                  awayWon
-                    ? "text-pitch font-bold"
-                    : isPlaceholderTeam(m.away)
-                    ? "text-ink/40 italic"
-                    : "text-ink"
-                }`}
-              >
-                {m.away || "در انتظار برنده دور قبل"}
-              </span>
-            </div>
-            <div className="font-mono font-bold text-xs shrink-0 flex items-center gap-1 dir-ltr">
-              <span>{hasScore ? sc.away : "—"}</span>
-              {sc?.awayPenalty !== null && sc?.awayPenalty !== undefined && (
-                <span className="text-[10px] text-ink/60">({sc.awayPenalty})</span>
-              )}
-            </div>
-          </div>
-        </div>
+    <tr key={m.id} className="even:bg-chalk/30 print-avoid-break text-xs print:text-[11px]">
+      {idx !== undefined && (
+        <td className="py-2 px-2 text-center font-mono text-ink/60 border-b border-line/60 w-10">
+          {idx + 1}
+        </td>
       )}
-    </div>
+      {stageLabel && (
+        <td className="py-2 px-2 text-center font-bold text-pitch border-b border-line/60 w-32">
+          {stageLabel}
+        </td>
+      )}
+      <td className="py-2 px-2 text-center font-mono font-bold text-pitch border-b border-line/60 w-24">
+        {m.matchCode || `بازی ${m.slot !== undefined ? m.slot + 1 : m.id}`}
+      </td>
+      <td className="py-2 px-2 text-center text-ink/70 border-b border-line/60 text-[10px]">
+        {datePitchStr || "—"}
+      </td>
+      <td
+        className={`py-2 px-3 text-left border-b border-line/60 font-medium ${
+          homeWon ? "font-bold text-pitch bg-pitch/5" : ""
+        }`}
+      >
+        {isHomeReal ? (
+          <span>
+            {homeWon && <span className="ml-1 text-pitch font-bold">✓</span>}
+            {m.home}
+          </span>
+        ) : isBye ? (
+          <span className="text-ink/40 italic">—</span>
+        ) : (
+          <span className="text-ink/40 italic">
+            {m.home || m.homePlaceholder || "در انتظار صعود"}
+          </span>
+        )}
+      </td>
+      <td className="py-2 px-2 text-center font-mono font-bold border-b border-line/60 w-24">
+        {isBye ? (
+          <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">
+            صعود مستقیم
+          </span>
+        ) : hasScore ? (
+          <div className="flex flex-col items-center">
+            <span>
+              {sc.home} - {sc.away}
+            </span>
+            {(sc.homePenalty !== null && sc.homePenalty !== undefined) ||
+            (sc.awayPenalty !== null && sc.awayPenalty !== undefined) ? (
+              <span className="text-[9px] text-amber-800 font-normal">
+                پنالتی: ({sc.homePenalty ?? 0} - {sc.awayPenalty ?? 0})
+              </span>
+            ) : null}
+          </div>
+        ) : isPending ? (
+          <span className="text-ink/30">— : —</span>
+        ) : (
+          <span className="text-ink/50 font-normal">برگزار نشده</span>
+        )}
+      </td>
+      <td
+        className={`py-2 px-3 text-right border-b border-line/60 font-medium ${
+          awayWon ? "font-bold text-pitch bg-pitch/5" : ""
+        }`}
+      >
+        {isAwayReal ? (
+          <span>
+            {m.away}
+            {awayWon && <span className="mr-1 text-pitch font-bold">✓</span>}
+          </span>
+        ) : isBye ? (
+          <span className="text-ink/40 italic">—</span>
+        ) : (
+          <span className="text-ink/40 italic">
+            {m.away || m.awayPlaceholder || "در انتظار صعود"}
+          </span>
+        )}
+      </td>
+      <td className="py-2 px-2 text-center border-b border-line/60 text-[11px] w-32">
+        {m.winner ? (
+          <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            برنده: {m.winner}
+          </span>
+        ) : isBye ? (
+          <span className="text-emerald-700 font-semibold">استراحت قرعه</span>
+        ) : isReadyToPlay ? (
+          <span className="text-sky-700">آماده برگزاری</span>
+        ) : (
+          <span className="text-amber-700">در انتظار حریف</span>
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -2099,48 +1403,58 @@ function KnockoutPrintSchedule({
   if (!knockout || !knockout.rounds) return null;
 
   return (
-    <div className="space-y-5 print-avoid-break">
+    <div className="space-y-4 print-avoid-break w-full">
       <div className="border-b-2 border-pitch pb-2">
         <h2 className="text-base font-black text-pitch flex items-center gap-2">
           <span>🏆</span>
-          <span>برنامه مرحله حذفی مسابقات (مرحله به مرحله)</span>
+          <span>لیست مسابقات مرحله حذفی</span>
         </h2>
         <p className="text-[11px] text-ink/60 mt-0.5">
-          کلیه مراحل حذفی، مسابقات، نتایج و وضعیت صعود تیم‌ها به تفکیک دور
+          برنامه کامل مسابقات مراحل حذفی، نتایج و وضعیت صعود تیم‌ها به صورت جدولی
         </p>
       </div>
 
-      {knockout.rounds.map((round: any) => (
-        <div key={round.round} className="space-y-2 print-avoid-break">
-          <div className="bg-pitch/10 text-pitch border-r-4 border-pitch font-bold text-xs py-1.5 px-3 rounded-l flex items-center justify-between">
-            <span className="font-extrabold">{round.label}</span>
-            <span className="text-[10px] text-ink/60 font-medium">
-              تعداد بازی‌ها: {round.matches?.length || 0}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            {round.matches.map((m: any) =>
-              renderPrintMatchCard(m, scores, matchDetails)
-            )}
-          </div>
-        </div>
-      ))}
-
-      {knockout.thirdPlaceMatch && (
-        <div className="space-y-2 print-avoid-break">
-          <div className="bg-amber-100/90 text-amber-950 border-r-4 border-amber-600 font-bold text-xs py-1.5 px-3 rounded-l flex items-center justify-between">
-            <span className="font-extrabold">🥉 مسابقه رده‌بندی (تعیین مقام سوم و چهارم)</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            {renderPrintMatchCard(
-              knockout.thirdPlaceMatch,
-              scores,
-              matchDetails,
-              "دیدار رده‌بندی"
-            )}
-          </div>
-        </div>
-      )}
+      <div className="w-full overflow-hidden rounded-xl border border-line bg-white print-avoid-break">
+        <table className="w-full text-right text-xs print:text-[11px]">
+          <thead>
+            <tr className="border-b border-line bg-chalk/80 font-bold text-ink/80 print:bg-chalk">
+              <th className="py-2 px-2 text-center w-10">#</th>
+              <th className="py-2 px-2 text-center w-32">مرحله</th>
+              <th className="py-2 px-2 text-center w-24">کد بازی</th>
+              <th className="py-2 px-2 text-center">زمان و مکان برگزاری</th>
+              <th className="py-2 px-3 text-left w-1/4">تیم اول (میزبان)</th>
+              <th className="py-2 px-2 text-center w-24">نتیجه</th>
+              <th className="py-2 px-3 text-right w-1/4">تیم دوم (میهمان)</th>
+              <th className="py-2 px-2 text-center w-32">برنده / وضعیت</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line/60">
+            {(() => {
+              let rowCounter = 0;
+              const rows: any[] = [];
+              knockout.rounds.forEach((round: any) => {
+                round.matches?.forEach((m: any) => {
+                  rows.push(
+                    renderPrintMatchRow(m, scores, matchDetails, rowCounter++, round.label)
+                  );
+                });
+              });
+              if (knockout.thirdPlaceMatch) {
+                rows.push(
+                  renderPrintMatchRow(
+                    knockout.thirdPlaceMatch,
+                    scores,
+                    matchDetails,
+                    rowCounter++,
+                    "رده‌بندی (مقام سوم)"
+                  )
+                );
+              }
+              return rows;
+            })()}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -2157,82 +1471,130 @@ function DoubleKnockoutPrintSchedule({
   if (!doubleKnockout) return null;
 
   return (
-    <div className="space-y-6 print-avoid-break">
+    <div className="space-y-5 print-avoid-break w-full">
       <div className="border-b-2 border-pitch pb-2">
         <h2 className="text-base font-black text-pitch flex items-center gap-2">
           <span>🛡️</span>
-          <span>برنامه مرحله حذفی تورنمنت دو حذفی (Double Elimination)</span>
+          <span>لیست مسابقات تورنمنت دو حذفی (Double Elimination)</span>
         </h2>
         <p className="text-[11px] text-ink/60 mt-0.5">
-          تفکیک کامل جدول برندگان (Winners)، شانس مجدد (Losers) و فینال نهایی (Grand Final)
+          فهرست جدولی و تفکیک‌شده مسابقات جدول برندگان، جدول شانس مجدد و فینال نهایی
         </p>
       </div>
 
-      {/* Winners Bracket */}
-      <div className="space-y-3 print-avoid-break">
-        <div className="bg-pitch/15 text-pitch font-black text-xs py-1.5 px-3 rounded flex items-center justify-between">
+      {/* Winners Bracket Table */}
+      <div className="space-y-2 print-avoid-break">
+        <div className="bg-pitch/10 text-pitch font-black text-xs py-1.5 px-3 rounded flex items-center justify-between border-r-4 border-pitch">
           <span>🏆 جدول برندگان (Winners Bracket)</span>
-          <span className="text-[10px] text-pitch/70 font-normal">
-            {doubleKnockout.winnersBracket?.length || 0} دور
-          </span>
         </div>
-        {doubleKnockout.winnersBracket?.map((round) => (
-          <div key={round.round} className="space-y-2 print-avoid-break">
-            <div className="bg-pitch/5 text-pitch font-bold text-[11px] py-1 px-2.5 rounded-l border-r-2 border-pitch">
-              {round.label}
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              {round.matches.map((m) =>
-                renderPrintMatchCard(m, scores, matchDetails)
-              )}
-            </div>
-          </div>
-        ))}
+        <div className="w-full overflow-hidden rounded-xl border border-line bg-white print-avoid-break">
+          <table className="w-full text-right text-xs print:text-[11px]">
+            <thead>
+              <tr className="border-b border-line bg-chalk/80 font-bold text-ink/80 print:bg-chalk">
+                <th className="py-2 px-2 text-center w-10">#</th>
+                <th className="py-2 px-2 text-center w-32">مرحله</th>
+                <th className="py-2 px-2 text-center w-24">کد بازی</th>
+                <th className="py-2 px-2 text-center">زمان و مکان برگزاری</th>
+                <th className="py-2 px-3 text-left w-1/4">تیم اول (میزبان)</th>
+                <th className="py-2 px-2 text-center w-24">نتیجه</th>
+                <th className="py-2 px-3 text-right w-1/4">تیم دوم (میهمان)</th>
+                <th className="py-2 px-2 text-center w-32">برنده / وضعیت</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line/60">
+              {(() => {
+                let cnt = 0;
+                const rows: any[] = [];
+                doubleKnockout.winnersBracket?.forEach((round) => {
+                  round.matches?.forEach((m) => {
+                    rows.push(
+                      renderPrintMatchRow(m, scores, matchDetails, cnt++, round.label)
+                    );
+                  });
+                });
+                return rows;
+              })()}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Losers Bracket */}
-      <div className="space-y-3 print-avoid-break">
-        <div className="bg-amber-100 text-amber-950 font-black text-xs py-1.5 px-3 rounded flex items-center justify-between">
+      {/* Losers Bracket Table */}
+      <div className="space-y-2 print-avoid-break">
+        <div className="bg-amber-100 text-amber-950 font-black text-xs py-1.5 px-3 rounded flex items-center justify-between border-r-4 border-amber-600">
           <span>🛡️ جدول شانس مجدد / بازندگان (Losers Bracket)</span>
-          <span className="text-[10px] text-amber-900/70 font-normal">
-            {doubleKnockout.losersBracket?.length || 0} دور
-          </span>
         </div>
-        {doubleKnockout.losersBracket?.map((round) => (
-          <div key={round.round} className="space-y-2 print-avoid-break">
-            <div className="bg-amber-50 text-amber-950 font-bold text-[11px] py-1 px-2.5 rounded-l border-r-2 border-amber-600">
-              {round.label}
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              {round.matches.map((m) =>
-                renderPrintMatchCard(m, scores, matchDetails)
-              )}
-            </div>
-          </div>
-        ))}
+        <div className="w-full overflow-hidden rounded-xl border border-line bg-white print-avoid-break">
+          <table className="w-full text-right text-xs print:text-[11px]">
+            <thead>
+              <tr className="border-b border-line bg-chalk/80 font-bold text-ink/80 print:bg-chalk">
+                <th className="py-2 px-2 text-center w-10">#</th>
+                <th className="py-2 px-2 text-center w-32">مرحله</th>
+                <th className="py-2 px-2 text-center w-24">کد بازی</th>
+                <th className="py-2 px-2 text-center">زمان و مکان برگزاری</th>
+                <th className="py-2 px-3 text-left w-1/4">تیم اول (میزبان)</th>
+                <th className="py-2 px-2 text-center w-24">نتیجه</th>
+                <th className="py-2 px-3 text-right w-1/4">تیم دوم (میهمان)</th>
+                <th className="py-2 px-2 text-center w-32">برنده / وضعیت</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line/60">
+              {(() => {
+                let cnt = 0;
+                const rows: any[] = [];
+                doubleKnockout.losersBracket?.forEach((round) => {
+                  round.matches?.forEach((m) => {
+                    rows.push(
+                      renderPrintMatchRow(m, scores, matchDetails, cnt++, round.label)
+                    );
+                  });
+                });
+                return rows;
+              })()}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Finals */}
+      {/* Finals Table */}
       {(doubleKnockout.grandFinal || doubleKnockout.bracketResetMatch) && (
-        <div className="space-y-3 print-avoid-break">
-          <div className="bg-gold/25 text-pitch font-black text-xs py-1.5 px-3 rounded flex items-center justify-between border border-gold/40">
+        <div className="space-y-2 print-avoid-break">
+          <div className="bg-gold/25 text-pitch font-black text-xs py-1.5 px-3 rounded flex items-center justify-between border-r-4 border-gold">
             <span>👑 فینال نهایی مسابقات (Grand Final)</span>
           </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            {doubleKnockout.grandFinal &&
-              renderPrintMatchCard(
-                doubleKnockout.grandFinal,
-                scores,
-                matchDetails,
-                "فینال اصلی مسابقات"
-              )}
-            {doubleKnockout.bracketResetMatch &&
-              renderPrintMatchCard(
-                doubleKnockout.bracketResetMatch,
-                scores,
-                matchDetails,
-                "مسابقه راند برگشت / تعیین سرنوشت (Bracket Reset)"
-              )}
+          <div className="w-full overflow-hidden rounded-xl border border-line bg-white print-avoid-break">
+            <table className="w-full text-right text-xs print:text-[11px]">
+              <thead>
+                <tr className="border-b border-line bg-chalk/80 font-bold text-ink/80 print:bg-chalk">
+                  <th className="py-2 px-2 text-center w-10">#</th>
+                  <th className="py-2 px-2 text-center w-32">مرحله</th>
+                  <th className="py-2 px-2 text-center w-24">کد بازی</th>
+                  <th className="py-2 px-2 text-center">زمان و مکان برگزاری</th>
+                  <th className="py-2 px-3 text-left w-1/4">تیم اول (میزبان)</th>
+                  <th className="py-2 px-2 text-center w-24">نتیجه</th>
+                  <th className="py-2 px-3 text-right w-1/4">تیم دوم (میهمان)</th>
+                  <th className="py-2 px-2 text-center w-32">برنده / وضعیت</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line/60">
+                {doubleKnockout.grandFinal &&
+                  renderPrintMatchRow(
+                    doubleKnockout.grandFinal,
+                    scores,
+                    matchDetails,
+                    0,
+                    "فینال اصلی"
+                  )}
+                {doubleKnockout.bracketResetMatch &&
+                  renderPrintMatchRow(
+                    doubleKnockout.bracketResetMatch,
+                    scores,
+                    matchDetails,
+                    1,
+                    "فینال مجدد (Bracket Reset)"
+                  )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -2297,10 +1659,8 @@ function InteractiveBracket({
     [allMatches, scores]
   );
 
-  const [layoutMode, setLayoutMode] = useState<"cards" | "tree">("cards");
-
   return (
-    <div className="space-y-8 w-full">
+    <div className="space-y-8">
       {/* Celebration Podium */}
       {champion && (
         <div className="rounded-xl border-2 border-gold bg-gradient-to-r from-gold/15 via-gold/25 to-gold/15 p-6 shadow-md text-center animate-fade-in print-avoid-break">
@@ -2338,201 +1698,80 @@ function InteractiveBracket({
         </p>
       )}
 
-      {/* View Switcher: Cards (Full Screen) vs Tree Bracket */}
-      <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white/80 p-3 shadow-2xs">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-pitch">نحوه نمایش مسابقات:</span>
-          <div className="inline-flex rounded-lg border border-line bg-chalk/80 p-0.5 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setLayoutMode("cards")}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
-                layoutMode === "cards"
-                  ? "bg-pitch text-chalk shadow-xs font-bold"
-                  : "text-ink/70 hover:text-ink"
-              }`}
-            >
-              <span>🗂️</span>
-              <span>نمایش کارتی مسابقات (تمام‌صفحه)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setLayoutMode("tree")}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
-                layoutMode === "tree"
-                  ? "bg-pitch text-chalk shadow-xs font-bold"
-                  : "text-ink/70 hover:text-ink"
-              }`}
-            >
-              <span>🌳</span>
-              <span>نمودار درختی براکت حذفی</span>
-            </button>
-          </div>
-        </div>
-        <span className="text-xs text-ink/60 hidden sm:inline">
-          {layoutMode === "cards"
-            ? "نمایش مرحله به مرحله در قالب کارت‌های جادار و تعاملی در تمام عرض صفحه"
-            : "نمودار درختی استاندارد مسابقات حذفی"}
-        </span>
-      </div>
-
-      {/* 1. CARDS VIEW (FULL SCREEN RESPONSIVE GRID) */}
-      <div className={layoutMode === "cards" ? "space-y-6 w-full" : "hidden"}>
-        {knockout.rounds.map((round: any, roundIdx: number) => {
-          const isFinal = roundIdx === knockout.rounds.length - 1;
-          const visibleMatches =
-            filterTeam && filterTeam !== "all"
-              ? round.matches.filter((m: any) => m.home === filterTeam || m.away === filterTeam)
-              : round.matches;
-
-          if (filterTeam && filterTeam !== "all" && visibleMatches.length === 0) {
-            return null;
-          }
-
-          return (
-            <div
-              key={round.round}
-              className="rounded-2xl border border-line bg-white/80 p-4 sm:p-5 shadow-xs space-y-4 print-avoid-break w-full"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/70 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{isFinal ? "👑" : "🏆"}</span>
-                  <h3 className="font-black text-base text-pitch">{round.label}</h3>
+      {/* Main Bracket Columns (Tree View) */}
+      <div
+        className={`bracket-tree-container overflow-x-auto pb-4 pt-2 ${
+          printBracketStyle === "stages"
+            ? "print:hidden"
+            : "print:overflow-visible print:p-0 print:m-0"
+        }`}
+      >
+        <div className="flex gap-6 print:gap-1.5 print:w-full print:justify-between">
+          {knockout.rounds.map((round: any, roundIdx: number) => {
+            const isFinal = roundIdx === knockout.rounds.length - 1;
+            return (
+              <div
+                key={round.round}
+                className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
+              >
+                <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3 print:py-0.5 print:px-1">
+                  <p className="text-xs font-bold text-pitch print:text-[10px]">{round.label}</p>
                 </div>
-                <span className="rounded-full bg-pitch/10 text-pitch font-bold px-3 py-1 text-xs">
-                  {visibleMatches.length} مسابقه
-                </span>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
-                {visibleMatches.map((m: any) => (
-                  <MatchBracketCard
-                    key={m.id}
-                    match={m}
-                    scores={scores}
-                    isFinal={isFinal}
-                    onScoreChange={onScoreChange}
-                    matchDetails={matchDetails}
-                    onOpenEditModal={onOpenEditModal}
-                    filterTeam={filterTeam}
-                    checkDownstreamPlayed={checkDownstreamPlayed}
-                  />
-                ))}
+                <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
+                  {round.matches.map((m: any) => (
+                    <MatchBracketCard
+                      key={m.id}
+                      match={m}
+                      scores={scores}
+                      isFinal={isFinal}
+                      onScoreChange={onScoreChange}
+                      matchDetails={matchDetails}
+                      onOpenEditModal={onOpenEditModal}
+                      filterTeam={filterTeam}
+                      checkDownstreamPlayed={checkDownstreamPlayed}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
-
-        {/* Third Place in Cards View */}
-        {knockout.thirdPlaceMatch && (
-          <div className="rounded-2xl border border-amber-300 bg-amber-50/40 p-4 sm:p-5 shadow-xs space-y-4 print-avoid-break w-full">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300/60 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🥉</span>
-                <h3 className="font-black text-base text-amber-950">
-                  مسابقه رده‌بندی (تعیین مقام سوم و چهارم)
-                </h3>
-              </div>
-              {thirdPlace && (
-                <span className="rounded-full bg-amber-200 text-amber-950 font-bold px-3 py-1 text-xs">
-                  برنده مقام سوم: {thirdPlace}
-                </span>
-              )}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
-              <MatchBracketCard
-                match={knockout.thirdPlaceMatch}
-                scores={scores}
-                isFinal={false}
-                onScoreChange={onScoreChange}
-                label="دیدار رده‌بندی"
-                matchDetails={matchDetails}
-                onOpenEditModal={onOpenEditModal}
-                filterTeam={filterTeam}
-                checkDownstreamPlayed={checkDownstreamPlayed}
-              />
-            </div>
-          </div>
-        )}
+            );
+          })}
+        </div>
       </div>
 
-      {/* 2. TREE VIEW */}
-      <div className={layoutMode === "tree" ? "space-y-6" : "hidden"}>
-        {/* Main Bracket Columns (Tree View) */}
+      {/* Third Place Match (if configured) */}
+      {knockout.thirdPlaceMatch && (
         <div
-          className={`bracket-tree-container overflow-x-auto pb-4 pt-2 ${
-            printBracketStyle === "stages"
-              ? "print:hidden"
-              : "print:overflow-visible print:p-0 print:m-0"
+          className={`border-t border-line pt-6 print:pt-3 print-avoid-break ${
+            printBracketStyle === "stages" ? "print:hidden" : ""
           }`}
         >
-          <div className="flex gap-6 print:gap-1.5 print:w-full print:justify-between">
-            {knockout.rounds.map((round: any, roundIdx: number) => {
-              const isFinal = roundIdx === knockout.rounds.length - 1;
-              return (
-                <div
-                  key={round.round}
-                  className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
-                >
-                  <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3 print:py-0.5 print:px-1">
-                    <p className="text-xs font-bold text-pitch print:text-[10px]">{round.label}</p>
-                  </div>
-
-                  <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
-                    {round.matches.map((m: any) => (
-                      <MatchBracketCard
-                        key={m.id}
-                        match={m}
-                        scores={scores}
-                        isFinal={isFinal}
-                        onScoreChange={onScoreChange}
-                        matchDetails={matchDetails}
-                        onOpenEditModal={onOpenEditModal}
-                        filterTeam={filterTeam}
-                        checkDownstreamPlayed={checkDownstreamPlayed}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="mb-3 flex items-center justify-between print:mb-1">
+            <h3 className="font-bold text-sm text-pitch flex items-center gap-1.5 print:text-xs">
+              <span>🥉 مسابقه رده‌بندی</span>
+              <span className="text-xs text-ink/50 font-normal print:text-[10px]">(تعیین مقام سوم و چهارم)</span>
+            </h3>
+            {thirdPlace && (
+              <span className="text-xs font-bold text-pitch bg-pitch/10 px-2 py-0.5 rounded print:text-[10px]">
+                برنده مقام سوم: {thirdPlace}
+              </span>
+            )}
+          </div>
+          <div className="max-w-sm print:max-w-none">
+            <MatchBracketCard
+              match={knockout.thirdPlaceMatch}
+              scores={scores}
+              isFinal={false}
+              onScoreChange={onScoreChange}
+              label="دیدار رده‌بندی"
+              matchDetails={matchDetails}
+              onOpenEditModal={onOpenEditModal}
+              filterTeam={filterTeam}
+              checkDownstreamPlayed={checkDownstreamPlayed}
+            />
           </div>
         </div>
-
-        {/* Third Place Match (if configured) in tree mode */}
-        {knockout.thirdPlaceMatch && (
-          <div
-            className={`border-t border-line pt-6 print:pt-3 print-avoid-break ${
-              printBracketStyle === "stages" ? "print:hidden" : ""
-            }`}
-          >
-            <div className="mb-3 flex items-center justify-between print:mb-1">
-              <h3 className="font-bold text-sm text-pitch flex items-center gap-1.5 print:text-xs">
-                <span>🥉 مسابقه رده‌بندی</span>
-                <span className="text-xs text-ink/50 font-normal print:text-[10px]">(تعیین مقام سوم و چهارم)</span>
-              </h3>
-              {thirdPlace && (
-                <span className="text-xs font-bold text-pitch bg-pitch/10 px-2 py-0.5 rounded print:text-[10px]">
-                  برنده مقام سوم: {thirdPlace}
-                </span>
-              )}
-            </div>
-            <div className="max-w-sm print:max-w-none">
-              <MatchBracketCard
-                match={knockout.thirdPlaceMatch}
-                scores={scores}
-                isFinal={false}
-                onScoreChange={onScoreChange}
-                label="دیدار رده‌بندی"
-                matchDetails={matchDetails}
-                onOpenEditModal={onOpenEditModal}
-                filterTeam={filterTeam}
-                checkDownstreamPlayed={checkDownstreamPlayed}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Stage-by-Stage Printable Schedule Cards (for 100% clean, non-clipped printing across any number of pages) */}
       {(printBracketStyle === "stages" || printBracketStyle === "both" || !printBracketStyle) && (
@@ -2573,7 +1812,6 @@ function InteractiveDoubleKnockoutBracket({
   printBracketStyle?: "tree" | "stages" | "both";
 }) {
   const [bracketView, setBracketView] = useState<"all" | "winners" | "losers" | "finals">("all");
-  const [layoutMode, setLayoutMode] = useState<"cards" | "tree">("cards");
 
   const { doubleKnockout, champion, runnerUp, thirdPlace } = useMemo(
     () => computeDoubleKnockoutWithScores(originalDoubleKnockout, scores),
@@ -2659,44 +1897,6 @@ function InteractiveDoubleKnockoutBracket({
         </div>
       )}
 
-      {/* View Switcher: Cards (Full Screen) vs Tree Bracket */}
-      <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white/80 p-3 shadow-2xs">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-pitch">نحوه نمایش مسابقات دو حذفی:</span>
-          <div className="inline-flex rounded-lg border border-line bg-chalk/80 p-0.5 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setLayoutMode("cards")}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
-                layoutMode === "cards"
-                  ? "bg-pitch text-chalk shadow-xs font-bold"
-                  : "text-ink/70 hover:text-ink"
-              }`}
-            >
-              <span>🗂️</span>
-              <span>نمایش کارتی مسابقات (تمام‌صفحه)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setLayoutMode("tree")}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
-                layoutMode === "tree"
-                  ? "bg-pitch text-chalk shadow-xs font-bold"
-                  : "text-ink/70 hover:text-ink"
-              }`}
-            >
-              <span>🌳</span>
-              <span>نمودار درختی تورنمنت</span>
-            </button>
-          </div>
-        </div>
-        <span className="text-xs text-ink/60 hidden sm:inline">
-          {layoutMode === "cards"
-            ? "نمایش مسابقات در کارت‌های جادار و گسترده در تمام عرض صفحه"
-            : "نمودار درختی دو حذفی"}
-        </span>
-      </div>
-
       {/* View Filter Buttons */}
       <div className="no-print flex flex-wrap items-center gap-2 border-b border-line pb-3">
         {[
@@ -2771,13 +1971,13 @@ function InteractiveDoubleKnockoutBracket({
       {/* Section 1: Winners Bracket */}
       {(bracketView === "all" || bracketView === "winners") && (
         <div
-          className={`rounded-2xl border border-line bg-chalk/30 p-5 space-y-4 print-avoid-break w-full ${
+          className={`rounded-xl border border-line bg-chalk/30 p-5 space-y-4 print-avoid-break ${
             printBracketStyle === "stages" ? "print:hidden" : "print:overflow-visible print:p-2"
           }`}
         >
           <div className="flex items-center justify-between border-b border-line pb-3">
             <div>
-              <h3 className="font-black text-base text-pitch flex items-center gap-2">
+              <h3 className="font-bold text-base text-pitch flex items-center gap-2">
                 <span>🏆</span>
                 <span>جدول برندگان (Winners Bracket)</span>
               </h3>
@@ -2790,91 +1990,50 @@ function InteractiveDoubleKnockoutBracket({
             </span>
           </div>
 
-          {layoutMode === "cards" ? (
-            <div className="space-y-6 w-full">
-              {doubleKnockout.winnersBracket.map((round, rIdx) => {
-                const isFinal = rIdx === doubleKnockout.winnersBracket.length - 1;
-                const visibleMatches =
-                  filterTeam && filterTeam !== "all"
-                    ? round.matches.filter((m) => m.home === filterTeam || m.away === filterTeam)
-                    : round.matches;
-
-                if (filterTeam && filterTeam !== "all" && visibleMatches.length === 0) return null;
-
-                return (
-                  <div
-                    key={round.round}
-                    className="rounded-xl border border-line/80 bg-white/90 p-4 space-y-3 shadow-2xs w-full"
-                  >
-                    <div className="flex items-center justify-between border-b border-line/60 pb-2">
-                      <span className="font-extrabold text-sm text-pitch">{round.label}</span>
-                      <span className="text-xs font-semibold text-ink/50">{visibleMatches.length} مسابقه</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
-                      {visibleMatches.map((m) => (
-                        <MatchBracketCard
-                          key={m.id}
-                          match={m}
-                          scores={scores}
-                          isFinal={isFinal}
-                          onScoreChange={onScoreChange}
-                          matchDetails={matchDetails}
-                          onOpenEditModal={onOpenEditModal}
-                          filterTeam={filterTeam}
-                          checkDownstreamPlayed={checkDownstreamPlayed}
-                        />
-                      ))}
-                    </div>
+          <div className="bracket-tree-container flex gap-6 overflow-x-auto pb-4 pt-2 print:gap-1.5 print:w-full print:justify-between print:overflow-visible">
+            {doubleKnockout.winnersBracket.map((round, rIdx) => {
+              const isFinal = rIdx === doubleKnockout.winnersBracket.length - 1;
+              return (
+                <div
+                  key={round.round}
+                  className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
+                >
+                  <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3 print:py-0.5 print:px-1">
+                    <p className="text-xs font-bold text-pitch print:text-[10px]">{round.label}</p>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="bracket-tree-container flex gap-6 overflow-x-auto pb-4 pt-2 print:gap-1.5 print:w-full print:justify-between print:overflow-visible">
-              {doubleKnockout.winnersBracket.map((round, rIdx) => {
-                const isFinal = rIdx === doubleKnockout.winnersBracket.length - 1;
-                return (
-                  <div
-                    key={round.round}
-                    className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
-                  >
-                    <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3 print:py-0.5 print:px-1">
-                      <p className="text-xs font-bold text-pitch print:text-[10px]">{round.label}</p>
-                    </div>
 
-                    <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
-                      {round.matches.map((m) => (
-                        <MatchBracketCard
-                          key={m.id}
-                          match={m}
-                          scores={scores}
-                          isFinal={isFinal}
-                          onScoreChange={onScoreChange}
-                          matchDetails={matchDetails}
-                          onOpenEditModal={onOpenEditModal}
-                          filterTeam={filterTeam}
-                          checkDownstreamPlayed={checkDownstreamPlayed}
-                        />
-                      ))}
-                    </div>
+                  <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
+                    {round.matches.map((m) => (
+                      <MatchBracketCard
+                        key={m.id}
+                        match={m}
+                        scores={scores}
+                        isFinal={isFinal}
+                        onScoreChange={onScoreChange}
+                        matchDetails={matchDetails}
+                        onOpenEditModal={onOpenEditModal}
+                        filterTeam={filterTeam}
+                        checkDownstreamPlayed={checkDownstreamPlayed}
+                      />
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* Section 2: Losers Bracket */}
       {(bracketView === "all" || bracketView === "losers") && (
         <div
-          className={`rounded-2xl border border-amber-600/30 bg-amber-50/30 p-5 space-y-4 print-avoid-break w-full ${
+          className={`rounded-xl border border-amber-600/30 bg-amber-50/30 p-5 space-y-4 print-avoid-break ${
             printBracketStyle === "stages" ? "print:hidden" : "print:overflow-visible print:p-2"
           }`}
         >
           <div className="flex items-center justify-between border-b border-amber-600/20 pb-3">
             <div>
-              <h3 className="font-black text-base text-amber-900 flex items-center gap-2">
+              <h3 className="font-bold text-base text-amber-900 flex items-center gap-2">
                 <span>🛡️</span>
                 <span>جدول شانس مجدد / بازندگان (Losers Bracket)</span>
               </h3>
@@ -2906,91 +2065,50 @@ function InteractiveDoubleKnockoutBracket({
             )}
           </div>
 
-          {layoutMode === "cards" ? (
-            <div className="space-y-6 w-full">
-              {doubleKnockout.losersBracket.map((round, rIdx) => {
-                const isFinal = rIdx === doubleKnockout.losersBracket.length - 1;
-                const visibleMatches =
-                  filterTeam && filterTeam !== "all"
-                    ? round.matches.filter((m) => m.home === filterTeam || m.away === filterTeam)
-                    : round.matches;
-
-                if (filterTeam && filterTeam !== "all" && visibleMatches.length === 0) return null;
-
-                return (
-                  <div
-                    key={round.round}
-                    className="rounded-xl border border-amber-600/20 bg-white/95 p-4 space-y-3 shadow-2xs w-full"
-                  >
-                    <div className="flex items-center justify-between border-b border-amber-600/20 pb-2">
-                      <span className="font-extrabold text-sm text-amber-950">{round.label}</span>
-                      <span className="text-xs font-semibold text-ink/50">{visibleMatches.length} مسابقه</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
-                      {visibleMatches.map((m) => (
-                        <MatchBracketCard
-                          key={m.id}
-                          match={m}
-                          scores={scores}
-                          isFinal={isFinal}
-                          onScoreChange={onScoreChange}
-                          matchDetails={matchDetails}
-                          onOpenEditModal={onOpenEditModal}
-                          filterTeam={filterTeam}
-                          checkDownstreamPlayed={checkDownstreamPlayed}
-                        />
-                      ))}
-                    </div>
+          <div className="bracket-tree-container flex gap-6 overflow-x-auto pb-4 pt-2 print:gap-1.5 print:w-full print:justify-between print:overflow-visible">
+            {doubleKnockout.losersBracket.map((round, rIdx) => {
+              const isFinal = rIdx === doubleKnockout.losersBracket.length - 1;
+              return (
+                <div
+                  key={round.round}
+                  className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
+                >
+                  <div className="text-center rounded-md bg-amber-600/15 py-1.5 px-3 print:py-0.5 print:px-1">
+                    <p className="text-xs font-bold text-amber-950 print:text-[10px]">{round.label}</p>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="bracket-tree-container flex gap-6 overflow-x-auto pb-4 pt-2 print:gap-1.5 print:w-full print:justify-between print:overflow-visible">
-              {doubleKnockout.losersBracket.map((round, rIdx) => {
-                const isFinal = rIdx === doubleKnockout.losersBracket.length - 1;
-                return (
-                  <div
-                    key={round.round}
-                    className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
-                  >
-                    <div className="text-center rounded-md bg-amber-600/15 py-1.5 px-3 print:py-0.5 print:px-1">
-                      <p className="text-xs font-bold text-amber-950 print:text-[10px]">{round.label}</p>
-                    </div>
 
-                    <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
-                      {round.matches.map((m) => (
-                        <MatchBracketCard
-                          key={m.id}
-                          match={m}
-                          scores={scores}
-                          isFinal={isFinal}
-                          onScoreChange={onScoreChange}
-                          matchDetails={matchDetails}
-                          onOpenEditModal={onOpenEditModal}
-                          filterTeam={filterTeam}
-                          checkDownstreamPlayed={checkDownstreamPlayed}
-                        />
-                      ))}
-                    </div>
+                  <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
+                    {round.matches.map((m) => (
+                      <MatchBracketCard
+                        key={m.id}
+                        match={m}
+                        scores={scores}
+                        isFinal={isFinal}
+                        onScoreChange={onScoreChange}
+                        matchDetails={matchDetails}
+                        onOpenEditModal={onOpenEditModal}
+                        filterTeam={filterTeam}
+                        checkDownstreamPlayed={checkDownstreamPlayed}
+                      />
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* Section 3: Grand Final */}
       {(bracketView === "all" || bracketView === "finals") && (
         <div
-          className={`rounded-2xl border-2 border-gold/70 bg-white p-5 space-y-4 shadow-sm print-avoid-break w-full ${
+          className={`rounded-xl border-2 border-gold/70 bg-white p-5 space-y-4 shadow-sm print-avoid-break ${
             printBracketStyle === "stages" ? "print:hidden" : "print:p-2"
           }`}
         >
           <div className="flex items-center justify-between border-b border-line pb-3">
             <div>
-              <h3 className="font-black text-base text-pitch flex items-center gap-2">
+              <h3 className="font-bold text-base text-pitch flex items-center gap-2">
                 <span>👑</span>
                 <span>فینال نهایی مسابقات (Grand Final)</span>
               </h3>
@@ -3003,7 +2121,7 @@ function InteractiveDoubleKnockoutBracket({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
             <div>
               <MatchBracketCard
                 match={doubleKnockout.grandFinal}
