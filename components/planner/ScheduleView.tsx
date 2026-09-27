@@ -102,6 +102,7 @@ export function ScheduleView({
     result.format === "double-knockout" ||
     result.format === "groups-knockout";
 
+  const [matchesViewMode, setMatchesViewMode] = useState<"list" | "classic">("list");
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [printSettings, setPrintSettings] = useState<PrintSettings>(() => ({
     orientation: isKoFormat ? "landscape" : "portrait",
@@ -299,42 +300,73 @@ export function ScheduleView({
         printSettings.section === "both" ||
         printSettings.section === "matches") && (
         <div
-          className={`space-y-8 ${
+          className={`space-y-6 ${
             activeTab !== "matches" ? "print-only" : ""
           } ${printSettings.section === "standings" ? "print:hidden" : ""}`}
         >
-          {(result.format === "league" || result.format === "double-league") && (
-            <RoundsTable
-              rounds={result.rounds}
+          {/* View Switcher: Simple List (Default) vs Classic Bracket/Stage View */}
+          <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white/90 p-3 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-pitch">نحوه نمایش مسابقات:</span>
+              <div className="inline-flex rounded-lg border border-line bg-chalk/80 p-0.5 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setMatchesViewMode("list")}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
+                    matchesViewMode === "list"
+                      ? "bg-pitch text-chalk shadow-xs font-bold"
+                      : "text-ink/70 hover:text-ink"
+                  }`}
+                >
+                  <span>📋</span>
+                  <span>لیست ساده مسابقات (تمام‌صفحه)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMatchesViewMode("classic")}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 transition-all cursor-pointer ${
+                    matchesViewMode === "classic"
+                      ? "bg-pitch text-chalk shadow-xs font-bold"
+                      : "text-ink/70 hover:text-ink"
+                  }`}
+                >
+                  <span>{isKoFormat ? "🌳" : "🗂️"}</span>
+                  <span>{isKoFormat ? "نمودار درختی / ساختار سنتی" : "تفکیک هفته‌ها"}</span>
+                </button>
+              </div>
+            </div>
+            <span className="text-xs text-ink/60 hidden sm:inline">
+              {matchesViewMode === "list"
+                ? "فهرست ساده، سطری و کامل کلیه مسابقات در تمام عرض صفحه"
+                : "نمای ساختاری و دسته‌بندی‌شده مسابقات"}
+            </span>
+          </div>
+
+          {matchesViewMode === "list" ? (
+            <SimpleMatchListView
+              result={result}
               scores={scores}
               onScoreChange={onScoreChange}
-              metadata={meta}
               matchDetails={matchDetails}
               onOpenEditModal={handleOpenEditModal}
               filterTeam={filterTeam}
-            />
-          )}
-
-          {result.format === "groups" && (
-            <GroupsMatchesView
-              groups={result.groups}
-              scores={scores}
-              onScoreChange={onScoreChange}
-              selectedGroupIndex={selectedGroupIndex}
-              onSelectGroup={setSelectedGroupIndex}
               metadata={meta}
-              matchDetails={matchDetails}
-              onOpenEditModal={handleOpenEditModal}
-              filterTeam={filterTeam}
             />
-          )}
+          ) : (
+            <div className="space-y-8">
+              {(result.format === "league" || result.format === "double-league") && (
+                <RoundsTable
+                  rounds={result.rounds}
+                  scores={scores}
+                  onScoreChange={onScoreChange}
+                  metadata={meta}
+                  matchDetails={matchDetails}
+                  onOpenEditModal={handleOpenEditModal}
+                  filterTeam={filterTeam}
+                />
+              )}
 
-          {result.format === "groups-knockout" && (
-            <div className="space-y-12 print:space-y-6">
-              <div className="print-avoid-break">
-                <h2 className="text-lg font-bold text-pitch mb-4 print:text-base print:mb-2">
-                  مرحله اول: مسابقات گروهی
-                </h2>
+              {result.format === "groups" && (
                 <GroupsMatchesView
                   groups={result.groups}
                   scores={scores}
@@ -346,75 +378,96 @@ export function ScheduleView({
                   onOpenEditModal={handleOpenEditModal}
                   filterTeam={filterTeam}
                 />
-              </div>
+              )}
 
-              <div className="print-avoid-break">
-                <div className="border-t border-line pt-8 mb-6 print:pt-4 print:mb-3">
-                  <h2 className="text-lg font-bold text-pitch print:text-base">
-                    مرحله دوم: براکت حذفی صعودکننده‌ها
-                  </h2>
-                  <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
-                    با مسجل شدن وضعیت یا اتمام بازی‌های هر گروه، تیم‌های اول و دوم صعودکننده به صورت خودکار به جایگاه‌های خود در این براکت منتقل می‌شوند.
-                  </p>
+              {result.format === "groups-knockout" && (
+                <div className="space-y-12 print:space-y-6">
+                  <div className="print-avoid-break">
+                    <h2 className="text-lg font-bold text-pitch mb-4 print:text-base print:mb-2">
+                      مرحله اول: مسابقات گروهی
+                    </h2>
+                    <GroupsMatchesView
+                      groups={result.groups}
+                      scores={scores}
+                      onScoreChange={onScoreChange}
+                      selectedGroupIndex={selectedGroupIndex}
+                      onSelectGroup={setSelectedGroupIndex}
+                      metadata={meta}
+                      matchDetails={matchDetails}
+                      onOpenEditModal={handleOpenEditModal}
+                      filterTeam={filterTeam}
+                    />
+                  </div>
+
+                  <div className="print-avoid-break">
+                    <div className="border-t border-line pt-8 mb-6 print:pt-4 print:mb-3">
+                      <h2 className="text-lg font-bold text-pitch print:text-base">
+                        مرحله دوم: براکت حذفی صعودکننده‌ها
+                      </h2>
+                      <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
+                        با مسجل شدن وضعیت یا اتمام بازی‌های هر گروه، تیم‌های اول و دوم صعودکننده به صورت خودکار به جایگاه‌های خود در این براکت منتقل می‌شوند.
+                      </p>
+                    </div>
+                    <InteractiveBracket
+                      originalKnockout={result.knockout}
+                      groups={result.groups}
+                      pointsRule={meta?.pointsRule}
+                      scores={scores}
+                      onScoreChange={onScoreChange}
+                      matchDetails={matchDetails}
+                      onOpenEditModal={handleOpenEditModal}
+                      filterTeam={filterTeam}
+                      printBracketStyle={printSettings.bracketStyle}
+                    />
+                  </div>
                 </div>
-                <InteractiveBracket
-                  originalKnockout={result.knockout}
-                  groups={result.groups}
-                  pointsRule={meta?.pointsRule}
-                  scores={scores}
-                  onScoreChange={onScoreChange}
-                  matchDetails={matchDetails}
-                  onOpenEditModal={handleOpenEditModal}
-                  filterTeam={filterTeam}
-                  printBracketStyle={printSettings.bracketStyle}
-                />
-              </div>
-            </div>
-          )}
+              )}
 
-          {result.format === "knockout" && (
-            <div>
-              <div className="mb-6 print:mb-3">
-                <h2 className="text-lg font-bold text-pitch print:text-base">براکت حذفی مسابقات</h2>
-                <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
-                  نتایج هر مسابقه را ثبت کنید تا تیم‌های برنده مستقیماً به مراحل بعدی و فینال راه پیدا
-                  کنند. در صورت تساوی، فیلد ضربات پنالتی فعال می‌شود.
-                </p>
-              </div>
-              <InteractiveBracket
-                originalKnockout={result.knockout}
-                scores={scores}
-                onScoreChange={onScoreChange}
-                matchDetails={matchDetails}
-                onOpenEditModal={handleOpenEditModal}
-                filterTeam={filterTeam}
-                printBracketStyle={printSettings.bracketStyle}
-              />
-            </div>
-          )}
-
-          {result.format === "double-knockout" && (
-            <div>
-              <div className="mb-6 print:mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🛡️</span>
-                  <h2 className="text-lg font-bold text-pitch print:text-base">
-                    تورنمنت دو حذفی (Double Elimination)
-                  </h2>
+              {result.format === "knockout" && (
+                <div>
+                  <div className="mb-6 print:mb-3">
+                    <h2 className="text-lg font-bold text-pitch print:text-base">براکت حذفی مسابقات</h2>
+                    <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
+                      نتایج هر مسابقه را ثبت کنید تا تیم‌های برنده مستقیماً به مراحل بعدی و فینال راه پیدا
+                      کنند. در صورت تساوی، فیلد ضربات پنالتی فعال می‌شود.
+                    </p>
+                  </div>
+                  <InteractiveBracket
+                    originalKnockout={result.knockout}
+                    scores={scores}
+                    onScoreChange={onScoreChange}
+                    matchDetails={matchDetails}
+                    onOpenEditModal={handleOpenEditModal}
+                    filterTeam={filterTeam}
+                    printBracketStyle={printSettings.bracketStyle}
+                  />
                 </div>
-                <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
-                  در این تورنمنت هیچ تیمی با یک باخت حذف نمی‌شود. بازنده‌ها به جدول شانس مجدد (Losers Bracket) منتقل می‌شوند و فینال بین قهرمان جدول برندگان و قهرمان شانس مجدد برگزار خواهد شد.
-                </p>
-              </div>
-              <InteractiveDoubleKnockoutBracket
-                originalDoubleKnockout={result.doubleKnockout}
-                scores={scores}
-                onScoreChange={onScoreChange}
-                matchDetails={matchDetails}
-                onOpenEditModal={handleOpenEditModal}
-                filterTeam={filterTeam}
-                printBracketStyle={printSettings.bracketStyle}
-              />
+              )}
+
+              {result.format === "double-knockout" && (
+                <div>
+                  <div className="mb-6 print:mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🛡️</span>
+                      <h2 className="text-lg font-bold text-pitch print:text-base">
+                        تورنمنت دو حذفی (Double Elimination)
+                      </h2>
+                    </div>
+                    <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
+                      در این تورنمنت هیچ تیمی با یک باخت حذف نمی‌شود. بازنده‌ها به جدول شانس مجدد (Losers Bracket) منتقل می‌شوند و فینال بین قهرمان جدول برندگان و قهرمان شانس مجدد برگزار خواهد شد.
+                    </p>
+                  </div>
+                  <InteractiveDoubleKnockoutBracket
+                    originalDoubleKnockout={result.doubleKnockout}
+                    scores={scores}
+                    onScoreChange={onScoreChange}
+                    matchDetails={matchDetails}
+                    onOpenEditModal={handleOpenEditModal}
+                    filterTeam={filterTeam}
+                    printBracketStyle={printSettings.bracketStyle}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -715,6 +768,749 @@ export function ScheduleView({
         currentSettings={printSettings}
         onApplyAndPrint={handleApplyAndPrint}
       />
+    </div>
+  );
+}
+
+/* =========================================================
+   SIMPLE MATCH LIST VIEW (CLEAN, FULL-WIDTH FLAT LIST)
+   ========================================================= */
+
+interface FlatMatchItem {
+  id: string;
+  stageLabel: string;
+  stageCategory: "league" | "group" | "knockout" | "winners" | "losers" | "finals";
+  matchCode: string;
+  home: string | null;
+  away: string | null;
+  homePlaceholder?: string | null;
+  awayPlaceholder?: string | null;
+  isBye?: boolean;
+  autoAdvance?: string | null;
+  winner?: string | null;
+  homeScore?: number | null;
+  awayScore?: number | null;
+  homePenalty?: number | null;
+  awayPenalty?: number | null;
+  isKnockout?: boolean;
+}
+
+function SimpleMatchListView({
+  result,
+  scores,
+  onScoreChange,
+  matchDetails,
+  onOpenEditModal,
+  filterTeam,
+  metadata,
+}: {
+  result: ScheduleResult;
+  scores: Record<string, MatchScore>;
+  onScoreChange: (
+    matchId: string,
+    home: number | null,
+    away: number | null,
+    homePenalty?: number | null,
+    awayPenalty?: number | null,
+    winner?: string | null
+  ) => void;
+  matchDetails?: Record<string, MatchScheduleDetail>;
+  onOpenEditModal?: (id: string, home: string, away: string) => void;
+  filterTeam?: string;
+  metadata?: TournamentMetadata;
+}) {
+  const [selectedStage, setSelectedStage] = useState<string>("all");
+
+  const { allMatches, flatMatches } = useMemo(() => {
+    const list: FlatMatchItem[] = [];
+    const rawMatches: any[] = [];
+
+    // 1. League / Double-League
+    if (result.format === "league" || result.format === "double-league") {
+      result.rounds.forEach((r) => {
+        r.matches.forEach((m, idx) => {
+          rawMatches.push(m);
+          const matchId = m.id ?? `r${r.round}-m${idx + 1}`;
+          const sc = scores[matchId];
+          list.push({
+            id: matchId,
+            stageLabel: `هفته ${r.round}`,
+            stageCategory: "league",
+            matchCode: `بازی ${idx + 1}`,
+            home: m.home,
+            away: m.away,
+            isBye: m.isBye,
+            winner: (m as any).winner ?? sc?.winner ?? null,
+            homeScore: sc?.home ?? null,
+            awayScore: sc?.away ?? null,
+            isKnockout: false,
+          });
+        });
+      });
+    }
+
+    // 2. Groups
+    if (result.format === "groups") {
+      result.groups.forEach((g) => {
+        g.rounds.forEach((r) => {
+          r.matches.forEach((m, idx) => {
+            rawMatches.push(m);
+            const matchId = m.id ?? `${g.name}-r${r.round}-m${idx + 1}`;
+            const sc = scores[matchId];
+            list.push({
+              id: matchId,
+              stageLabel: `${g.name} - هفته ${r.round}`,
+              stageCategory: "group",
+              matchCode: `بازی ${idx + 1}`,
+              home: m.home,
+              away: m.away,
+              isBye: m.isBye,
+              winner: (m as any).winner ?? sc?.winner ?? null,
+              homeScore: sc?.home ?? null,
+              awayScore: sc?.away ?? null,
+              isKnockout: false,
+            });
+          });
+        });
+      });
+    }
+
+    // 3. Groups + Knockout
+    if (result.format === "groups-knockout") {
+      result.groups.forEach((g) => {
+        g.rounds.forEach((r) => {
+          r.matches.forEach((m, idx) => {
+            rawMatches.push(m);
+            const matchId = m.id ?? `${g.name}-r${r.round}-m${idx + 1}`;
+            const sc = scores[matchId];
+            list.push({
+              id: matchId,
+              stageLabel: `${g.name} - هفته ${r.round}`,
+              stageCategory: "group",
+              matchCode: `بازی ${idx + 1}`,
+              home: m.home,
+              away: m.away,
+              isBye: m.isBye,
+              winner: (m as any).winner ?? sc?.winner ?? null,
+              homeScore: sc?.home ?? null,
+              awayScore: sc?.away ?? null,
+              isKnockout: false,
+            });
+          });
+        });
+      });
+
+      if (result.knockout) {
+        const { knockout } = computeKnockoutWithScores(
+          result.knockout,
+          scores,
+          result.groups,
+          metadata?.pointsRule
+        );
+        knockout?.rounds?.forEach((r: any) => {
+          r.matches?.forEach((m: any) => {
+            rawMatches.push(m);
+            const sc = scores[m.id];
+            list.push({
+              id: m.id,
+              stageLabel: r.label,
+              stageCategory: "knockout",
+              matchCode: m.matchCode || `بازی ${m.slot !== undefined ? m.slot + 1 : m.id}`,
+              home: m.home,
+              away: m.away,
+              homePlaceholder: m.homePlaceholder,
+              awayPlaceholder: m.awayPlaceholder,
+              isBye: Boolean(m.isBye || m.autoAdvance),
+              autoAdvance: m.autoAdvance,
+              winner: m.winner,
+              homeScore: sc?.home ?? m.homeScore ?? null,
+              awayScore: sc?.away ?? m.awayScore ?? null,
+              homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
+              awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
+              isKnockout: true,
+            });
+          });
+        });
+
+        if (knockout?.thirdPlaceMatch) {
+          const m = knockout.thirdPlaceMatch;
+          rawMatches.push(m);
+          const sc = scores[m.id];
+          list.push({
+            id: m.id,
+            stageLabel: "دیدار رده‌بندی (مقام سوم)",
+            stageCategory: "knockout",
+            matchCode: m.matchCode || "رده‌بندی",
+            home: m.home,
+            away: m.away,
+            homePlaceholder: m.homePlaceholder,
+            awayPlaceholder: m.awayPlaceholder,
+            isBye: Boolean(m.isBye || m.autoAdvance),
+            autoAdvance: m.autoAdvance,
+            winner: m.winner,
+            homeScore: sc?.home ?? m.homeScore ?? null,
+            awayScore: sc?.away ?? m.awayScore ?? null,
+            homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
+            awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
+            isKnockout: true,
+          });
+        }
+      }
+    }
+
+    // 4. Knockout
+    if (result.format === "knockout" && result.knockout) {
+      const { knockout } = computeKnockoutWithScores(
+        result.knockout,
+        scores,
+        undefined,
+        metadata?.pointsRule
+      );
+      knockout?.rounds?.forEach((r: any) => {
+        r.matches?.forEach((m: any) => {
+          rawMatches.push(m);
+          const sc = scores[m.id];
+          list.push({
+            id: m.id,
+            stageLabel: r.label,
+            stageCategory: "knockout",
+            matchCode: m.matchCode || `بازی ${m.slot !== undefined ? m.slot + 1 : m.id}`,
+            home: m.home,
+            away: m.away,
+            homePlaceholder: m.homePlaceholder,
+            awayPlaceholder: m.awayPlaceholder,
+            isBye: Boolean(m.isBye || m.autoAdvance),
+            autoAdvance: m.autoAdvance,
+            winner: m.winner,
+            homeScore: sc?.home ?? m.homeScore ?? null,
+            awayScore: sc?.away ?? m.awayScore ?? null,
+            homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
+            awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
+            isKnockout: true,
+          });
+        });
+      });
+
+      if (knockout?.thirdPlaceMatch) {
+        const m = knockout.thirdPlaceMatch;
+        rawMatches.push(m);
+        const sc = scores[m.id];
+        list.push({
+          id: m.id,
+          stageLabel: "دیدار رده‌بندی (مقام سوم)",
+          stageCategory: "knockout",
+          matchCode: m.matchCode || "رده‌بندی",
+          home: m.home,
+          away: m.away,
+          homePlaceholder: m.homePlaceholder,
+          awayPlaceholder: m.awayPlaceholder,
+          isBye: Boolean(m.isBye || m.autoAdvance),
+          autoAdvance: m.autoAdvance,
+          winner: m.winner,
+          homeScore: sc?.home ?? m.homeScore ?? null,
+          awayScore: sc?.away ?? m.awayScore ?? null,
+          homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
+          awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
+          isKnockout: true,
+        });
+      }
+    }
+
+    // 5. Double Knockout
+    if (result.format === "double-knockout" && result.doubleKnockout) {
+      const { doubleKnockout } = computeDoubleKnockoutWithScores(result.doubleKnockout, scores);
+      doubleKnockout?.winnersBracket?.forEach((r) => {
+        r.matches?.forEach((m) => {
+          rawMatches.push(m);
+          const sc = scores[m.id];
+          list.push({
+            id: m.id,
+            stageLabel: `جدول برندگان - ${r.label}`,
+            stageCategory: "winners",
+            matchCode: m.matchCode || m.id,
+            home: m.home,
+            away: m.away,
+            homePlaceholder: m.homePlaceholder,
+            awayPlaceholder: m.awayPlaceholder,
+            isBye: Boolean(m.isBye || m.autoAdvance),
+            autoAdvance: m.autoAdvance,
+            winner: m.winner,
+            homeScore: sc?.home ?? m.homeScore ?? null,
+            awayScore: sc?.away ?? m.awayScore ?? null,
+            homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
+            awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
+            isKnockout: true,
+          });
+        });
+      });
+
+      doubleKnockout?.losersBracket?.forEach((r) => {
+        r.matches?.forEach((m) => {
+          rawMatches.push(m);
+          const sc = scores[m.id];
+          list.push({
+            id: m.id,
+            stageLabel: `جدول شانس مجدد - ${r.label}`,
+            stageCategory: "losers",
+            matchCode: m.matchCode || m.id,
+            home: m.home,
+            away: m.away,
+            homePlaceholder: m.homePlaceholder,
+            awayPlaceholder: m.awayPlaceholder,
+            isBye: Boolean(m.isBye || m.autoAdvance),
+            autoAdvance: m.autoAdvance,
+            winner: m.winner,
+            homeScore: sc?.home ?? m.homeScore ?? null,
+            awayScore: sc?.away ?? m.awayScore ?? null,
+            homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
+            awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
+            isKnockout: true,
+          });
+        });
+      });
+
+      if (doubleKnockout?.grandFinal) {
+        const m = doubleKnockout.grandFinal;
+        rawMatches.push(m);
+        const sc = scores[m.id];
+        list.push({
+          id: m.id,
+          stageLabel: "فینال نهایی مسابقات (Grand Final)",
+          stageCategory: "finals",
+          matchCode: m.matchCode || "فینال اصلی",
+          home: m.home,
+          away: m.away,
+          homePlaceholder: m.homePlaceholder,
+          awayPlaceholder: m.awayPlaceholder,
+          isBye: Boolean(m.isBye || m.autoAdvance),
+          winner: m.winner,
+          homeScore: sc?.home ?? m.homeScore ?? null,
+          awayScore: sc?.away ?? m.awayScore ?? null,
+          homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
+          awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
+          isKnockout: true,
+        });
+      }
+
+      if (doubleKnockout?.bracketResetMatch) {
+        const m = doubleKnockout.bracketResetMatch;
+        rawMatches.push(m);
+        const sc = scores[m.id];
+        list.push({
+          id: m.id,
+          stageLabel: "فینال مجدد (Bracket Reset)",
+          stageCategory: "finals",
+          matchCode: m.matchCode || "فینال مجدد",
+          home: m.home,
+          away: m.away,
+          homePlaceholder: m.homePlaceholder,
+          awayPlaceholder: m.awayPlaceholder,
+          isBye: Boolean(m.isBye || m.autoAdvance),
+          winner: m.winner,
+          homeScore: sc?.home ?? m.homeScore ?? null,
+          awayScore: sc?.away ?? m.awayScore ?? null,
+          homePenalty: sc?.homePenalty ?? m.homePenalty ?? null,
+          awayPenalty: sc?.awayPenalty ?? m.awayPenalty ?? null,
+          isKnockout: true,
+        });
+      }
+    }
+
+    return { allMatches: rawMatches, flatMatches: list };
+  }, [result, scores, metadata?.pointsRule]);
+
+  const stages = useMemo(() => {
+    const set = new Set<string>();
+    flatMatches.forEach((m) => set.add(m.stageLabel));
+    return Array.from(set);
+  }, [flatMatches]);
+
+  const visibleMatches = useMemo(() => {
+    return flatMatches.filter((m) => {
+      if (filterTeam && filterTeam !== "all") {
+        if (m.home !== filterTeam && m.away !== filterTeam) return false;
+      }
+      if (selectedStage !== "all" && m.stageLabel !== selectedStage) {
+        return false;
+      }
+      return true;
+    });
+  }, [flatMatches, filterTeam, selectedStage]);
+
+  const stats = useMemo(() => {
+    let played = 0;
+    flatMatches.forEach((m) => {
+      const hasScore =
+        m.homeScore !== null &&
+        m.awayScore !== null &&
+        m.homeScore !== undefined &&
+        m.awayScore !== undefined;
+      if (hasScore || m.isBye || m.winner) {
+        played++;
+      }
+    });
+    return {
+      total: flatMatches.length,
+      played,
+      remaining: Math.max(0, flatMatches.length - played),
+    };
+  }, [flatMatches]);
+
+  const checkDownstreamPlayed = useCallback(
+    (matchId: string) => {
+      return findPlayedDownstreamMatch(matchId, allMatches, scores);
+    },
+    [allMatches, scores]
+  );
+
+  return (
+    <div className="space-y-4 w-full">
+      {/* Stats and filter bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-chalk/60 px-4 py-2.5 text-xs">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 font-bold text-pitch">
+            <span>📊 آمار مسابقات:</span>
+            <span>{stats.total} مسابقه کل</span>
+          </div>
+          <span className="text-ink/30">•</span>
+          <span className="text-emerald-700 font-semibold">{stats.played} بازی انجام شده</span>
+          <span className="text-ink/30">•</span>
+          <span className="text-amber-800 font-semibold">{stats.remaining} بازی در انتظار</span>
+        </div>
+
+        {stages.length > 1 && (
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-ink/70">فیلتر مرحله:</span>
+            <select
+              value={selectedStage}
+              onChange={(e) => setSelectedStage(e.target.value)}
+              className="rounded-lg border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink focus:border-pitch focus:outline-none cursor-pointer"
+            >
+              <option value="all">تمام مراحل و هفته‌ها ({stages.length})</option>
+              {stages.map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* The Simple List Table */}
+      <div className="w-full overflow-x-auto rounded-2xl border border-line bg-white shadow-xs print-avoid-break">
+        <table className="w-full text-right text-sm print:text-xs">
+          <thead>
+            <tr className="border-b border-line bg-chalk/80 text-xs font-bold text-ink/75 print:bg-chalk print-avoid-break">
+              <th className="py-3 px-3 text-center w-12 print:py-1.5 print:px-1.5">#</th>
+              <th className="py-3 px-3 text-center w-40 print:py-1.5 print:px-2">مرحله / هفته</th>
+              <th className="py-3 px-2 text-center w-24 print:py-1.5 print:px-1">کد مسابقه</th>
+              <th className="py-3 px-3 text-center w-52 print:py-1.5 print:px-2">زمان و مکان برگزاری</th>
+              <th className="py-3 px-4 text-left font-bold w-1/4 print:py-1.5 print:px-2">تیم اول (میزبان)</th>
+              <th className="py-3 px-3 text-center w-36 print:py-1.5 print:px-1.5">نتیجه مسابقه</th>
+              <th className="py-3 px-4 text-right font-bold w-1/4 print:py-1.5 print:px-2">تیم دوم (میهمان)</th>
+              <th className="py-3 px-3 text-center w-40 print:py-1.5 print:px-2">وضعیت / برنده</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line/60">
+            {visibleMatches.map((m, idx) => {
+              const sc = scores[m.id] || {
+                home: m.homeScore ?? null,
+                away: m.awayScore ?? null,
+                homePenalty: m.homePenalty ?? null,
+                awayPenalty: m.awayPenalty ?? null,
+                winner: m.winner ?? null,
+              };
+              const dt = matchDetails?.[m.id];
+              const isHomeReal = Boolean(m.home && !isPlaceholderTeam(m.home));
+              const isAwayReal = Boolean(m.away && !isPlaceholderTeam(m.away));
+              const isBye = Boolean(m.isBye || m.autoAdvance);
+              const isPending = !isBye && (!isHomeReal || !isAwayReal);
+              const isReadyToPlay = !isBye && isHomeReal && isAwayReal;
+
+              const hasScores =
+                sc.home !== null &&
+                sc.away !== null &&
+                sc.home !== undefined &&
+                sc.away !== undefined;
+
+              const homeWon = m.winner
+                ? m.winner === m.home
+                : Boolean(hasScores && (sc.home as number) > (sc.away as number));
+              const awayWon = m.winner
+                ? m.winner === m.away
+                : Boolean(hasScores && (sc.away as number) > (sc.home as number));
+              const isTied = Boolean(isReadyToPlay && hasScores && (sc.home as number) === (sc.away as number));
+
+              const downstreamPlayed = m.isKnockout ? checkDownstreamPlayed(m.id) : null;
+              const downstreamBlocked = Boolean(downstreamPlayed);
+              const warnDownstream = () => {
+                const nextCode =
+                  downstreamPlayed?.matchCode ||
+                  downstreamPlayed?.label ||
+                  (downstreamPlayed?.slot !== undefined
+                    ? `بازی ${downstreamPlayed.slot + 1}`
+                    : "مرحله بعد");
+                alert(
+                  `امکان تغییر یا لغو نتیجه این مسابقه وجود ندارد، زیرا نتیجه مسابقه مرحله بعد (${nextCode}) قبلاً ثبت شده است.\n\nلطفاً ابتدا نتیجه مسابقه مرحله بعد را پاک یا لغو نمایید.`
+                );
+              };
+
+              return (
+                <tr
+                  key={m.id}
+                  className="even:bg-chalk/30 hover:bg-gold/5 transition-colors print-avoid-break"
+                >
+                  {/* Row # */}
+                  <td className="py-3 px-3 text-center font-mono text-xs text-ink/60 print:py-1.5 print:px-1.5">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-chalk border border-line/80 font-bold text-xs text-ink/70">
+                      {idx + 1}
+                    </span>
+                  </td>
+
+                  {/* Stage */}
+                  <td className="py-3 px-3 text-center text-xs print:py-1.5 print:px-2">
+                    <span className="inline-block rounded-md bg-pitch/5 px-2.5 py-1 text-pitch font-bold border border-pitch/15">
+                      {m.stageLabel}
+                    </span>
+                  </td>
+
+                  {/* Code */}
+                  <td className="py-3 px-2 text-center font-mono text-xs text-pitch font-bold print:py-1.5 print:px-1">
+                    <span className="rounded bg-line/40 px-2 py-0.5">
+                      {m.matchCode}
+                    </span>
+                  </td>
+
+                  {/* Date, Time & Pitch */}
+                  <td className="py-3 px-3 text-center text-xs print:py-1.5 print:px-2">
+                    {dt && (dt.date || dt.time || dt.pitch) ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenEditModal && onOpenEditModal(m.id, m.home || "", m.away || "")}
+                        className="inline-flex items-center gap-1 text-[11px] text-ink/80 hover:text-pitch font-medium transition-colors cursor-pointer group"
+                        title="کلیک برای ویرایش زمان و مکان برگزاری"
+                      >
+                        <span className="text-pitch/70 group-hover:text-pitch">🕒</span>
+                        <span className="font-mono">
+                          {[dt.date, dt.time ? `ساعت ${dt.time}` : "", dt.pitch ? `زمین ${dt.pitch}` : ""]
+                            .filter(Boolean)
+                            .join(" • ")}
+                        </span>
+                      </button>
+                    ) : onOpenEditModal ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenEditModal(m.id, m.home || "", m.away || "")}
+                        className="text-[11px] text-pitch/60 hover:text-pitch hover:underline cursor-pointer no-print font-medium"
+                        title="ثبت زمان و زمین برگزاری"
+                      >
+                        + تنظیم زمان/زمین
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-ink/30">—</span>
+                    )}
+                  </td>
+
+                  {/* Home Team */}
+                  <td className="py-3 px-4 text-left print:py-1.5 print:px-2">
+                    {isHomeReal ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isReadyToPlay || hasScores) return;
+                          if (downstreamBlocked) { warnDownstream(); return; }
+                          if (homeWon) {
+                            onScoreChange(m.id, null, null, null, null, null);
+                          } else {
+                            onScoreChange(m.id, sc.home, sc.away, sc.homePenalty, sc.awayPenalty, m.home);
+                          }
+                        }}
+                        disabled={!isReadyToPlay || hasScores}
+                        className={`text-left text-xs font-bold transition-all ${
+                          homeWon
+                            ? "text-pitch bg-pitch/10 px-2.5 py-1 rounded-md border border-pitch/25"
+                            : isReadyToPlay && !hasScores
+                            ? "text-ink hover:text-pitch cursor-pointer"
+                            : "text-ink cursor-default"
+                        }`}
+                        title={
+                          homeWon
+                            ? `تیم برنده: ${m.home}`
+                            : isReadyToPlay && !hasScores
+                            ? `کلیک برای انتخاب دستی ${m.home} به عنوان برنده`
+                            : undefined
+                        }
+                      >
+                        {homeWon && <span className="ml-1 text-pitch font-black">✓</span>}
+                        <span>{m.home}</span>
+                      </button>
+                    ) : isBye ? (
+                      <span className="text-xs text-ink/40 italic">— استراحت قرعه —</span>
+                    ) : (
+                      <span className="text-[11px] text-amber-800 font-medium italic">
+                        ⏳ {m.home || m.homePlaceholder || "در انتظار برنده مسابقه قبل"}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Score */}
+                  <td className="py-3 px-3 text-center print:py-1.5 print:px-1.5">
+                    {isBye ? (
+                      <span className="text-xs text-emerald-800 font-semibold bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
+                        صعود بدون بازی
+                      </span>
+                    ) : isPending ? (
+                      <span className="text-xs text-ink/40 font-mono">— : —</span>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            value={sc.home !== null && sc.home !== undefined ? sc.home : ""}
+                            onChange={(e) => {
+                              if (downstreamBlocked) { warnDownstream(); return; }
+                              const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
+                              onScoreChange(m.id, val, sc.away ?? null, sc.homePenalty, sc.awayPenalty, undefined);
+                            }}
+                            placeholder="-"
+                            className="w-10 h-7 rounded border border-line bg-white text-center font-bold text-xs text-ink focus:border-pitch focus:outline-none"
+                          />
+                          <span className="text-ink/40 font-bold">:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            value={sc.away !== null && sc.away !== undefined ? sc.away : ""}
+                            onChange={(e) => {
+                              if (downstreamBlocked) { warnDownstream(); return; }
+                              const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
+                              onScoreChange(m.id, sc.home ?? null, val, sc.homePenalty, sc.awayPenalty, undefined);
+                            }}
+                            placeholder="-"
+                            className="w-10 h-7 rounded border border-line bg-white text-center font-bold text-xs text-ink focus:border-pitch focus:outline-none"
+                          />
+                        </div>
+                        {m.isKnockout && isTied && (
+                          <div
+                            className="flex items-center justify-center gap-1 text-[10px] text-amber-800 font-mono bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 mt-0.5"
+                            title="ضربات پنالتی در صورت تساوی"
+                          >
+                            <span>پنالتی:</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max="99"
+                              value={sc.homePenalty !== null && sc.homePenalty !== undefined ? sc.homePenalty : ""}
+                              onChange={(e) => {
+                                if (downstreamBlocked) { warnDownstream(); return; }
+                                const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
+                                onScoreChange(m.id, sc.home, sc.away, val, sc.awayPenalty ?? null, undefined);
+                              }}
+                              placeholder="-"
+                              className="w-7 h-5 rounded border border-amber-300 text-center font-bold text-[10px]"
+                            />
+                            <span>:</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max="99"
+                              value={sc.awayPenalty !== null && sc.awayPenalty !== undefined ? sc.awayPenalty : ""}
+                              onChange={(e) => {
+                                if (downstreamBlocked) { warnDownstream(); return; }
+                                const val = e.target.value === "" ? null : Math.max(0, parseInt(e.target.value) || 0);
+                                onScoreChange(m.id, sc.home, sc.away, sc.homePenalty ?? null, val, undefined);
+                              }}
+                              placeholder="-"
+                              className="w-7 h-5 rounded border border-amber-300 text-center font-bold text-[10px]"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Away Team */}
+                  <td className="py-3 px-4 text-right print:py-1.5 print:px-2">
+                    {isAwayReal ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isReadyToPlay || hasScores) return;
+                          if (downstreamBlocked) { warnDownstream(); return; }
+                          if (awayWon) {
+                            onScoreChange(m.id, null, null, null, null, null);
+                          } else {
+                            onScoreChange(m.id, sc.home, sc.away, sc.homePenalty, sc.awayPenalty, m.away);
+                          }
+                        }}
+                        disabled={!isReadyToPlay || hasScores}
+                        className={`text-right text-xs font-bold transition-all ${
+                          awayWon
+                            ? "text-pitch bg-pitch/10 px-2.5 py-1 rounded-md border border-pitch/25"
+                            : isReadyToPlay && !hasScores
+                            ? "text-ink hover:text-pitch cursor-pointer"
+                            : "text-ink cursor-default"
+                        }`}
+                        title={
+                          awayWon
+                            ? `تیم برنده: ${m.away}`
+                            : isReadyToPlay && !hasScores
+                            ? `کلیک برای انتخاب دستی ${m.away} به عنوان برنده`
+                            : undefined
+                        }
+                      >
+                        <span>{m.away}</span>
+                        {awayWon && <span className="mr-1 text-pitch font-black">✓</span>}
+                      </button>
+                    ) : isBye ? (
+                      <span className="text-xs text-ink/40 italic">— استراحت قرعه —</span>
+                    ) : (
+                      <span className="text-[11px] text-amber-800 font-medium italic">
+                        ⏳ {m.away || m.awayPlaceholder || "در انتظار برنده مسابقه قبل"}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Status / Winner */}
+                  <td className="py-3 px-3 text-center print:py-1.5 print:px-2">
+                    {m.winner ? (
+                      <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <span>✓ برنده: {m.winner}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (downstreamBlocked) { warnDownstream(); return; }
+                            onScoreChange(m.id, null, null, null, null, null);
+                          }}
+                          className="text-rose-600 hover:text-rose-800 text-[11px] font-bold mr-0.5 cursor-pointer no-print"
+                          title="لغو برنده و پاک کردن نتیجه"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : isBye ? (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        🟢 استراحت
+                      </span>
+                    ) : isReadyToPlay ? (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                        ⚽ آماده برگزاری
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        ⏳ در انتظار حریف
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
