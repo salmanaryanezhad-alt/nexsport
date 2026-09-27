@@ -1097,7 +1097,11 @@ function PlannerWizard() {
       : FORMAT_OPTIONS.filter((f) => f.category === formatCategory);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-12">
+    <main
+      className={`mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 transition-all ${
+        step === 4 ? "max-w-[1700px] w-full" : "max-w-5xl"
+      }`}
+    >
       {/* Top Bar */}
       <div className="no-print mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-line/70 pb-4">
         <div className="flex items-center gap-3">
