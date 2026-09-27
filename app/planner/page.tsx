@@ -2721,7 +2721,13 @@ function PlannerWizard() {
                 ⚙️ ویرایش تنظیمات
               </button>
 
-              <button className={btnPrimary} onClick={() => window.print()}>
+              <button
+                className={btnPrimary}
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent("nexsport-open-print"));
+                }}
+                title="تنظیمات پیشرفته چاپ و دریافت فایل PDF"
+              >
                 🖨️ چاپ / PDF
               </button>
             </div>
