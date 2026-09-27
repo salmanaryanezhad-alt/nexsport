@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import {
   ScheduleResult,
   RoundRobinRound,
@@ -19,6 +19,7 @@ import {
   PointsRule,
 } from "@/lib/scheduling";
 import { NexSportIcon } from "@/components/NexSportLogo";
+import { PrintModal, PrintSettings } from "./PrintModal";
 
 interface ScheduleViewProps {
   result: ScheduleResult;
@@ -96,6 +97,61 @@ export function ScheduleView({
 
   const meta = result.metadata;
 
+  const isKoFormat =
+    result.format === "knockout" ||
+    result.format === "double-knockout" ||
+    result.format === "groups-knockout";
+
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printSettings, setPrintSettings] = useState<PrintSettings>(() => ({
+    orientation: isKoFormat ? "landscape" : "portrait",
+    bracketStyle: "stages",
+    section: "both",
+  }));
+
+  useEffect(() => {
+    const handleOpen = () => setIsPrintModalOpen(true);
+    window.addEventListener("nexsport-open-print", handleOpen);
+    return () => window.removeEventListener("nexsport-open-print", handleOpen);
+  }, []);
+
+  useEffect(() => {
+    const handleBeforePrint = () => {
+      let styleEl = document.getElementById("nexsport-print-style");
+      if (!styleEl) {
+        styleEl = document.createElement("style");
+        styleEl.id = "nexsport-print-style";
+        document.head.appendChild(styleEl);
+      }
+      const margin = printSettings.orientation === "landscape" ? "8mm 8mm 8mm 8mm" : "10mm 8mm 12mm 8mm";
+      styleEl.innerHTML = `@media print { @page { size: A4 ${printSettings.orientation} !important; margin: ${margin} !important; } }`;
+    };
+
+    window.addEventListener("beforeprint", handleBeforePrint);
+    return () => window.removeEventListener("beforeprint", handleBeforePrint);
+  }, [printSettings.orientation]);
+
+  const handleApplyAndPrint = (newSettings: PrintSettings) => {
+    setPrintSettings(newSettings);
+    setIsPrintModalOpen(false);
+
+    let styleEl = document.getElementById("nexsport-print-style");
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "nexsport-print-style";
+      document.head.appendChild(styleEl);
+    }
+    const margin = newSettings.orientation === "landscape" ? "8mm 8mm 8mm 8mm" : "10mm 8mm 12mm 8mm";
+    styleEl.innerHTML = `@media print { @page { size: A4 ${newSettings.orientation} !important; margin: ${margin} !important; } }`;
+
+    document.body.classList.remove("print-landscape", "print-portrait");
+    document.body.classList.add(`print-${newSettings.orientation}`);
+
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  };
+
   const euroBestThirds = useMemo(() => {
     if (result.format !== "groups-knockout" || !result.knockout) {
       return null;
@@ -121,7 +177,7 @@ export function ScheduleView({
   return (
     <div id="print-area" className="space-y-6">
       {/* Official Header for Print & Web */}
-      <div className="rounded-xl border border-line bg-chalk/80 p-5 shadow-sm print:border-pitch/40 print:bg-white print:p-4">
+      <div className="rounded-xl border border-line bg-chalk/80 p-5 shadow-sm print:border-pitch/40 print:bg-white print:p-4 print-avoid-break">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -137,13 +193,24 @@ export function ScheduleView({
               </p>
             )}
           </div>
-          <div className="text-left text-xs space-y-0.5">
-            <div className="flex items-center gap-1.5 font-bold text-pitch justify-end">
-              <span>سامانه برنامه‌ریزی مسابقات NexSport</span>
-              <NexSportIcon size={20} className="shrink-0 drop-shadow-2xs" />
-            </div>
-            <div className="font-mono text-pitch font-bold dir-ltr text-xs">
-              https://nexsport.ir
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsPrintModalOpen(true)}
+              className="no-print inline-flex items-center gap-1.5 rounded-lg bg-pitch hover:bg-pitch-light active:bg-pitch-dark text-white px-3.5 py-2 text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+              title="تنظیمات پیشرفته چاپ و دریافت فایل PDF"
+            >
+              <span>🖨️</span>
+              <span>تنظیمات و چاپ PDF</span>
+            </button>
+            <div className="text-left text-xs space-y-0.5">
+              <div className="flex items-center gap-1.5 font-bold text-pitch justify-end">
+                <span>سامانه برنامه‌ریزی مسابقات NexSport</span>
+                <NexSportIcon size={20} className="shrink-0 drop-shadow-2xs" />
+              </div>
+              <div className="font-mono text-pitch font-bold dir-ltr text-xs">
+                https://nexsport.ir
+              </div>
             </div>
           </div>
         </div>
@@ -228,8 +295,14 @@ export function ScheduleView({
       )}
 
       {/* MATCHES VIEW */}
-      {activeTab === "matches" && (
-        <div className="space-y-8">
+      {(activeTab === "matches" ||
+        printSettings.section === "both" ||
+        printSettings.section === "matches") && (
+        <div
+          className={`space-y-8 ${
+            activeTab !== "matches" ? "print-only" : ""
+          } ${printSettings.section === "standings" ? "print:hidden" : ""}`}
+        >
           {(result.format === "league" || result.format === "double-league") && (
             <RoundsTable
               rounds={result.rounds}
@@ -257,9 +330,11 @@ export function ScheduleView({
           )}
 
           {result.format === "groups-knockout" && (
-            <div className="space-y-12">
-              <div>
-                <h2 className="text-lg font-bold text-pitch mb-4">مرحله اول: مسابقات گروهی</h2>
+            <div className="space-y-12 print:space-y-6">
+              <div className="print-avoid-break">
+                <h2 className="text-lg font-bold text-pitch mb-4 print:text-base print:mb-2">
+                  مرحله اول: مسابقات گروهی
+                </h2>
                 <GroupsMatchesView
                   groups={result.groups}
                   scores={scores}
@@ -273,10 +348,12 @@ export function ScheduleView({
                 />
               </div>
 
-              <div>
-                <div className="border-t border-line pt-8 mb-6">
-                  <h2 className="text-lg font-bold text-pitch">مرحله دوم: براکت حذفی صعودکننده‌ها</h2>
-                  <p className="text-xs text-ink/60 mt-1">
+              <div className="print-avoid-break">
+                <div className="border-t border-line pt-8 mb-6 print:pt-4 print:mb-3">
+                  <h2 className="text-lg font-bold text-pitch print:text-base">
+                    مرحله دوم: براکت حذفی صعودکننده‌ها
+                  </h2>
+                  <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
                     با مسجل شدن وضعیت یا اتمام بازی‌های هر گروه، تیم‌های اول و دوم صعودکننده به صورت خودکار به جایگاه‌های خود در این براکت منتقل می‌شوند.
                   </p>
                 </div>
@@ -289,6 +366,7 @@ export function ScheduleView({
                   matchDetails={matchDetails}
                   onOpenEditModal={handleOpenEditModal}
                   filterTeam={filterTeam}
+                  printBracketStyle={printSettings.bracketStyle}
                 />
               </div>
             </div>
@@ -296,9 +374,9 @@ export function ScheduleView({
 
           {result.format === "knockout" && (
             <div>
-              <div className="mb-6">
-                <h2 className="text-lg font-bold text-pitch">براکت حذفی مسابقات</h2>
-                <p className="text-xs text-ink/60 mt-1">
+              <div className="mb-6 print:mb-3">
+                <h2 className="text-lg font-bold text-pitch print:text-base">براکت حذفی مسابقات</h2>
+                <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
                   نتایج هر مسابقه را ثبت کنید تا تیم‌های برنده مستقیماً به مراحل بعدی و فینال راه پیدا
                   کنند. در صورت تساوی، فیلد ضربات پنالتی فعال می‌شود.
                 </p>
@@ -310,18 +388,21 @@ export function ScheduleView({
                 matchDetails={matchDetails}
                 onOpenEditModal={handleOpenEditModal}
                 filterTeam={filterTeam}
+                printBracketStyle={printSettings.bracketStyle}
               />
             </div>
           )}
 
           {result.format === "double-knockout" && (
             <div>
-              <div className="mb-6">
+              <div className="mb-6 print:mb-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">🛡️</span>
-                  <h2 className="text-lg font-bold text-pitch">تورنمنت دو حذفی (Double Elimination)</h2>
+                  <h2 className="text-lg font-bold text-pitch print:text-base">
+                    تورنمنت دو حذفی (Double Elimination)
+                  </h2>
                 </div>
-                <p className="text-xs text-ink/60 mt-1">
+                <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
                   در این تورنمنت هیچ تیمی با یک باخت حذف نمی‌شود. بازنده‌ها به جدول شانس مجدد (Losers Bracket) منتقل می‌شوند و فینال بین قهرمان جدول برندگان و قهرمان شانس مجدد برگزار خواهد شد.
                 </p>
               </div>
@@ -332,6 +413,7 @@ export function ScheduleView({
                 matchDetails={matchDetails}
                 onOpenEditModal={handleOpenEditModal}
                 filterTeam={filterTeam}
+                printBracketStyle={printSettings.bracketStyle}
               />
             </div>
           )}
@@ -339,8 +421,19 @@ export function ScheduleView({
       )}
 
       {/* STANDINGS VIEW */}
-      {activeTab === "standings" && hasStandings && (
-        <div className="space-y-8">
+      {hasStandings &&
+        (activeTab === "standings" ||
+          printSettings.section === "both" ||
+          printSettings.section === "standings") && (
+          <div
+            className={`space-y-8 print:space-y-4 ${
+              activeTab !== "standings" ? "print-only" : ""
+            } ${printSettings.section === "matches" ? "print:hidden" : ""} ${
+              printSettings.section === "both" && activeTab === "matches"
+                ? "print-break-before"
+                : ""
+            }`}
+          >
           {(result.format === "league" || result.format === "double-league") && (
             <div>
               <h2 className="text-lg font-bold text-pitch mb-4">جدول رده‌بندی لیگ</h2>
@@ -611,6 +704,17 @@ export function ScheduleView({
           </div>
         </div>
       )}
+
+      {/* Modal for Print Setup */}
+      <PrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        tournamentTitle={meta?.title}
+        hasKnockout={isKoFormat}
+        hasStandings={hasStandings}
+        currentSettings={printSettings}
+        onApplyAndPrint={handleApplyAndPrint}
+      />
     </div>
   );
 }
@@ -847,12 +951,12 @@ function GroupsMatchesView({
         </div>
       )}
 
-      <div className="space-y-8">
+      <div className={`space-y-8 ${selectedGroupIndex !== "all" ? "no-print" : ""}`}>
         {filteredGroups.map((g) => (
-          <div key={g.name} className="rounded-lg border border-line bg-chalk/30 p-5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-              <h3 className="font-bold text-pitch text-base">{g.name}</h3>
-              <span className="text-xs text-ink/60">تیم‌ها: {g.teams.join(" · ")}</span>
+          <div key={g.name} className="rounded-lg border border-line bg-chalk/30 p-5 print:p-3 print:bg-white print-avoid-break">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3 print:mb-2 print:pb-1">
+              <h3 className="font-bold text-pitch text-base print:text-sm">{g.name}</h3>
+              <span className="text-xs text-ink/60 print:text-[10px]">تیم‌ها: {g.teams.join(" · ")}</span>
             </div>
             <RoundsTable
               rounds={g.rounds}
@@ -866,6 +970,28 @@ function GroupsMatchesView({
           </div>
         ))}
       </div>
+
+      {selectedGroupIndex !== "all" && (
+        <div className="hidden print:block space-y-6">
+          {groups.map((g) => (
+            <div key={g.name} className="rounded-lg border border-line bg-white p-3 print-avoid-break">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-1">
+                <h3 className="font-bold text-pitch text-sm">{g.name}</h3>
+                <span className="text-[10px] text-ink/60">تیم‌ها: {g.teams.join(" · ")}</span>
+              </div>
+              <RoundsTable
+                rounds={g.rounds}
+                scores={scores}
+                onScoreChange={onScoreChange}
+                metadata={metadata}
+                matchDetails={matchDetails}
+                onOpenEditModal={onOpenEditModal}
+                filterTeam={filterTeam}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -906,30 +1032,30 @@ function StandingsTable({
   const isVolleyball = pointsRule?.sport === "volleyball";
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-line bg-white shadow-sm print-avoid-break">
-      <table className="w-full text-center text-sm">
+    <div className="overflow-x-auto rounded-lg border border-line bg-white shadow-sm print-avoid-break print:border-line/70">
+      <table className="w-full text-center text-sm print:text-xs">
         <thead>
-          <tr className="border-b border-line bg-chalk/80 text-xs font-bold text-ink/70">
-            <th className="py-2.5 px-3 text-center w-12">رتبه</th>
-            <th className="py-2.5 px-4 text-right">تیم</th>
-            <th className="py-2.5 px-2.5 w-12" title="تعداد بازی">بازی</th>
-            <th className="py-2.5 px-2.5 w-12 text-pitch font-extrabold" title={isVolleyball ? "تعداد برد (معیار اصلی رده‌بندی والیبال)" : "برد"}>
+          <tr className="border-b border-line bg-chalk/80 text-xs font-bold text-ink/70 print:bg-chalk print-avoid-break">
+            <th className="py-2.5 px-3 text-center w-12 print:py-1.5 print:px-2">رتبه</th>
+            <th className="py-2.5 px-4 text-right print:py-1.5 print:px-2">تیم</th>
+            <th className="py-2.5 px-2.5 w-12 print:py-1.5 print:px-1.5" title="تعداد بازی">بازی</th>
+            <th className="py-2.5 px-2.5 w-12 text-pitch font-extrabold print:py-1.5 print:px-1.5" title={isVolleyball ? "تعداد برد (معیار اصلی رده‌بندی والیبال)" : "برد"}>
               {isVolleyball ? "برد ⭐️" : "برد"}
             </th>
             {!isVolleyball && (
-              <th className="py-2.5 px-2.5 w-12 text-ink/60" title="مساوی">مساوی</th>
+              <th className="py-2.5 px-2.5 w-12 text-ink/60 print:py-1.5 print:px-1.5" title="مساوی">مساوی</th>
             )}
-            <th className="py-2.5 px-2.5 w-12 text-brick" title="باخت">باخت</th>
-            <th className="py-2.5 px-2.5 w-14" title={isVolleyball ? "ست‌های برده" : "گل زده"}>
+            <th className="py-2.5 px-2.5 w-12 text-brick print:py-1.5 print:px-1.5" title="باخت">باخت</th>
+            <th className="py-2.5 px-2.5 w-14 print:py-1.5 print:px-1.5" title={isVolleyball ? "ست‌های برده" : "گل زده"}>
               {isVolleyball ? "ست+" : "زده"}
             </th>
-            <th className="py-2.5 px-2.5 w-14" title={isVolleyball ? "ست‌های باخته" : "گل خورده"}>
+            <th className="py-2.5 px-2.5 w-14 print:py-1.5 print:px-1.5" title={isVolleyball ? "ست‌های باخته" : "گل خورده"}>
               {isVolleyball ? "ست-" : "خورده"}
             </th>
-            <th className="py-2.5 px-2.5 w-14 font-semibold" title={isVolleyball ? "تفاضل ست" : "تفاضل گل"}>
+            <th className="py-2.5 px-2.5 w-14 font-semibold print:py-1.5 print:px-1.5" title={isVolleyball ? "تفاضل ست" : "تفاضل گل"}>
               {isVolleyball ? "تفاضل ست" : "تفاضل"}
             </th>
-            <th className="py-2.5 px-3 w-16 bg-pitch/5 font-extrabold text-pitch" title="امتیاز">امتیاز</th>
+            <th className="py-2.5 px-3 w-16 bg-pitch/5 font-extrabold text-pitch print:py-1.5 print:px-2 print:bg-chalk" title="امتیاز">امتیاز</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line/60">
@@ -949,7 +1075,7 @@ function StandingsTable({
               <tr
                 key={s.team}
                 className={
-                  "transition-colors " +
+                  "transition-colors print-avoid-break " +
                   (isChampion
                     ? "bg-gold/15 font-bold"
                     : isClinched
@@ -957,7 +1083,7 @@ function StandingsTable({
                     : "hover:bg-chalk/30")
                 }
               >
-                <td className="py-2.5 px-3">
+                <td className="py-2.5 px-3 print:py-1.5 print:px-2">
                   <span
                     className={
                       "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold " +
@@ -971,35 +1097,35 @@ function StandingsTable({
                     {idx + 1}
                   </span>
                 </td>
-                <td className="py-2.5 px-4 text-right">
+                <td className="py-2.5 px-4 text-right print:py-1.5 print:px-2">
                   <span className="font-semibold text-ink">{s.team}</span>
                   {isChampion && (
-                    <span className="mr-2 rounded bg-gold/25 border border-gold/40 px-1.5 py-0.5 text-[10px] font-bold text-gold-dark">
+                    <span className="mr-2 rounded bg-gold/25 border border-gold/40 px-1.5 py-0.5 text-[10px] font-bold text-gold-dark print:py-0 print:px-1 print:text-[9px]">
                       👑 قهرمان
                     </span>
                   )}
                   {isDirectClinched && !isChampion && (
-                    <span className="mr-2 rounded bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                    <span className="mr-2 rounded bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 print:py-0 print:px-1 print:text-[9px]">
                       ✓ {clinch.isAllMatchesFinished ? qualifierLabel : "صعود قطعی"}
                     </span>
                   )}
                   {!isDirectClinched && isExtraQualified && (
-                    <span className="mr-2 rounded bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                    <span className="mr-2 rounded bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 print:py-0 print:px-1 print:text-[9px]">
                       ✓ {extraQualifierLabel}
                     </span>
                   )}
                 </td>
-                <td className="py-2.5 px-2.5 text-ink/80">{s.played}</td>
-                <td className="py-2.5 px-2.5 font-bold text-pitch">{s.won}</td>
+                <td className="py-2.5 px-2.5 text-ink/80 print:py-1.5 print:px-1.5">{s.played}</td>
+                <td className="py-2.5 px-2.5 font-bold text-pitch print:py-1.5 print:px-1.5">{s.won}</td>
                 {!isVolleyball && (
-                  <td className="py-2.5 px-2.5 text-ink/60">{s.drawn}</td>
+                  <td className="py-2.5 px-2.5 text-ink/60 print:py-1.5 print:px-1.5">{s.drawn}</td>
                 )}
-                <td className="py-2.5 px-2.5 text-brick">{s.lost}</td>
-                <td className="py-2.5 px-2.5 text-ink/80">{s.goalsFor}</td>
-                <td className="py-2.5 px-2.5 text-ink/80">{s.goalsAgainst}</td>
+                <td className="py-2.5 px-2.5 text-brick print:py-1.5 print:px-1.5">{s.lost}</td>
+                <td className="py-2.5 px-2.5 text-ink/80 print:py-1.5 print:px-1.5">{s.goalsFor}</td>
+                <td className="py-2.5 px-2.5 text-ink/80 print:py-1.5 print:px-1.5">{s.goalsAgainst}</td>
                 <td
                   className={
-                    "py-2.5 px-2.5 font-bold " +
+                    "py-2.5 px-2.5 font-bold print:py-1.5 print:px-1.5 " +
                     (s.goalDifference > 0
                       ? "text-pitch"
                       : s.goalDifference < 0
@@ -1009,7 +1135,7 @@ function StandingsTable({
                 >
                   {s.goalDifference > 0 ? `+${s.goalDifference}` : s.goalDifference}
                 </td>
-                <td className="py-2.5 px-3 bg-pitch/5 font-extrabold text-pitch text-base">
+                <td className="py-2.5 px-3 bg-pitch/5 font-extrabold text-pitch text-base print:py-1.5 print:px-2 print:text-xs print:bg-chalk">
                   {s.points}
                 </td>
               </tr>
@@ -1051,6 +1177,274 @@ function StandingsTable({
    ========================================================= */
 
 /* =========================================================
+   KNOCKOUT PRINTABLE CARD & STAGE-BY-STAGE SCHEDULE
+   (Provides 100% clean, non-clipped print output for any bracket size)
+   ========================================================= */
+
+function renderPrintMatchCard(
+  m: any,
+  scores: Record<string, MatchScore>,
+  matchDetails?: Record<string, MatchScheduleDetail>,
+  overrideLabel?: string
+) {
+  const sc = scores[m.id];
+  const detail = matchDetails?.[m.id];
+  const isBye = m.isBye || m.autoAdvance;
+  const hasScore =
+    sc &&
+    sc.home !== null &&
+    sc.away !== null &&
+    sc.home !== undefined &&
+    sc.away !== undefined;
+  const homeWon = m.winner && m.winner === m.home;
+  const awayWon = m.winner && m.winner === m.away;
+
+  return (
+    <div
+      key={m.id}
+      className="rounded-lg border border-line/90 bg-white p-2.5 text-xs print-avoid-break shadow-2xs space-y-1.5"
+    >
+      <div className="flex items-center justify-between text-[10px] text-ink/70 pb-1 border-b border-line/60">
+        <div className="flex items-center gap-1.5 font-bold">
+          {m.matchCode && (
+            <span className="rounded bg-pitch/10 text-pitch px-1.5 py-0.2 font-mono text-[9px]">
+              {m.matchCode}
+            </span>
+          )}
+          <span className="text-pitch">
+            {overrideLabel || (m.matchCode ? "" : `مسابقه ${m.slot !== undefined ? m.slot + 1 : m.id}`)}
+          </span>
+        </div>
+        {detail && (detail.date || detail.time || detail.pitch) ? (
+          <span className="font-mono text-[9px] text-ink/65">
+            {[detail.date, detail.time ? `ساعت ${detail.time}` : "", detail.pitch ? `زمین ${detail.pitch}` : ""]
+              .filter(Boolean)
+              .join(" • ")}
+          </span>
+        ) : (
+          <span className="text-[9px] text-ink/40">مسابقه حذفی</span>
+        )}
+      </div>
+
+      {isBye ? (
+        <div className="text-center py-1 font-semibold text-emerald-800 bg-emerald-50/60 rounded text-[11px]">
+          {m.home || m.away} (صعود مستقیم - استراحت قرعه)
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <div
+            className={`flex items-center justify-between px-2 py-1 rounded ${
+              homeWon ? "bg-emerald-50 font-bold text-pitch border border-emerald-200" : "bg-chalk/40"
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              {homeWon && <span className="text-emerald-700 text-xs">✓</span>}
+              <span
+                className={`truncate ${
+                  homeWon
+                    ? "text-pitch font-bold"
+                    : isPlaceholderTeam(m.home)
+                    ? "text-ink/40 italic"
+                    : "text-ink"
+                }`}
+              >
+                {m.home || "در انتظار برنده دور قبل"}
+              </span>
+            </div>
+            <div className="font-mono font-bold text-xs shrink-0 flex items-center gap-1 dir-ltr">
+              <span>{hasScore ? sc.home : "—"}</span>
+              {sc?.homePenalty !== null && sc?.homePenalty !== undefined && (
+                <span className="text-[10px] text-ink/60">({sc.homePenalty})</span>
+              )}
+            </div>
+          </div>
+
+          <div
+            className={`flex items-center justify-between px-2 py-1 rounded ${
+              awayWon ? "bg-emerald-50 font-bold text-pitch border border-emerald-200" : "bg-chalk/40"
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              {awayWon && <span className="text-emerald-700 text-xs">✓</span>}
+              <span
+                className={`truncate ${
+                  awayWon
+                    ? "text-pitch font-bold"
+                    : isPlaceholderTeam(m.away)
+                    ? "text-ink/40 italic"
+                    : "text-ink"
+                }`}
+              >
+                {m.away || "در انتظار برنده دور قبل"}
+              </span>
+            </div>
+            <div className="font-mono font-bold text-xs shrink-0 flex items-center gap-1 dir-ltr">
+              <span>{hasScore ? sc.away : "—"}</span>
+              {sc?.awayPenalty !== null && sc?.awayPenalty !== undefined && (
+                <span className="text-[10px] text-ink/60">({sc.awayPenalty})</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KnockoutPrintSchedule({
+  knockout,
+  scores,
+  matchDetails,
+}: {
+  knockout: any;
+  scores: Record<string, MatchScore>;
+  matchDetails?: Record<string, MatchScheduleDetail>;
+}) {
+  if (!knockout || !knockout.rounds) return null;
+
+  return (
+    <div className="space-y-5 print-avoid-break">
+      <div className="border-b-2 border-pitch pb-2">
+        <h2 className="text-base font-black text-pitch flex items-center gap-2">
+          <span>🏆</span>
+          <span>برنامه مرحله حذفی مسابقات (مرحله به مرحله)</span>
+        </h2>
+        <p className="text-[11px] text-ink/60 mt-0.5">
+          کلیه مراحل حذفی، مسابقات، نتایج و وضعیت صعود تیم‌ها به تفکیک دور
+        </p>
+      </div>
+
+      {knockout.rounds.map((round: any) => (
+        <div key={round.round} className="space-y-2 print-avoid-break">
+          <div className="bg-pitch/10 text-pitch border-r-4 border-pitch font-bold text-xs py-1.5 px-3 rounded-l flex items-center justify-between">
+            <span className="font-extrabold">{round.label}</span>
+            <span className="text-[10px] text-ink/60 font-medium">
+              تعداد بازی‌ها: {round.matches?.length || 0}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {round.matches.map((m: any) =>
+              renderPrintMatchCard(m, scores, matchDetails)
+            )}
+          </div>
+        </div>
+      ))}
+
+      {knockout.thirdPlaceMatch && (
+        <div className="space-y-2 print-avoid-break">
+          <div className="bg-amber-100/90 text-amber-950 border-r-4 border-amber-600 font-bold text-xs py-1.5 px-3 rounded-l flex items-center justify-between">
+            <span className="font-extrabold">🥉 مسابقه رده‌بندی (تعیین مقام سوم و چهارم)</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {renderPrintMatchCard(
+              knockout.thirdPlaceMatch,
+              scores,
+              matchDetails,
+              "دیدار رده‌بندی"
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DoubleKnockoutPrintSchedule({
+  doubleKnockout,
+  scores,
+  matchDetails,
+}: {
+  doubleKnockout: DoubleKnockoutResult;
+  scores: Record<string, MatchScore>;
+  matchDetails?: Record<string, MatchScheduleDetail>;
+}) {
+  if (!doubleKnockout) return null;
+
+  return (
+    <div className="space-y-6 print-avoid-break">
+      <div className="border-b-2 border-pitch pb-2">
+        <h2 className="text-base font-black text-pitch flex items-center gap-2">
+          <span>🛡️</span>
+          <span>برنامه مرحله حذفی تورنمنت دو حذفی (Double Elimination)</span>
+        </h2>
+        <p className="text-[11px] text-ink/60 mt-0.5">
+          تفکیک کامل جدول برندگان (Winners)، شانس مجدد (Losers) و فینال نهایی (Grand Final)
+        </p>
+      </div>
+
+      {/* Winners Bracket */}
+      <div className="space-y-3 print-avoid-break">
+        <div className="bg-pitch/15 text-pitch font-black text-xs py-1.5 px-3 rounded flex items-center justify-between">
+          <span>🏆 جدول برندگان (Winners Bracket)</span>
+          <span className="text-[10px] text-pitch/70 font-normal">
+            {doubleKnockout.winnersBracket?.length || 0} دور
+          </span>
+        </div>
+        {doubleKnockout.winnersBracket?.map((round) => (
+          <div key={round.round} className="space-y-2 print-avoid-break">
+            <div className="bg-pitch/5 text-pitch font-bold text-[11px] py-1 px-2.5 rounded-l border-r-2 border-pitch">
+              {round.label}
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              {round.matches.map((m) =>
+                renderPrintMatchCard(m, scores, matchDetails)
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Losers Bracket */}
+      <div className="space-y-3 print-avoid-break">
+        <div className="bg-amber-100 text-amber-950 font-black text-xs py-1.5 px-3 rounded flex items-center justify-between">
+          <span>🛡️ جدول شانس مجدد / بازندگان (Losers Bracket)</span>
+          <span className="text-[10px] text-amber-900/70 font-normal">
+            {doubleKnockout.losersBracket?.length || 0} دور
+          </span>
+        </div>
+        {doubleKnockout.losersBracket?.map((round) => (
+          <div key={round.round} className="space-y-2 print-avoid-break">
+            <div className="bg-amber-50 text-amber-950 font-bold text-[11px] py-1 px-2.5 rounded-l border-r-2 border-amber-600">
+              {round.label}
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              {round.matches.map((m) =>
+                renderPrintMatchCard(m, scores, matchDetails)
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Finals */}
+      {(doubleKnockout.grandFinal || doubleKnockout.bracketResetMatch) && (
+        <div className="space-y-3 print-avoid-break">
+          <div className="bg-gold/25 text-pitch font-black text-xs py-1.5 px-3 rounded flex items-center justify-between border border-gold/40">
+            <span>👑 فینال نهایی مسابقات (Grand Final)</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            {doubleKnockout.grandFinal &&
+              renderPrintMatchCard(
+                doubleKnockout.grandFinal,
+                scores,
+                matchDetails,
+                "فینال اصلی مسابقات"
+              )}
+            {doubleKnockout.bracketResetMatch &&
+              renderPrintMatchCard(
+                doubleKnockout.bracketResetMatch,
+                scores,
+                matchDetails,
+                "مسابقه راند برگشت / تعیین سرنوشت (Bracket Reset)"
+              )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
    INTERACTIVE KNOCKOUT BRACKET WITH PENALTIES & 3RD PLACE
    ========================================================= */
 
@@ -1063,6 +1457,7 @@ function InteractiveBracket({
   matchDetails,
   onOpenEditModal,
   filterTeam,
+  printBracketStyle = "stages",
 }: {
   originalKnockout: ScheduleResult extends { knockout: infer K } ? K : any;
   groups?: GroupResult[];
@@ -1079,6 +1474,7 @@ function InteractiveBracket({
   matchDetails?: Record<string, MatchScheduleDetail>;
   onOpenEditModal?: (id: string, home: string, away: string) => void;
   filterTeam?: string;
+  printBracketStyle?: "tree" | "stages" | "both";
 }) {
   const { knockout, champion, runnerUp, thirdPlace } = useMemo(
     () => computeKnockoutWithScores(originalKnockout, scores, groups, pointsRule),
@@ -1144,54 +1540,66 @@ function InteractiveBracket({
         </p>
       )}
 
-      {/* Main Bracket Columns */}
-      <div className="flex gap-6 overflow-x-auto pb-4 pt-2">
-        {knockout.rounds.map((round: any, roundIdx: number) => {
-          const isFinal = roundIdx === knockout.rounds.length - 1;
-          return (
-            <div
-              key={round.round}
-              className="flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6"
-            >
-              <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3">
-                <p className="text-xs font-bold text-pitch">{round.label}</p>
-              </div>
+      {/* Main Bracket Columns (Tree View) */}
+      <div
+        className={`bracket-tree-container overflow-x-auto pb-4 pt-2 ${
+          printBracketStyle === "stages"
+            ? "print:hidden"
+            : "print:overflow-visible print:p-0 print:m-0"
+        }`}
+      >
+        <div className="flex gap-6 print:gap-1.5 print:w-full print:justify-between">
+          {knockout.rounds.map((round: any, roundIdx: number) => {
+            const isFinal = roundIdx === knockout.rounds.length - 1;
+            return (
+              <div
+                key={round.round}
+                className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
+              >
+                <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3 print:py-0.5 print:px-1">
+                  <p className="text-xs font-bold text-pitch print:text-[10px]">{round.label}</p>
+                </div>
 
-              <div className="flex flex-col justify-around gap-8 flex-1">
-                {round.matches.map((m: any) => (
-                  <MatchBracketCard
-                    key={m.id}
-                    match={m}
-                    scores={scores}
-                    isFinal={isFinal}
-                    onScoreChange={onScoreChange}
-                    matchDetails={matchDetails}
-                    onOpenEditModal={onOpenEditModal}
-                    filterTeam={filterTeam}
-                    checkDownstreamPlayed={checkDownstreamPlayed}
-                  />
-                ))}
+                <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
+                  {round.matches.map((m: any) => (
+                    <MatchBracketCard
+                      key={m.id}
+                      match={m}
+                      scores={scores}
+                      isFinal={isFinal}
+                      onScoreChange={onScoreChange}
+                      matchDetails={matchDetails}
+                      onOpenEditModal={onOpenEditModal}
+                      filterTeam={filterTeam}
+                      checkDownstreamPlayed={checkDownstreamPlayed}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* Third Place Match (if configured) */}
       {knockout.thirdPlaceMatch && (
-        <div className="border-t border-line pt-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-bold text-sm text-pitch flex items-center gap-1.5">
+        <div
+          className={`border-t border-line pt-6 print:pt-3 print-avoid-break ${
+            printBracketStyle === "stages" ? "print:hidden" : ""
+          }`}
+        >
+          <div className="mb-3 flex items-center justify-between print:mb-1">
+            <h3 className="font-bold text-sm text-pitch flex items-center gap-1.5 print:text-xs">
               <span>🥉 مسابقه رده‌بندی</span>
-              <span className="text-xs text-ink/50 font-normal">(تعیین مقام سوم و چهارم)</span>
+              <span className="text-xs text-ink/50 font-normal print:text-[10px]">(تعیین مقام سوم و چهارم)</span>
             </h3>
             {thirdPlace && (
-              <span className="text-xs font-bold text-pitch bg-pitch/10 px-2 py-0.5 rounded">
+              <span className="text-xs font-bold text-pitch bg-pitch/10 px-2 py-0.5 rounded print:text-[10px]">
                 برنده مقام سوم: {thirdPlace}
               </span>
             )}
           </div>
-          <div className="max-w-sm">
+          <div className="max-w-sm print:max-w-none">
             <MatchBracketCard
               match={knockout.thirdPlaceMatch}
               scores={scores}
@@ -1206,6 +1614,17 @@ function InteractiveBracket({
           </div>
         </div>
       )}
+
+      {/* Stage-by-Stage Printable Schedule Cards (for 100% clean, non-clipped printing across any number of pages) */}
+      {(printBracketStyle === "stages" || printBracketStyle === "both" || !printBracketStyle) && (
+        <div className="hidden print:block space-y-4">
+          <KnockoutPrintSchedule
+            knockout={knockout}
+            scores={scores}
+            matchDetails={matchDetails}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -1217,6 +1636,7 @@ function InteractiveDoubleKnockoutBracket({
   matchDetails,
   onOpenEditModal,
   filterTeam,
+  printBracketStyle = "stages",
 }: {
   originalDoubleKnockout: DoubleKnockoutResult;
   scores: Record<string, MatchScore>;
@@ -1231,6 +1651,7 @@ function InteractiveDoubleKnockoutBracket({
   matchDetails?: Record<string, MatchScheduleDetail>;
   onOpenEditModal?: (id: string, home: string, away: string) => void;
   filterTeam?: string;
+  printBracketStyle?: "tree" | "stages" | "both";
 }) {
   const [bracketView, setBracketView] = useState<"all" | "winners" | "losers" | "finals">("all");
 
@@ -1391,7 +1812,11 @@ function InteractiveDoubleKnockoutBracket({
 
       {/* Section 1: Winners Bracket */}
       {(bracketView === "all" || bracketView === "winners") && (
-        <div className="rounded-xl border border-line bg-chalk/30 p-5 space-y-4">
+        <div
+          className={`rounded-xl border border-line bg-chalk/30 p-5 space-y-4 print-avoid-break ${
+            printBracketStyle === "stages" ? "print:hidden" : "print:overflow-visible print:p-2"
+          }`}
+        >
           <div className="flex items-center justify-between border-b border-line pb-3">
             <div>
               <h3 className="font-bold text-base text-pitch flex items-center gap-2">
@@ -1407,19 +1832,19 @@ function InteractiveDoubleKnockoutBracket({
             </span>
           </div>
 
-          <div className="flex gap-6 overflow-x-auto pb-4 pt-2">
+          <div className="bracket-tree-container flex gap-6 overflow-x-auto pb-4 pt-2 print:gap-1.5 print:w-full print:justify-between print:overflow-visible">
             {doubleKnockout.winnersBracket.map((round, rIdx) => {
               const isFinal = rIdx === doubleKnockout.winnersBracket.length - 1;
               return (
                 <div
                   key={round.round}
-                  className="flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6"
+                  className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
                 >
-                  <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3">
-                    <p className="text-xs font-bold text-pitch">{round.label}</p>
+                  <div className="text-center rounded-md bg-pitch/10 py-1.5 px-3 print:py-0.5 print:px-1">
+                    <p className="text-xs font-bold text-pitch print:text-[10px]">{round.label}</p>
                   </div>
 
-                  <div className="flex flex-col justify-around gap-8 flex-1">
+                  <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
                     {round.matches.map((m) => (
                       <MatchBracketCard
                         key={m.id}
@@ -1443,7 +1868,11 @@ function InteractiveDoubleKnockoutBracket({
 
       {/* Section 2: Losers Bracket */}
       {(bracketView === "all" || bracketView === "losers") && (
-        <div className="rounded-xl border border-amber-600/30 bg-amber-50/30 p-5 space-y-4">
+        <div
+          className={`rounded-xl border border-amber-600/30 bg-amber-50/30 p-5 space-y-4 print-avoid-break ${
+            printBracketStyle === "stages" ? "print:hidden" : "print:overflow-visible print:p-2"
+          }`}
+        >
           <div className="flex items-center justify-between border-b border-amber-600/20 pb-3">
             <div>
               <h3 className="font-bold text-base text-amber-900 flex items-center gap-2">
@@ -1460,7 +1889,7 @@ function InteractiveDoubleKnockoutBracket({
           </div>
 
           {/* Guide & Active Round Indicator */}
-          <div className="rounded-lg border border-amber-300/80 bg-amber-100/70 p-3 text-xs text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="no-print rounded-lg border border-amber-300/80 bg-amber-100/70 p-3 text-xs text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
             <div className="flex items-start gap-2">
               <span className="text-base mt-0.5">💡</span>
               <div className="space-y-0.5 leading-relaxed">
@@ -1478,19 +1907,19 @@ function InteractiveDoubleKnockoutBracket({
             )}
           </div>
 
-          <div className="flex gap-6 overflow-x-auto pb-4 pt-2">
+          <div className="bracket-tree-container flex gap-6 overflow-x-auto pb-4 pt-2 print:gap-1.5 print:w-full print:justify-between print:overflow-visible">
             {doubleKnockout.losersBracket.map((round, rIdx) => {
               const isFinal = rIdx === doubleKnockout.losersBracket.length - 1;
               return (
                 <div
                   key={round.round}
-                  className="flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6"
+                  className="bracket-column flex min-w-[270px] max-w-[290px] flex-col justify-around gap-6 print:min-w-0 print:flex-1 print:gap-2 print-avoid-break"
                 >
-                  <div className="text-center rounded-md bg-amber-600/15 py-1.5 px-3">
-                    <p className="text-xs font-bold text-amber-950">{round.label}</p>
+                  <div className="text-center rounded-md bg-amber-600/15 py-1.5 px-3 print:py-0.5 print:px-1">
+                    <p className="text-xs font-bold text-amber-950 print:text-[10px]">{round.label}</p>
                   </div>
 
-                  <div className="flex flex-col justify-around gap-8 flex-1">
+                  <div className="flex flex-col justify-around gap-8 flex-1 print:gap-2">
                     {round.matches.map((m) => (
                       <MatchBracketCard
                         key={m.id}
@@ -1514,7 +1943,11 @@ function InteractiveDoubleKnockoutBracket({
 
       {/* Section 3: Grand Final */}
       {(bracketView === "all" || bracketView === "finals") && (
-        <div className="rounded-xl border-2 border-gold/70 bg-white p-5 space-y-4 shadow-sm">
+        <div
+          className={`rounded-xl border-2 border-gold/70 bg-white p-5 space-y-4 shadow-sm print-avoid-break ${
+            printBracketStyle === "stages" ? "print:hidden" : "print:p-2"
+          }`}
+        >
           <div className="flex items-center justify-between border-b border-line pb-3">
             <div>
               <h3 className="font-bold text-base text-pitch flex items-center gap-2">
@@ -1561,6 +1994,17 @@ function InteractiveDoubleKnockoutBracket({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Stage-by-Stage Printable Schedule Cards (for 100% clean, non-clipped printing across any number of pages) */}
+      {(printBracketStyle === "stages" || printBracketStyle === "both" || !printBracketStyle) && (
+        <div className="hidden print:block space-y-4">
+          <DoubleKnockoutPrintSchedule
+            doubleKnockout={doubleKnockout}
+            scores={scores}
+            matchDetails={matchDetails}
+          />
         </div>
       )}
     </div>

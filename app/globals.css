@@ -99,16 +99,16 @@ select:focus-visible,
 /* Print: professional multi-page document layout */
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 12mm 10mm 15mm 10mm;
+    size: auto;
+    margin: 8mm 8mm 10mm 8mm;
   }
 
   html,
   body {
     background-color: #FFFFFF !important;
     color: #111827 !important;
-    font-size: 12pt;
-    line-height: 1.5;
+    font-size: 10pt;
+    line-height: 1.35;
     height: auto !important;
     min-height: auto !important;
     overflow: visible !important;
@@ -135,10 +135,63 @@ select:focus-visible,
     overflow: visible !important;
   }
 
+  /* Critical: remove any overflow restrictions that break page pagination */
+  #print-area *,
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .overflow-hidden,
+  .overflow-auto {
+    overflow: visible !important;
+  }
+
+  /* Prevent page breaks inside tables and table rows */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    overflow: visible !important;
+    break-inside: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+    break-inside: avoid !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  tr,
+  tbody tr,
+  th,
+  td {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Prevent page breaks inside cards, containers, groups and matches */
+  .print-avoid-break,
+  .group-container,
+  .round-container,
+  .match-card,
+  .table-card,
+  .podium-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Force clean page break when requested */
+  .print-break-before {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
   .no-print,
   header,
   footer,
-  nav {
+  nav,
+  button:not(.print-keep),
+  select {
     display: none !important;
   }
 
@@ -146,7 +199,34 @@ select:focus-visible,
     display: block !important;
   }
 
-  .print-avoid-break {
+  /* Scaled tree bracket in print */
+  .print-bracket-tree {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 6px !important;
+    overflow: visible !important;
+    margin-bottom: 12px !important;
+  }
+
+  .print-bracket-column {
+    flex: 1 1 0px !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+    gap: 6px !important;
+  }
+
+  .print-bracket-card {
+    padding: 4px 6px !important;
+    margin: 3px 0 !important;
+    font-size: 8.5pt !important;
+    line-height: 1.25 !important;
+    border-width: 1px !important;
+    border-color: #CBD5E1 !important;
+    background-color: #FFFFFF !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
