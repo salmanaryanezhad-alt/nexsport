@@ -581,11 +581,11 @@ export function DrawCeremonyModal({
         </div>
 
         {/* Center Arena Section */}
-        <div className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-center overflow-y-auto py-1 custom-scrollbar">
+        <div className="relative z-10 flex-1 min-h-0 flex flex-col justify-start overflow-y-auto py-1 pr-0.5 custom-scrollbar">
 
           {/* STAGE 0: INTRO - THE DRAW TUMBLER (~1.5s) */}
           {stage === "intro" && (
-            <div className="flex flex-col items-center justify-center space-y-4 animate-in fade-in zoom-in duration-300 text-center py-6">
+            <div className="my-auto flex flex-col items-center justify-center space-y-4 animate-in fade-in zoom-in duration-300 text-center py-6">
               {/* Spinning Sphere */}
               <div className="relative flex h-28 w-28 items-center justify-center">
                 <div className="absolute inset-0 rounded-full border-2 border-dashed border-emerald-400/60 animate-spin" style={{ animationDuration: "4s" }} />
@@ -619,39 +619,39 @@ export function DrawCeremonyModal({
 
           {/* STAGE 1: STEP-BY-STEP BALL DRAWING (~1.4s per ball) */}
           {stage === "drawing" && currentDrawnItem && (
-            <div className="w-full space-y-4 animate-in fade-in duration-200">
+            <div className="w-full space-y-3 animate-in fade-in duration-200">
               
               {/* The Spotlighted Drawn Capsule */}
-              <div className="relative overflow-hidden rounded-2xl border-2 border-amber-400/60 bg-gradient-to-br from-slate-900 via-amber-950/20 to-slate-900 p-4 sm:p-5 shadow-[0_0_40px_rgba(245,158,11,0.25)] text-center space-y-2">
-                <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
+              <div className="shrink-0 relative overflow-hidden rounded-2xl border-2 border-amber-400/60 bg-gradient-to-br from-slate-900 via-amber-950/20 to-slate-900 p-3.5 sm:p-4 shadow-[0_0_40px_rgba(245,158,11,0.25)] text-center space-y-1.5">
+                <div className="flex items-center justify-between border-b border-amber-500/20 pb-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-xs">
+                    <span className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-xs">
                       #{currentDrawnItem.ballNumber}
                     </span>
                     <span className="text-xs font-bold text-amber-300">
                       بیرون کشیده شد از گردونه
                     </span>
                     {currentDrawnItem.potLabel && (
-                      <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-2.5 py-0.5 text-[10px] font-black text-amber-300">
+                      <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 text-[10px] font-black text-amber-300">
                         {currentDrawnItem.potLabel}
                       </span>
                     )}
                   </div>
 
-                  <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-0.5 text-xs font-bold text-emerald-300">
+                  <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 text-[11px] sm:text-xs font-bold text-emerald-300">
                     📍 {currentDrawnItem.destinationLabel}
                   </span>
                 </div>
 
                 {/* Big Bold Team Name with Glow */}
-                <div className="py-2">
+                <div className="py-1">
                   <span className="inline-block text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-[0_2px_12px_rgba(255,255,255,0.4)] animate-in zoom-in-95 duration-200">
                     🏆 {currentDrawnItem.team}
                   </span>
                 </div>
 
                 {/* Status Indicator */}
-                <p className="text-[11px] text-slate-400 font-medium">
+                <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium">
                   این تیم در جایگاه رسمی مسابقه ثبت و قفل گردید.
                 </p>
               </div>
