@@ -16,6 +16,10 @@ interface DrawCeremonyModalProps {
   teams: string[];
   result: ScheduleResult | null;
   tournamentTitle?: string;
+  seededTeams?: string[];
+  pot2Teams?: string[];
+  pot3Teams?: string[];
+  pot4Teams?: string[];
   onComplete: () => void;
 }
 
@@ -24,6 +28,7 @@ interface DrawStepItem {
   ballNumber: number;
   team: string;
   destinationLabel: string;
+  potLabel?: string;
   groupIndex?: number;
   matchIndex?: number;
   isHome?: boolean;
@@ -104,12 +109,17 @@ export function DrawCeremonyModal({
   teams,
   result,
   tournamentTitle,
+  seededTeams,
+  pot2Teams,
+  pot3Teams,
+  pot4Teams,
   onComplete,
 }: DrawCeremonyModalProps) {
   const [stage, setStage] = useState<"intro" | "drawing" | "completed">("intro");
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
+  const [speed, setSpeed] = useState<"normal" | "fast">("normal");
   const completedRef = useRef(false);
 
   const isGroupFormat = format === "groups" || format === "groups-knockout";
@@ -125,19 +135,128 @@ export function DrawCeremonyModal({
       const groups = result.groups || [];
       const maxTeamsInGroup = Math.max(...groups.map((g) => g.teams.length), 0);
 
-      // Draw round-by-round across groups (Seed 1 across groups, then Seed 2, etc.)
-      for (let tIdx = 0; tIdx < maxTeamsInGroup; tIdx++) {
-        for (let gIdx = 0; gIdx < groups.length; gIdx++) {
-          const group = groups[gIdx];
-          const team = group.teams[tIdx];
-          if (team) {
-            items.push({
-              id: `grp-${gIdx}-${tIdx}`,
-              ballNumber: ballNum++,
-              team,
-              destinationLabel: `${group.name} (جایگاه ${tIdx + 1})`,
-              groupIndex: gIdx,
-            });
+      const hasAnySeeds =
+        (seededTeams && seededTeams.length > 0) ||
+        (pot2Teams && pot2Teams.length > 0) ||
+        (pot3Teams && pot3Teams.length > 0) ||
+        (pot4Teams && pot4Teams.length > 0);
+
+      const drawnTeamNames = new Set<string>();
+
+      if (hasAnySeeds) {
+        // 1. Draw Pot 1 teams first
+        if (seededTeams && seededTeams.length > 0) {
+          for (const team of seededTeams) {
+            const grpIdx = groups.findIndex((g) => g.teams.includes(team));
+            if (grpIdx !== -1) {
+              const grp = groups[grpIdx];
+              drawnTeamNames.add(team);
+              items.push({
+                id: `pot1-${team}`,
+                ballNumber: ballNum++,
+                team,
+                destinationLabel: `${grp.name} (سرگروه)`,
+                potLabel: "سید ۱ (سرگروه)",
+                groupIndex: grpIdx,
+              });
+            }
+          }
+        }
+
+        // 2. Draw Pot 2 teams next
+        if (pot2Teams && pot2Teams.length > 0) {
+          for (const team of pot2Teams) {
+            const grpIdx = groups.findIndex((g) => g.teams.includes(team));
+            if (grpIdx !== -1) {
+              const grp = groups[grpIdx];
+              const slot = grp.teams.indexOf(team) + 1;
+              drawnTeamNames.add(team);
+              items.push({
+                id: `pot2-${team}`,
+                ballNumber: ballNum++,
+                team,
+                destinationLabel: `${grp.name} (جایگاه ${slot})`,
+                potLabel: "سید ۲",
+                groupIndex: grpIdx,
+              });
+            }
+          }
+        }
+
+        // 3. Draw Pot 3 teams next
+        if (pot3Teams && pot3Teams.length > 0) {
+          for (const team of pot3Teams) {
+            const grpIdx = groups.findIndex((g) => g.teams.includes(team));
+            if (grpIdx !== -1) {
+              const grp = groups[grpIdx];
+              const slot = grp.teams.indexOf(team) + 1;
+              drawnTeamNames.add(team);
+              items.push({
+                id: `pot3-${team}`,
+                ballNumber: ballNum++,
+                team,
+                destinationLabel: `${grp.name} (جایگاه ${slot})`,
+                potLabel: "سید ۳",
+                groupIndex: grpIdx,
+              });
+            }
+          }
+        }
+
+        // 4. Draw Pot 4 teams next
+        if (pot4Teams && pot4Teams.length > 0) {
+          for (const team of pot4Teams) {
+            const grpIdx = groups.findIndex((g) => g.teams.includes(team));
+            if (grpIdx !== -1) {
+              const grp = groups[grpIdx];
+              const slot = grp.teams.indexOf(team) + 1;
+              drawnTeamNames.add(team);
+              items.push({
+                id: `pot4-${team}`,
+                ballNumber: ballNum++,
+                team,
+                destinationLabel: `${grp.name} (جایگاه ${slot})`,
+                potLabel: "سید ۴",
+                groupIndex: grpIdx,
+              });
+            }
+          }
+        }
+
+        // 5. Draw all unseeded teams round by round into open group positions
+        for (let slot = 0; slot < maxTeamsInGroup; slot++) {
+          for (let gIdx = 0; gIdx < groups.length; gIdx++) {
+            const grp = groups[gIdx];
+            const team = grp.teams[slot];
+            if (team && !drawnTeamNames.has(team)) {
+              drawnTeamNames.add(team);
+              items.push({
+                id: `unseeded-${gIdx}-${slot}`,
+                ballNumber: ballNum++,
+                team,
+                destinationLabel: `${grp.name} (جایگاه ${slot + 1})`,
+                potLabel: "قرعه آزاد (بدون سید)",
+                groupIndex: gIdx,
+              });
+            }
+          }
+        }
+      } else {
+        // No seeds defined: draw round-by-round across all groups
+        for (let slot = 0; slot < maxTeamsInGroup; slot++) {
+          for (let gIdx = 0; gIdx < groups.length; gIdx++) {
+            const grp = groups[gIdx];
+            const team = grp.teams[slot];
+            if (team) {
+              items.push({
+                id: `grp-${gIdx}-${slot}`,
+                ballNumber: ballNum++,
+                team,
+                destinationLabel: `${grp.name} (جایگاه ${slot + 1})`,
+                potLabel: `جایگاه ${slot + 1}`,
+                groupIndex: gIdx,
+              });
+            }
           }
         }
       }
@@ -209,9 +328,9 @@ export function DrawCeremonyModal({
       });
     }
 
-    // Limit sequence to at most 8 prominent draws so total time stays well balanced (8-12s)
-    return items.slice(0, 8);
-  }, [result]);
+    // Every team in the tournament is drawn through the complete authentic ceremony!
+    return items;
+  }, [result, seededTeams, pot2Teams, pot3Teams, pot4Teams]);
 
   // Manage ceremony stages and step timers
   useEffect(() => {
@@ -226,12 +345,12 @@ export function DrawCeremonyModal({
     setStage("intro");
     setCurrentStepIndex(0);
 
-    // Intro lasts 1.5 seconds, then starts drawing balls
+    // Intro lasts 1.2 seconds, then starts drawing balls
     const tIntro = setTimeout(() => {
       setStage("drawing");
       setCurrentStepIndex(0);
       if (soundEnabled) playAudioTone("reveal");
-    }, 1500);
+    }, 1200);
 
     return () => clearTimeout(tIntro);
   }, [isOpen, soundEnabled]);
@@ -245,20 +364,20 @@ export function DrawCeremonyModal({
       return;
     }
 
-    // Each ball is showcased for 1.4 seconds so the user can comfortably read it
+    const stepDuration = speed === "fast" ? 600 : 1150;
     const stepTimer = setTimeout(() => {
       if (currentStepIndex + 1 < drawSequence.length) {
         setCurrentStepIndex((prev) => prev + 1);
         if (soundEnabled) playAudioTone("reveal");
       } else {
-        // All featured balls drawn! Transition to completed stage
+        // All balls drawn! Transition to completed stage
         setStage("completed");
         if (soundEnabled) playAudioTone("finish");
       }
-    }, 1450);
+    }, stepDuration);
 
     return () => clearTimeout(stepTimer);
-  }, [stage, currentStepIndex, drawSequence, isPaused, soundEnabled]);
+  }, [stage, currentStepIndex, drawSequence, isPaused, speed, soundEnabled]);
 
   // Auto-advance to schedule page after completion celebration (~1.8s)
   useEffect(() => {
@@ -376,6 +495,11 @@ export function DrawCeremonyModal({
                     <span className="text-xs font-bold text-amber-300">
                       بیرون کشیده شد از گردونه
                     </span>
+                    {currentDrawnItem.potLabel && (
+                      <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-2.5 py-0.5 text-[10px] font-black text-amber-300">
+                        {currentDrawnItem.potLabel}
+                      </span>
+                    )}
                   </div>
 
                   <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-0.5 text-xs font-bold text-emerald-300">
@@ -407,13 +531,13 @@ export function DrawCeremonyModal({
 
                 {/* Groups Preview or Clashes Preview */}
                 {isGroupFormat && groupsList.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-[130px] overflow-y-auto">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-[160px] overflow-y-auto">
                     {groupsList.map((grp, gIdx) => (
                       <div
                         key={grp.name}
                         className={`rounded-xl border p-2 text-xs transition-all ${
-                          currentDrawnItem.groupIndex === gIdx
-                            ? "border-amber-400/80 bg-amber-950/20 ring-1 ring-amber-400/40 shadow-xs"
+                          currentDrawnItem?.groupIndex === gIdx
+                            ? "border-amber-400/90 bg-amber-950/25 ring-1 ring-amber-400/50 shadow-xs"
                             : "border-slate-800 bg-slate-900/70"
                         }`}
                       >
@@ -421,19 +545,23 @@ export function DrawCeremonyModal({
                           {grp.name}
                         </span>
                         <div className="space-y-0.5">
-                          {grp.teams.slice(0, 3).map((t) => {
+                          {grp.teams.map((t, tIdx) => {
                             const isDrawn = drawnItemsSoFar.some((item) => item.team === t);
-                            return (
+                            return isDrawn ? (
                               <div
                                 key={t}
-                                className={`truncate text-[10px] font-bold ${
-                                  isDrawn
-                                    ? "text-white flex items-center gap-1"
-                                    : "text-slate-600"
-                                }`}
+                                className="truncate text-[10px] font-bold text-white flex items-center gap-1 animate-in fade-in zoom-in-95 duration-200"
                               >
-                                {isDrawn ? "✓ " : "• "}
+                                <span className="text-emerald-400 font-black">✓</span>
                                 <span className="truncate">{t}</span>
+                              </div>
+                            ) : (
+                              <div
+                                key={tIdx}
+                                className="truncate text-[10px] font-medium text-slate-600 flex items-center gap-1"
+                              >
+                                <span className="text-slate-700">○</span>
+                                <span className="text-slate-500 italic">در انتظار قرعه</span>
                               </div>
                             );
                           })}
@@ -442,7 +570,7 @@ export function DrawCeremonyModal({
                     ))}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[130px] overflow-y-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto">
                     {drawnItemsSoFar.map((item) => (
                       <div
                         key={item.id}
@@ -534,6 +662,15 @@ export function DrawCeremonyModal({
                   className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-slate-300 hover:border-slate-500 transition-colors cursor-pointer"
                 >
                   {isPaused ? "▶️ ادامه مراسم" : "⏸️ مکث"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSpeed(speed === "normal" ? "fast" : "normal")}
+                  className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-slate-300 hover:border-slate-500 transition-colors cursor-pointer"
+                  title="تغییر سرعت پخش مراسم قرعه‌کشی"
+                >
+                  {speed === "normal" ? "⚡ سرعت ۲x" : "🐢 سرعت ۱x"}
                 </button>
 
                 <button

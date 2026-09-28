@@ -2958,6 +2958,10 @@ function PlannerWizard() {
         teams={teamNames}
         result={result}
         tournamentTitle={metadata.title}
+        seededTeams={seededTeams}
+        pot2Teams={pot2Teams}
+        pot3Teams={pot3Teams}
+        pot4Teams={pot4Teams}
         onComplete={handleCeremonyComplete}
       />
     </main>
