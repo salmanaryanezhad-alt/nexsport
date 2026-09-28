@@ -12,6 +12,7 @@ import { NexSportIcon } from "@/components/NexSportLogo";
 
 interface DrawCeremonyModalProps {
   isOpen: boolean;
+  initialMode?: "full" | "summary";
   format: CompetitionFormat | null;
   teams: string[];
   result: ScheduleResult | null;
@@ -120,6 +121,7 @@ function playAudioTone(type: "shuffle" | "reveal" | "finish") {
 
 export function DrawCeremonyModal({
   isOpen,
+  initialMode = "full",
   format,
   teams,
   result,
@@ -130,9 +132,14 @@ export function DrawCeremonyModal({
   pot4Teams,
   onComplete,
 }: DrawCeremonyModalProps) {
-  const [stage, setStage] = useState<"intro" | "drawing" | "completed">("intro");
+  const [stage, setStage] = useState<"intro" | "drawing" | "completed">(
+    initialMode === "summary" ? "completed" : "intro"
+  );
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const soundEnabledRef = useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
+
   const [isPaused, setIsPaused] = useState(false);
   const [speed, setSpeed] = useState<"normal" | "fast">("normal");
   const completedRef = useRef(false);
@@ -455,9 +462,15 @@ export function DrawCeremonyModal({
   // Manage ceremony stages and step timers
   useEffect(() => {
     if (!isOpen) {
-      setStage("intro");
+      setStage(initialMode === "summary" ? "completed" : "intro");
       setCurrentStepIndex(0);
       completedRef.current = false;
+      return;
+    }
+
+    if (initialMode === "summary") {
+      setStage("completed");
+      setCurrentStepIndex(drawSequence.length > 0 ? drawSequence.length - 1 : 0);
       return;
     }
 
@@ -469,15 +482,15 @@ export function DrawCeremonyModal({
     const tIntro = setTimeout(() => {
       setStage("drawing");
       setCurrentStepIndex(0);
-      if (soundEnabled) playAudioTone("reveal");
+      if (soundEnabledRef.current) playAudioTone("reveal");
     }, 1200);
 
     return () => clearTimeout(tIntro);
-  }, [isOpen, soundEnabled]);
+  }, [isOpen, initialMode, drawSequence.length]);
 
   // Step-by-step timer during "drawing" stage
   useEffect(() => {
-    if (stage !== "drawing" || isPaused) return;
+    if (stage !== "drawing" || isPaused || initialMode === "summary") return;
 
     if (drawSequence.length === 0) {
       setStage("completed");
@@ -488,30 +501,33 @@ export function DrawCeremonyModal({
     const stepTimer = setTimeout(() => {
       if (currentStepIndex + 1 < drawSequence.length) {
         setCurrentStepIndex((prev) => prev + 1);
-        if (soundEnabled) playAudioTone("reveal");
+        if (soundEnabledRef.current) playAudioTone("reveal");
       } else {
         // All balls drawn! Transition to completed stage
         setStage("completed");
-        if (soundEnabled) playAudioTone("finish");
+        if (soundEnabledRef.current) playAudioTone("finish");
       }
     }, stepDuration);
 
     return () => clearTimeout(stepTimer);
-  }, [stage, currentStepIndex, drawSequence, isPaused, speed, soundEnabled]);
+  }, [stage, currentStepIndex, drawSequence.length, isPaused, speed, initialMode]);
 
-  // Auto-advance to schedule page after completion celebration (~1.8s)
+  // Auto-advance to schedule page after completion celebration (~1.8s) ONLY during full ceremony
   useEffect(() => {
-    if (stage !== "completed" || !isOpen) return;
+    if (stage !== "completed" || !isOpen || initialMode === "summary") return;
     const tAuto = setTimeout(() => {
       handleFinish();
     }, 1800);
     return () => clearTimeout(tAuto);
-  }, [stage, isOpen, handleFinish]);
+  }, [stage, isOpen, initialMode, handleFinish]);
 
   if (!isOpen) return null;
 
   const currentDrawnItem = drawSequence[currentStepIndex];
-  const drawnItemsSoFar = drawSequence.slice(0, currentStepIndex + 1);
+  const drawnItemsSoFar =
+    stage === "completed" || initialMode === "summary"
+      ? drawSequence
+      : drawSequence.slice(0, currentStepIndex + 1);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
@@ -524,29 +540,42 @@ export function DrawCeremonyModal({
         {/* Top Control Bar */}
         <div className="shrink-0 relative z-10 flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
           <div className="flex items-center gap-2">
-            <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-ping" />
-            <span className="rounded-full bg-rose-500/20 border border-rose-500/40 px-2.5 py-0.5 text-[11px] font-black text-rose-300">
-              مراسم زنده قرعه‌کشی (Live Official Draw)
-            </span>
+            {initialMode === "summary" ? (
+              <>
+                <span className="text-base">📋</span>
+                <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 text-[11px] font-black text-emerald-300">
+                  نتیجه رسمی قرعه‌کشی مسابقات
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-ping" />
+                <span className="rounded-full bg-rose-500/20 border border-rose-500/40 px-2.5 py-0.5 text-[11px] font-black text-rose-300">
+                  مراسم زنده قرعه‌کشی (Live Official Draw)
+                </span>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className="rounded-xl border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-xs text-slate-300 hover:border-slate-500 transition-colors cursor-pointer"
-              title={soundEnabled ? "بی‌صدا کردن مراسم" : "فعال‌سازی افکت صوتی"}
-            >
-              {soundEnabled ? "🔊 صدا فعال" : "🔇 بی‌صدا"}
-            </button>
+            {initialMode !== "summary" && (
+              <button
+                type="button"
+                onClick={() => setSoundEnabled((prev) => !prev)}
+                className="rounded-xl border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-xs text-slate-300 hover:border-slate-500 transition-colors cursor-pointer"
+                title={soundEnabled ? "بی‌صدا کردن مراسم" : "فعال‌سازی افکت صوتی"}
+              >
+                {soundEnabled ? "🔊 صدا فعال" : "🔇 بی‌صدا"}
+              </button>
+            )}
 
             <button
               type="button"
               onClick={handleFinish}
               className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 px-3.5 py-1.5 text-xs font-black text-white shadow-sm transition-all cursor-pointer"
             >
-              <span>مشاهده مستقیم برنامه</span>
-              <span>⏭️</span>
+              <span>{initialMode === "summary" ? "بازگشت به برنامه" : "مشاهده مستقیم برنامه"}</span>
+              <span>{initialMode === "summary" ? "✕" : "⏭️"}</span>
             </button>
           </div>
         </div>
@@ -695,7 +724,7 @@ export function DrawCeremonyModal({
             </div>
           )}
 
-          {/* STAGE 2: FINAL CONFIRMATION & FULL DRAW SUMMARY (DOES NOT AUTO-CLOSE) */}
+          {/* STAGE 2: FINAL CONFIRMATION & FULL DRAW SUMMARY (DOES NOT AUTO-CLOSE IN SUMMARY MODE) */}
           {stage === "completed" && (
             <div className="w-full space-y-4 animate-in zoom-in-95 duration-300 text-center py-2">
               <div className="flex flex-col items-center justify-center space-y-2">
@@ -703,10 +732,14 @@ export function DrawCeremonyModal({
                   🏆
                 </div>
                 <h3 className="text-xl font-black text-emerald-400">
-                  قرعه‌کشی رسمی با موفقیت پایان یافت!
+                  {initialMode === "summary"
+                    ? "جدول و نتیجه رسمی قرعه‌کشی مسابقات"
+                    : "قرعه‌کشی رسمی با موفقیت پایان یافت!"}
                 </h3>
                 <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
-                  تمامی گوی‌ها در جایگاه‌های قانونی خود قرار گرفتند. می‌توانید جدول نهایی قرعه را بررسی فرمایید و سپس وارد برنامه مسابقات شوید:
+                  {initialMode === "summary"
+                    ? "چیدمان نهایی تیم‌ها در گروه‌ها و جایگاه‌های قانونی مسابقات به شرح زیر است:"
+                    : "تمامی گوی‌ها در جایگاه‌های قانونی خود قرار گرفتند. می‌توانید جدول نهایی قرعه را بررسی فرمایید و سپس وارد برنامه مسابقات شوید:"}
                 </p>
               </div>
 
@@ -759,14 +792,14 @@ export function DrawCeremonyModal({
                 </div>
               )}
 
-              {/* Prominent Action Button to Proceed */}
+              {/* Prominent Action Button to Return to Fixtures */}
               <div className="pt-2">
                 <button
                   type="button"
                   onClick={handleFinish}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-500 hover:brightness-110 px-8 py-3 text-sm font-black text-white shadow-glow transition-all cursor-pointer"
                 >
-                  <span>ورود به جدول و تقویم مسابقات</span>
+                  <span>بازگشت به جدول و برنامه مسابقات</span>
                   <span>➔</span>
                 </button>
               </div>
@@ -802,10 +835,10 @@ export function DrawCeremonyModal({
                   onClick={() => {
                     if (currentStepIndex + 1 < drawSequence.length) {
                       setCurrentStepIndex((prev) => prev + 1);
-                      if (soundEnabled) playAudioTone("reveal");
+                      if (soundEnabledRef.current) playAudioTone("reveal");
                     } else {
                       setStage("completed");
-                      if (soundEnabled) playAudioTone("finish");
+                      if (soundEnabledRef.current) playAudioTone("finish");
                     }
                   }}
                   className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-slate-300 hover:border-slate-500 transition-colors cursor-pointer"
@@ -814,6 +847,16 @@ export function DrawCeremonyModal({
                 </button>
               </>
             )}
+
+            {stage === "completed" && (
+              <button
+                type="button"
+                onClick={handleFinish}
+                className="rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3 py-1 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                بازگشت به برنامه مسابقات ➔
+              </button>
+            )}
           </div>
 
           <span className="font-bold text-slate-400">
@@ -821,7 +864,7 @@ export function DrawCeremonyModal({
               ? "در حال بارگذاری گوی‌ها..."
               : stage === "drawing"
               ? `در حال نمایش استخراج گوی شماره ${currentStepIndex + 1}...`
-              : "قرعه‌کشی با موفقیت تکمیل شد ✓"}
+              : "نتیجه نهایی قرعه‌کشی ثبت‌شده در سامانه ✓"}
           </span>
         </div>
 

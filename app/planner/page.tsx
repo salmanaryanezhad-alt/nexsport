@@ -297,6 +297,7 @@ function PlannerWizard() {
 
   // Live Draw Ceremony state
   const [showDrawCeremony, setShowDrawCeremony] = useState(false);
+  const [ceremonyMode, setCeremonyMode] = useState<"full" | "summary">("full");
   const [isRedrawCeremony, setIsRedrawCeremony] = useState(false);
 
   // Bulk input & file input refs
@@ -809,6 +810,7 @@ function PlannerWizard() {
 
       setResult(r);
       setIsRedrawCeremony(isRedraw);
+      setCeremonyMode("full");
       setShowDrawCeremony(true);
     } catch (e) {
       setError(
@@ -2832,11 +2834,14 @@ function PlannerWizard() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50 px-3.5 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-100 hover:shadow-xs transition-all cursor-pointer"
-                onClick={() => setShowDrawCeremony(true)}
-                title="مشاهده مجدد انیمیشن و مراسم زنده قرعه‌کشی مسابقات"
+                onClick={() => {
+                  setCeremonyMode("summary");
+                  setShowDrawCeremony(true);
+                }}
+                title="مشاهده جدول و نتیجه نهایی قرعه‌کشی مسابقات"
               >
-                <span>🎬</span>
-                <span>پخش مراسم قرعه‌کشی</span>
+                <span>📋</span>
+                <span>نتیجه قرعه‌کشی</span>
               </button>
 
               <button
@@ -2976,6 +2981,7 @@ function PlannerWizard() {
       {showDrawCeremony && result && (
         <DrawCeremonyModal
           isOpen={showDrawCeremony}
+          initialMode={ceremonyMode}
           format={format}
           teams={teamNames}
           result={result}
