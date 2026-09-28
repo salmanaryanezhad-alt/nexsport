@@ -619,41 +619,40 @@ export function DrawCeremonyModal({
 
           {/* STAGE 1: STEP-BY-STEP BALL DRAWING (~1.4s per ball) */}
           {stage === "drawing" && currentDrawnItem && (
-            <div className="w-full space-y-3 animate-in fade-in duration-200">
+            <div className="w-full space-y-2.5 animate-in fade-in duration-200">
               
-              {/* The Spotlighted Drawn Capsule */}
-              <div className="shrink-0 relative overflow-hidden rounded-2xl border-2 border-amber-400/60 bg-gradient-to-br from-slate-900 via-amber-950/20 to-slate-900 p-3.5 sm:p-4 shadow-[0_0_40px_rgba(245,158,11,0.25)] text-center space-y-1.5">
-                <div className="flex items-center justify-between border-b border-amber-500/20 pb-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-xs">
-                      #{currentDrawnItem.ballNumber}
-                    </span>
-                    <span className="text-xs font-bold text-amber-300">
-                      بیرون کشیده شد از گردونه
-                    </span>
-                    {currentDrawnItem.potLabel && (
-                      <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 text-[10px] font-black text-amber-300">
-                        {currentDrawnItem.potLabel}
-                      </span>
-                    )}
-                  </div>
-
-                  <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 text-[11px] sm:text-xs font-bold text-emerald-300">
-                    📍 {currentDrawnItem.destinationLabel}
+              {/* The Spotlighted Drawn Capsule (Single Row Layout) */}
+              <div className="shrink-0 relative overflow-hidden rounded-2xl border-2 border-amber-400/60 bg-gradient-to-r from-slate-900 via-amber-950/25 to-slate-900 px-3 py-2 sm:px-4 sm:py-2.5 shadow-[0_0_30px_rgba(245,158,11,0.2)] flex items-center justify-between gap-2.5 sm:gap-4">
+                
+                {/* Right: Ball Number & Draw Badge */}
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <span className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-xs">
+                    #{currentDrawnItem.ballNumber}
                   </span>
+                  <span className="hidden sm:inline text-xs font-bold text-amber-300">
+                    بیرون کشیده شد:
+                  </span>
+                  {currentDrawnItem.potLabel && (
+                    <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 text-[10px] font-black text-amber-300">
+                      {currentDrawnItem.potLabel}
+                    </span>
+                  )}
                 </div>
 
-                {/* Big Bold Team Name with Glow */}
-                <div className="py-1">
-                  <span className="inline-block text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-[0_2px_12px_rgba(255,255,255,0.4)] animate-in zoom-in-95 duration-200">
+                {/* Center: Prominent Team Name with Trophy */}
+                <div className="flex-1 min-w-0 text-center px-1">
+                  <span className="inline-block text-base sm:text-lg md:text-xl font-black text-white tracking-tight drop-shadow-[0_2px_10px_rgba(255,255,255,0.4)] animate-in zoom-in-95 duration-200 truncate max-w-full">
                     🏆 {currentDrawnItem.team}
                   </span>
                 </div>
 
-                {/* Status Indicator */}
-                <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium">
-                  این تیم در جایگاه رسمی مسابقه ثبت و قفل گردید.
-                </p>
+                {/* Left: Destination Slot / Group */}
+                <div className="shrink-0 flex items-center">
+                  <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 text-[11px] sm:text-xs font-bold text-emerald-300 whitespace-nowrap">
+                    📍 {currentDrawnItem.destinationLabel}
+                  </span>
+                </div>
+
               </div>
 
               {/* Live Populating Mini-Board Below */}
@@ -667,7 +666,7 @@ export function DrawCeremonyModal({
 
                 {/* Groups Preview or Clashes Preview */}
                 {isGroupFormat && groupsList.length > 0 ? (
-                  <div className={`grid ${groupGridColsClass} gap-2 max-h-[220px] sm:max-h-[280px] overflow-y-auto pr-1 custom-scrollbar`}>
+                  <div className={`grid ${groupGridColsClass} gap-2 max-h-[260px] sm:max-h-[340px] md:max-h-[400px] overflow-y-auto pr-1 custom-scrollbar`}>
                     {groupsList.map((grp, gIdx) => (
                       <div
                         key={grp.name}
