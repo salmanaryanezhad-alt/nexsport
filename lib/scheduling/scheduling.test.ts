@@ -1917,6 +1917,28 @@ test("فرمت جام جهانی (۴۸ تیمی / ۱۲ گروه): صعود ۲۴ 
   }
 });
 
+test("حذفی بدون تعیین آرایه سیدبندی (seededTeams: undefined): بدون خطا و با تخصیص صحیح مسابقات", () => {
+  const teams32 = Array.from({ length: 32 }, (_, i) => `تیم ${i + 1}`);
+  const result = generateSchedule({
+    format: "knockout",
+    teams: teams32,
+    seededTeams: undefined as unknown as string[],
+  });
+
+  assertEqual(result.format, "knockout", "فرمت خروجی باید knockout باشد.");
+  if (result.format !== "knockout") return;
+
+  assertEqual(result.knockout.bracketSize, 32, "اندازه براکت باید ۳۲ باشد.");
+  assertEqual(result.knockout.rounds[0].matches.length, 16, "دور اول باید ۱۶ مسابقات داشته باشد.");
+  assertEqual(result.knockout.rounds[0].matches.every((m) => m.home && m.away), true, "تمام مسابقات دور اول باید دارای میزبان و میهمان باشند.");
+
+  const koDirect = buildKnockout({
+    teams: Array.from({ length: 8 }, (_, i) => `Team ${i + 1}`),
+  });
+  assertEqual(koDirect.bracketSize, 8, "براکت مستقیم باید ۸ باشد.");
+  assertEqual(koDirect.rounds[0].matches.length, 4, "دور اول باید ۴ مسابقات داشته باشد.");
+});
+
 /* =========================================================
    نتیجه نهایی
    ========================================================= */

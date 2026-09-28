@@ -87,7 +87,7 @@ export interface GroupsScheduleInput {
   format: "groups" | "groups-knockout";
   teams: string[];
   numGroups: number;
-  seededTeams: string[];
+  seededTeams?: string[];
   pot2Teams?: string[];
   pot3Teams?: string[];
   pot4Teams?: string[];
@@ -102,7 +102,7 @@ export interface GroupsScheduleInput {
 export interface KnockoutScheduleInput {
   format: "knockout";
   teams: string[];
-  seededTeams: string[];
+  seededTeams?: string[];
   hasThirdPlace?: boolean;
   metadata?: TournamentMetadata;
 }

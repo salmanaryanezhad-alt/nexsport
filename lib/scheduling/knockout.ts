@@ -634,7 +634,7 @@ export function computeKnockoutWithScores(
 
 export interface BuildKnockoutParams {
   teams: string[];
-  seededTeams: string[];
+  seededTeams?: string[];
   hasThirdPlace?: boolean;
 }
 
@@ -738,13 +738,14 @@ export function buildKnockoutFromSlots(
 
 export function buildKnockout({
   teams,
-  seededTeams,
+  seededTeams = [],
   hasThirdPlace = false,
 }: BuildKnockoutParams): KnockoutResult {
   if (teams.length < 2) {
     throw new ScheduleValidationError("برای تولید براکت حذفی حداقل به ۲ تیم نیاز است.");
   }
-  const unknownSeed = seededTeams.find((t) => !teams.includes(t));
+  const safeSeeds = seededTeams ?? [];
+  const unknownSeed = safeSeeds.find((t) => !teams.includes(t));
   if (unknownSeed) {
     throw new ScheduleValidationError(`تیم شاخص «${unknownSeed}» در لیست تیم‌ها یافت نشد.`);
   }
@@ -752,9 +753,9 @@ export function buildKnockout({
   const bracketSize = nextPowerOfTwo(teams.length);
   const byes = bracketSize - teams.length;
 
-  const rest = shuffle(teams.filter((t) => !seededTeams.includes(t)));
+  const rest = shuffle(teams.filter((t) => !safeSeeds.includes(t)));
   const seedToTeam = new Map<number, string | null>();
-  const orderedTeams = [...seededTeams, ...rest];
+  const orderedTeams = [...safeSeeds, ...rest];
   for (let i = 0; i < bracketSize; i++) {
     seedToTeam.set(i + 1, orderedTeams[i] ?? null);
   }

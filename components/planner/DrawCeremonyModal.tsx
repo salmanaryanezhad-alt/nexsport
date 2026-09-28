@@ -34,17 +34,32 @@ interface DrawStepItem {
   isHome?: boolean;
 }
 
-// Gentle Web Audio API synthesizer for athletic draw ceremony sounds
-function playAudioTone(type: "shuffle" | "reveal" | "finish") {
+// Lazy singleton Web Audio API synthesizer for athletic draw ceremony sounds
+let sharedAudioCtx: AudioContext | null = null;
+
+function getAudioContext(): AudioContext | null {
   try {
+    if (typeof window === "undefined") return null;
     const AudioCtx =
       window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+      sharedAudioCtx = new AudioCtx();
     }
+    if (sharedAudioCtx.state === "suspended") {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
+function playAudioTone(type: "shuffle" | "reveal" | "finish") {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
     const now = ctx.currentTime;
 
     if (type === "shuffle") {
@@ -261,70 +276,123 @@ export function DrawCeremonyModal({
         }
       }
     } else if (result.format === "knockout") {
-      const matches = (result.knockout.rounds[0]?.matches || []).filter(
-        (m: BracketMatch) => !m.isBye && m.home && m.away
-      );
+      const matches = result.knockout?.rounds?.[0]?.matches || [];
       matches.forEach((m: BracketMatch, mIdx: number) => {
-        items.push({
-          id: `ko-${mIdx}-home`,
-          ballNumber: ballNum++,
-          team: m.home!,
-          destinationLabel: `مسابقه ${mIdx + 1} (میزبان)`,
-          matchIndex: mIdx,
-          isHome: true,
-        });
-        items.push({
-          id: `ko-${mIdx}-away`,
-          ballNumber: ballNum++,
-          team: m.away!,
-          destinationLabel: `مسابقه ${mIdx + 1} (میهمان)`,
-          matchIndex: mIdx,
-          isHome: false,
-        });
+        if (m.isBye) {
+          const advancingTeam =
+            m.autoAdvance ||
+            (m.home && m.home !== "BYE" ? m.home : m.away && m.away !== "BYE" ? m.away : null);
+          if (advancingTeam) {
+            items.push({
+              id: `ko-${mIdx}-bye`,
+              ballNumber: ballNum++,
+              team: advancingTeam,
+              destinationLabel: `مسابقه ${mIdx + 1} (استراحت دور اول / صعود مستقیم)`,
+              matchIndex: mIdx,
+              isHome: true,
+            });
+          }
+        } else {
+          if (m.home) {
+            items.push({
+              id: `ko-${mIdx}-home`,
+              ballNumber: ballNum++,
+              team: m.home,
+              destinationLabel: `مسابقه ${mIdx + 1} (میزبان)`,
+              matchIndex: mIdx,
+              isHome: true,
+            });
+          }
+          if (m.away) {
+            items.push({
+              id: `ko-${mIdx}-away`,
+              ballNumber: ballNum++,
+              team: m.away,
+              destinationLabel: `مسابقه ${mIdx + 1} (میهمان)`,
+              matchIndex: mIdx,
+              isHome: false,
+            });
+          }
+        }
       });
     } else if (result.format === "double-knockout") {
-      const matches = (result.doubleKnockout.winnersBracket[0]?.matches || []).filter(
-        (m: BracketMatch) => !m.isBye && m.home && m.away
-      );
+      const matches = result.doubleKnockout?.winnersBracket?.[0]?.matches || [];
       matches.forEach((m: BracketMatch, mIdx: number) => {
-        items.push({
-          id: `dko-${mIdx}-home`,
-          ballNumber: ballNum++,
-          team: m.home!,
-          destinationLabel: `بازی ${mIdx + 1} جدول برندگان (میزبان)`,
-          matchIndex: mIdx,
-          isHome: true,
-        });
-        items.push({
-          id: `dko-${mIdx}-away`,
-          ballNumber: ballNum++,
-          team: m.away!,
-          destinationLabel: `بازی ${mIdx + 1} جدول برندگان (میهمان)`,
-          matchIndex: mIdx,
-          isHome: false,
-        });
+        if (m.isBye) {
+          const advancingTeam =
+            m.autoAdvance ||
+            (m.home && m.home !== "BYE" ? m.home : m.away && m.away !== "BYE" ? m.away : null);
+          if (advancingTeam) {
+            items.push({
+              id: `dko-${mIdx}-bye`,
+              ballNumber: ballNum++,
+              team: advancingTeam,
+              destinationLabel: `بازی ${mIdx + 1} جدول برندگان (استراحت دور اول)`,
+              matchIndex: mIdx,
+              isHome: true,
+            });
+          }
+        } else {
+          if (m.home) {
+            items.push({
+              id: `dko-${mIdx}-home`,
+              ballNumber: ballNum++,
+              team: m.home,
+              destinationLabel: `بازی ${mIdx + 1} جدول برندگان (میزبان)`,
+              matchIndex: mIdx,
+              isHome: true,
+            });
+          }
+          if (m.away) {
+            items.push({
+              id: `dko-${mIdx}-away`,
+              ballNumber: ballNum++,
+              team: m.away,
+              destinationLabel: `بازی ${mIdx + 1} جدول برندگان (میهمان)`,
+              matchIndex: mIdx,
+              isHome: false,
+            });
+          }
+        }
       });
     } else if (result.format === "league" || result.format === "double-league") {
-      const matches = (result.rounds[0]?.matches || []).filter(
-        (m: Match) => !m.isBye && m.home && m.away
-      );
+      const matches = result.rounds?.[0]?.matches || [];
       matches.forEach((m: Match, mIdx: number) => {
-        items.push({
-          id: `lg-${mIdx}-home`,
-          ballNumber: ballNum++,
-          team: m.home,
-          destinationLabel: `بازی ${mIdx + 1} هفته اول (میزبان)`,
-          matchIndex: mIdx,
-          isHome: true,
-        });
-        items.push({
-          id: `lg-${mIdx}-away`,
-          ballNumber: ballNum++,
-          team: m.away,
-          destinationLabel: `بازی ${mIdx + 1} هفته اول (میهمان)`,
-          matchIndex: mIdx,
-          isHome: false,
-        });
+        if (m.isBye) {
+          const restingTeam =
+            m.home && m.home !== "BYE" ? m.home : m.away && m.away !== "BYE" ? m.away : null;
+          if (restingTeam) {
+            items.push({
+              id: `lg-${mIdx}-bye`,
+              ballNumber: ballNum++,
+              team: restingTeam,
+              destinationLabel: `هفته اول (استراحت)`,
+              matchIndex: mIdx,
+              isHome: true,
+            });
+          }
+        } else {
+          if (m.home) {
+            items.push({
+              id: `lg-${mIdx}-home`,
+              ballNumber: ballNum++,
+              team: m.home,
+              destinationLabel: `بازی ${mIdx + 1} هفته اول (میزبان)`,
+              matchIndex: mIdx,
+              isHome: true,
+            });
+          }
+          if (m.away) {
+            items.push({
+              id: `lg-${mIdx}-away`,
+              ballNumber: ballNum++,
+              team: m.away,
+              destinationLabel: `بازی ${mIdx + 1} هفته اول (میهمان)`,
+              matchIndex: mIdx,
+              isHome: false,
+            });
+          }
+        }
       });
     }
 
@@ -648,6 +716,23 @@ export function DrawCeremonyModal({
                           </div>
                         ))}
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Non-Group Fixture Summary (Knockout / League) */}
+              {!isGroupFormat && drawnItemsSoFar.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[260px] sm:max-h-[340px] overflow-y-auto text-right p-1 pr-2 custom-scrollbar">
+                  {drawnItemsSoFar.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-emerald-500/30 bg-slate-900/90 p-2.5 flex items-center justify-between text-xs"
+                    >
+                      <span className="font-bold text-white truncate">{item.team}</span>
+                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-mono">
+                        {item.destinationLabel}
+                      </span>
                     </div>
                   ))}
                 </div>

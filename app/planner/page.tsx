@@ -742,18 +742,34 @@ function PlannerWizard() {
         pointsRule,
       };
 
+      // Prune any stale seeds or avoid pairs that are no longer part of active teamNames
+      const activeTeamSet = new Set(teamNames);
+      const cleanSeeds = (seededTeams || []).filter((t) => activeTeamSet.has(t));
+      const cleanPot2 = (pot2Teams || []).filter((t) => activeTeamSet.has(t));
+      const cleanPot3 = (pot3Teams || []).filter((t) => activeTeamSet.has(t));
+      const cleanPot4 = (pot4Teams || []).filter((t) => activeTeamSet.has(t));
+      const cleanAvoidPairs = (avoidPairs || []).filter(
+        ([a, b]) => activeTeamSet.has(a) && activeTeamSet.has(b)
+      );
+
+      if (cleanSeeds.length !== seededTeams.length) setSeededTeams(cleanSeeds);
+      if (cleanPot2.length !== pot2Teams.length) setPot2Teams(cleanPot2);
+      if (cleanPot3.length !== pot3Teams.length) setPot3Teams(cleanPot3);
+      if (cleanPot4.length !== pot4Teams.length) setPot4Teams(cleanPot4);
+      if (cleanAvoidPairs.length !== avoidPairs.length) setAvoidPairs(cleanAvoidPairs);
+
       if (format === "groups" || format === "groups-knockout") {
         r = generateSchedule({
           format,
           teams: teamNames,
           numGroups,
-          seededTeams,
-          pot2Teams,
-          pot3Teams,
-          pot4Teams,
+          seededTeams: cleanSeeds,
+          pot2Teams: cleanPot2,
+          pot3Teams: cleanPot3,
+          pot4Teams: cleanPot4,
           qualifiersPerGroup,
           advanceBestThirds,
-          avoidPairs,
+          avoidPairs: cleanAvoidPairs,
           hasThirdPlace,
           metadata: trimmedMetadata,
         });
@@ -761,7 +777,7 @@ function PlannerWizard() {
         r = generateSchedule({
           format,
           teams: teamNames,
-          seededTeams,
+          seededTeams: cleanSeeds,
           hasThirdPlace,
           metadata: trimmedMetadata,
         });
@@ -769,7 +785,7 @@ function PlannerWizard() {
         r = generateSchedule({
           format: "double-knockout",
           teams: teamNames,
-          seededTeams,
+          seededTeams: cleanSeeds,
           hasResetFinal,
           metadata: trimmedMetadata,
         });

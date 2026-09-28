@@ -33,7 +33,8 @@ export function buildDoubleKnockout({
     throw new ScheduleValidationError("نام تیم‌ها باید یکتا باشد؛ دو تیم هم‌نام وجود دارد.");
   }
 
-  const unknownSeed = seededTeams.find((t) => !teams.includes(t));
+  const safeSeeds = seededTeams ?? [];
+  const unknownSeed = safeSeeds.find((t) => !teams.includes(t));
   if (unknownSeed) {
     throw new ScheduleValidationError(`تیم شاخص «${unknownSeed}» در لیست تیم‌ها یافت نشد.`);
   }
@@ -43,9 +44,9 @@ export function buildDoubleKnockout({
   const k = Math.round(Math.log2(bracketSize));
 
   // Seed allocation
-  const rest = shuffle(teams.filter((t) => !seededTeams.includes(t)));
+  const rest = shuffle(teams.filter((t) => !safeSeeds.includes(t)));
   const seedToTeam = new Map<number, string | null>();
-  const orderedTeams = [...seededTeams, ...rest];
+  const orderedTeams = [...safeSeeds, ...rest];
   for (let i = 0; i < bracketSize; i++) {
     seedToTeam.set(i + 1, orderedTeams[i] ?? null);
   }
