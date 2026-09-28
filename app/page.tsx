@@ -271,11 +271,11 @@ export default function HomePage() {
               <div className="lg:col-span-7 space-y-6 text-right">
                 {/* Live Badge */}
                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-950/60 px-4 py-1.5 text-xs font-bold text-emerald-200 shadow-inner backdrop-blur-md">
-                  <span className="relative flex h-2.5 w-2.5">
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
                   </span>
-                  <span>برنامه‌ریز رسمی مسابقات ورزشی • ۱۰۰٪ رایگان</span>
+                  <span>برنامه‌ریزی مسابقات در ۱ دقیقه. رایگان شروع کنید، حرفه‌ای برگزار کنید.</span>
                 </div>
 
                 {/* Main Headline */}
@@ -445,8 +445,8 @@ export default function HomePage() {
                 <div className="text-xs font-bold text-slate-500">فرمت مسابقاتی استاندارد جهانی</div>
               </div>
               <div className="space-y-1">
-                <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">رایگان</div>
-                <div className="text-xs font-bold text-slate-500">بدون نیاز به پرداخت و ثبت‌نام</div>
+                <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">شروع آسان</div>
+                <div className="text-xs font-bold text-slate-500">رایگان شروع کنید، حرفه‌ای برگزار کنید</div>
               </div>
             </div>
           </div>

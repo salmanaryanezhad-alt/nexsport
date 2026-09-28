@@ -1394,7 +1394,7 @@ function PlannerWizard() {
                 </p>
               </div>
               <div className="flex items-center gap-2 text-xs font-bold text-pitch shrink-0 bg-white/70 px-3 py-1.5 rounded-xl border border-line/60">
-                <span>⚡ ۱۰۰٪ رایگان و آنی</span>
+                <span>⚡ شروع سریع و آسان</span>
               </div>
             </div>
           </div>
