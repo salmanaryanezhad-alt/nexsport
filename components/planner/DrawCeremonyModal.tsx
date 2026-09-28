@@ -357,11 +357,13 @@ export function DrawCeremonyModal({
       });
     } else if (result.format === "league" || result.format === "double-league") {
       const matches = result.rounds?.[0]?.matches || [];
+      const drawnInWeek1 = new Set<string>();
       matches.forEach((m: Match, mIdx: number) => {
         if (m.isBye) {
           const restingTeam =
             m.home && m.home !== "BYE" ? m.home : m.away && m.away !== "BYE" ? m.away : null;
           if (restingTeam) {
+            drawnInWeek1.add(restingTeam);
             items.push({
               id: `lg-${mIdx}-bye`,
               ballNumber: ballNum++,
@@ -373,6 +375,7 @@ export function DrawCeremonyModal({
           }
         } else {
           if (m.home) {
+            drawnInWeek1.add(m.home);
             items.push({
               id: `lg-${mIdx}-home`,
               ballNumber: ballNum++,
@@ -383,6 +386,7 @@ export function DrawCeremonyModal({
             });
           }
           if (m.away) {
+            drawnInWeek1.add(m.away);
             items.push({
               id: `lg-${mIdx}-away`,
               ballNumber: ballNum++,
@@ -394,11 +398,27 @@ export function DrawCeremonyModal({
           }
         }
       });
+
+      // For odd-team leagues where the bye team is not listed as a match in rounds[0]
+      if (teams && Array.isArray(teams)) {
+        teams.forEach((t) => {
+          if (!drawnInWeek1.has(t)) {
+            drawnInWeek1.add(t);
+            items.push({
+              id: `lg-rest-${t}`,
+              ballNumber: ballNum++,
+              team: t,
+              destinationLabel: `هفته اول (استراحت)`,
+              isHome: true,
+            });
+          }
+        });
+      }
     }
 
     // Every team in the tournament is drawn through the complete authentic ceremony!
     return items;
-  }, [result, seededTeams, pot2Teams, pot3Teams, pot4Teams]);
+  }, [result, teams, seededTeams, pot2Teams, pot3Teams, pot4Teams]);
 
   // Manage ceremony stages and step timers
   useEffect(() => {
