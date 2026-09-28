@@ -742,15 +742,18 @@ function PlannerWizard() {
         pointsRule,
       };
 
+      // Sanitize team names (trim whitespace)
+      const cleanTeamNames = teamNames.map((t) => t.trim());
+
       // Prune any stale seeds or avoid pairs that are no longer part of active teamNames
-      const activeTeamSet = new Set(teamNames);
-      const cleanSeeds = (seededTeams || []).filter((t) => activeTeamSet.has(t));
-      const cleanPot2 = (pot2Teams || []).filter((t) => activeTeamSet.has(t));
-      const cleanPot3 = (pot3Teams || []).filter((t) => activeTeamSet.has(t));
-      const cleanPot4 = (pot4Teams || []).filter((t) => activeTeamSet.has(t));
-      const cleanAvoidPairs = (avoidPairs || []).filter(
-        ([a, b]) => activeTeamSet.has(a) && activeTeamSet.has(b)
-      );
+      const activeTeamSet = new Set(cleanTeamNames);
+      const cleanSeeds = (seededTeams || []).map((t) => t.trim()).filter((t) => activeTeamSet.has(t));
+      const cleanPot2 = (pot2Teams || []).map((t) => t.trim()).filter((t) => activeTeamSet.has(t));
+      const cleanPot3 = (pot3Teams || []).map((t) => t.trim()).filter((t) => activeTeamSet.has(t));
+      const cleanPot4 = (pot4Teams || []).map((t) => t.trim()).filter((t) => activeTeamSet.has(t));
+      const cleanAvoidPairs = (avoidPairs || [])
+        .map(([a, b]) => [a.trim(), b.trim()] as [string, string])
+        .filter(([a, b]) => activeTeamSet.has(a) && activeTeamSet.has(b));
 
       if (cleanSeeds.length !== seededTeams.length) setSeededTeams(cleanSeeds);
       if (cleanPot2.length !== pot2Teams.length) setPot2Teams(cleanPot2);
@@ -761,7 +764,7 @@ function PlannerWizard() {
       if (format === "groups" || format === "groups-knockout") {
         r = generateSchedule({
           format,
-          teams: teamNames,
+          teams: cleanTeamNames,
           numGroups,
           seededTeams: cleanSeeds,
           pot2Teams: cleanPot2,
@@ -776,7 +779,7 @@ function PlannerWizard() {
       } else if (format === "knockout") {
         r = generateSchedule({
           format,
-          teams: teamNames,
+          teams: cleanTeamNames,
           seededTeams: cleanSeeds,
           hasThirdPlace,
           metadata: trimmedMetadata,
@@ -784,7 +787,7 @@ function PlannerWizard() {
       } else if (format === "double-knockout") {
         r = generateSchedule({
           format: "double-knockout",
-          teams: teamNames,
+          teams: cleanTeamNames,
           seededTeams: cleanSeeds,
           hasResetFinal,
           metadata: trimmedMetadata,
@@ -792,14 +795,14 @@ function PlannerWizard() {
       } else if (format === "double-league") {
         r = generateSchedule({
           format: "double-league",
-          teams: teamNames,
+          teams: cleanTeamNames,
           independentSecondLeg,
           metadata: trimmedMetadata,
         });
       } else {
         r = generateSchedule({
           format,
-          teams: teamNames,
+          teams: cleanTeamNames,
           metadata: trimmedMetadata,
         });
       }
@@ -810,6 +813,8 @@ function PlannerWizard() {
     } catch (e) {
       setError(
         e instanceof ScheduleValidationError
+          ? e.message
+          : e instanceof Error
           ? e.message
           : "خطایی رخ داد. لطفاً دوباره تلاش کنید."
       );
@@ -2968,18 +2973,20 @@ function PlannerWizard() {
       />
 
       {/* Live Draw Ceremony Modal */}
-      <DrawCeremonyModal
-        isOpen={showDrawCeremony}
-        format={format}
-        teams={teamNames}
-        result={result}
-        tournamentTitle={metadata.title}
-        seededTeams={seededTeams}
-        pot2Teams={pot2Teams}
-        pot3Teams={pot3Teams}
-        pot4Teams={pot4Teams}
-        onComplete={handleCeremonyComplete}
-      />
+      {showDrawCeremony && result && (
+        <DrawCeremonyModal
+          isOpen={showDrawCeremony}
+          format={format}
+          teams={teamNames}
+          result={result}
+          tournamentTitle={metadata.title}
+          seededTeams={seededTeams}
+          pot2Teams={pot2Teams}
+          pot3Teams={pot3Teams}
+          pot4Teams={pot4Teams}
+          onComplete={handleCeremonyComplete}
+        />
+      )}
     </main>
   );
 }

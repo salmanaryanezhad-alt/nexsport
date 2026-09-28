@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   CompetitionFormat,
   ScheduleResult,
@@ -420,6 +420,38 @@ export function DrawCeremonyModal({
     return items;
   }, [result, teams, seededTeams, pot2Teams, pot3Teams, pot4Teams]);
 
+  // Groups summary data
+  const groupsList: GroupResult[] = useMemo(() => {
+    return result && (result.format === "groups" || result.format === "groups-knockout")
+      ? result.groups
+      : [];
+  }, [result]);
+
+  // Dynamic responsive max-width based on number of groups/teams
+  const modalMaxWidthClass = useMemo(() => {
+    const count = groupsList.length;
+    if (count > 6) return "max-w-5xl";
+    if (count > 4) return "max-w-4xl";
+    return "max-w-2xl";
+  }, [groupsList.length]);
+
+  // Dynamic responsive grid columns for groups preview
+  const groupGridColsClass = useMemo(() => {
+    const count = groupsList.length;
+    if (count <= 2) return "grid-cols-1 sm:grid-cols-2";
+    if (count <= 4) return "grid-cols-2 sm:grid-cols-4";
+    if (count <= 6) return "grid-cols-2 sm:grid-cols-3 md:grid-cols-6";
+    if (count <= 8) return "grid-cols-2 sm:grid-cols-4 lg:grid-cols-4";
+    return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6";
+  }, [groupsList.length]);
+
+  const handleFinish = useCallback(() => {
+    if (!completedRef.current) {
+      completedRef.current = true;
+      onComplete();
+    }
+  }, [onComplete]);
+
   // Manage ceremony stages and step timers
   useEffect(() => {
     if (!isOpen) {
@@ -474,43 +506,12 @@ export function DrawCeremonyModal({
       handleFinish();
     }, 1800);
     return () => clearTimeout(tAuto);
-  }, [stage, isOpen]);
+  }, [stage, isOpen, handleFinish]);
 
   if (!isOpen) return null;
 
-  const handleFinish = () => {
-    if (!completedRef.current) {
-      completedRef.current = true;
-      onComplete();
-    }
-  };
-
   const currentDrawnItem = drawSequence[currentStepIndex];
   const drawnItemsSoFar = drawSequence.slice(0, currentStepIndex + 1);
-
-  // Groups summary data
-  const groupsList: GroupResult[] =
-    result && (result.format === "groups" || result.format === "groups-knockout")
-      ? result.groups
-      : [];
-
-  // Dynamic responsive max-width based on number of groups/teams
-  const modalMaxWidthClass = useMemo(() => {
-    const count = groupsList.length;
-    if (count > 6) return "max-w-5xl";
-    if (count > 4) return "max-w-4xl";
-    return "max-w-2xl";
-  }, [groupsList.length]);
-
-  // Dynamic responsive grid columns for groups preview
-  const groupGridColsClass = useMemo(() => {
-    const count = groupsList.length;
-    if (count <= 2) return "grid-cols-1 sm:grid-cols-2";
-    if (count <= 4) return "grid-cols-2 sm:grid-cols-4";
-    if (count <= 6) return "grid-cols-2 sm:grid-cols-3 md:grid-cols-6";
-    if (count <= 8) return "grid-cols-2 sm:grid-cols-4 lg:grid-cols-4";
-    return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6";
-  }, [groupsList.length]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
