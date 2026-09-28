@@ -9,6 +9,7 @@ import {
   Match,
 } from "@/lib/scheduling/types";
 import { NexSportIcon } from "@/components/NexSportLogo";
+import { toPersianDigits } from "@/lib/digits";
 
 interface DrawCeremonyModalProps {
   isOpen: boolean;
@@ -627,14 +628,14 @@ export function DrawCeremonyModal({
                 {/* Right: Ball Number & Draw Badge */}
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   <span className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-xs">
-                    #{currentDrawnItem.ballNumber}
+                    #{toPersianDigits(currentDrawnItem.ballNumber)}
                   </span>
                   <span className="hidden sm:inline text-xs font-bold text-amber-300">
                     بیرون کشیده شد:
                   </span>
                   {currentDrawnItem.potLabel && (
                     <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 text-[10px] font-black text-amber-300">
-                      {currentDrawnItem.potLabel}
+                      {toPersianDigits(currentDrawnItem.potLabel)}
                     </span>
                   )}
                 </div>
@@ -649,7 +650,7 @@ export function DrawCeremonyModal({
                 {/* Left: Destination Slot / Group */}
                 <div className="shrink-0 flex items-center">
                   <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 text-[11px] sm:text-xs font-bold text-emerald-300 whitespace-nowrap">
-                    📍 {currentDrawnItem.destinationLabel}
+                    📍 {toPersianDigits(currentDrawnItem.destinationLabel)}
                   </span>
                 </div>
 
@@ -658,9 +659,9 @@ export function DrawCeremonyModal({
               {/* Live Populating Mini-Board Below */}
               <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3 sm:p-4 space-y-2">
                 <div className="flex items-center justify-between text-xs font-black text-slate-400 pb-1 border-b border-slate-800/80">
-                  <span>جایگاه‌های ثبت‌شده تا این لحظه ({drawnItemsSoFar.length} از {drawSequence.length}):</span>
-                  <span className="text-[11px] text-emerald-400 font-mono">
-                    گوی {currentStepIndex + 1} از {drawSequence.length}
+                  <span>جایگاه‌های ثبت‌شده تا این لحظه ({toPersianDigits(drawnItemsSoFar.length)} از {toPersianDigits(drawSequence.length)}):</span>
+                  <span className="text-[11px] text-emerald-400 font-bold">
+                    گوی {toPersianDigits(currentStepIndex + 1)} از {toPersianDigits(drawSequence.length)}
                   </span>
                 </div>
 
@@ -753,7 +754,7 @@ export function DrawCeremonyModal({
                       <div className="flex items-center justify-between text-xs font-black text-amber-300 border-b border-slate-800 pb-1">
                         <span>{grp.name}</span>
                         <span className="text-[10px] text-slate-400">
-                          {grp.teams.length} تیم
+                          {toPersianDigits(grp.teams.length)} تیم
                         </span>
                       </div>
                       <div className="space-y-1">
@@ -762,8 +763,8 @@ export function DrawCeremonyModal({
                             key={t}
                             className="flex items-center gap-1.5 text-[11px] font-bold text-slate-200 truncate"
                           >
-                            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-[9px] font-mono text-emerald-400">
-                              {idx + 1}
+                            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-[9px] font-bold text-emerald-400">
+                              {toPersianDigits(idx + 1)}
                             </span>
                             <span className="truncate">{t}</span>
                           </div>
@@ -783,8 +784,8 @@ export function DrawCeremonyModal({
                       className="rounded-xl border border-emerald-500/30 bg-slate-900/90 p-2.5 flex items-center justify-between text-xs"
                     >
                       <span className="font-bold text-white truncate">{item.team}</span>
-                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-mono">
-                        {item.destinationLabel}
+                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                        {toPersianDigits(item.destinationLabel)}
                       </span>
                     </div>
                   ))}

@@ -29,20 +29,21 @@ import {
   SavedTournamentItem,
 } from "@/components/planner/SavedTournamentsModal";
 import { DrawCeremonyModal } from "@/components/planner/DrawCeremonyModal";
+import { toPersianDigits, toEnglishDigits } from "@/lib/digits";
 
 const STORAGE_KEY = "nexsport_wizard_state_v4";
 
 function formatGroupDistribution(teamCount: number, numGroups: number): string {
   const G = Math.max(1, numGroups);
   if (teamCount % G === 0) {
-    return `هر گروه ${teamCount / G} تیم`;
+    return `هر گروه ${toPersianDigits(teamCount / G)} تیم`;
   }
   const rem = teamCount % G;
   const floor = Math.floor(teamCount / G);
   const ceil = floor + 1;
   const ceilCount = rem;
   const floorCount = G - rem;
-  return `${ceilCount} گروه ${ceil} تیمی و ${floorCount} گروه ${floor} تیمی`;
+  return `${toPersianDigits(ceilCount)} گروه ${toPersianDigits(ceil)} تیمی و ${toPersianDigits(floorCount)} گروه ${toPersianDigits(floor)} تیمی`;
 }
 
 function BracketSvgIcon({ className = "w-7 h-7" }: { className?: string }) {
@@ -257,7 +258,7 @@ function PlannerWizard() {
   const [format, setFormat] = useState<CompetitionFormat | null>(null);
   const [formatCategory, setFormatCategory] = useState<"all" | "tournament" | "league">("all");
   const [teamCount, setTeamCount] = useState(8);
-  const [teamCountInput, setTeamCountInput] = useState("8");
+  const [teamCountInput, setTeamCountInput] = useState("۸");
   const [teamNames, setTeamNames] = useState<string[]>([]);
   const [numGroups, setNumGroups] = useState(2);
   const [qualifiersPerGroup, setQualifiersPerGroup] = useState(2);
@@ -281,6 +282,25 @@ function PlannerWizard() {
     loss: 0,
     name: "استاندارد فوتبال (۳-۱-۰)",
   });
+  const [customWin, setCustomWin] = useState<number>(3);
+  const [customDraw, setCustomDraw] = useState<number>(1);
+  const [customLoss, setCustomLoss] = useState<number>(0);
+
+  function handleUpdateCustomPoints(win: number, draw: number, loss: number) {
+    const w = Math.max(0, win);
+    const d = Math.max(0, draw);
+    const l = Math.max(0, loss);
+    setCustomWin(w);
+    setCustomDraw(d);
+    setCustomLoss(l);
+    setPointsRule({
+      sport: "custom",
+      win: w,
+      draw: d,
+      loss: l,
+      name: `سفارشی (${toPersianDigits(w)}-${toPersianDigits(d)}-${toPersianDigits(l)})`,
+    });
+  }
   const [matchDetails, setMatchDetails] = useState<Record<string, MatchScheduleDetail>>({});
   const [result, setResult] = useState<ScheduleResult | null>(null);
   const [scores, setScores] = useState<Record<string, MatchScore>>({});
@@ -331,7 +351,7 @@ function PlannerWizard() {
         if (parsed.format) setFormat(parsed.format);
         if (typeof parsed.teamCount === "number") {
           setTeamCount(parsed.teamCount);
-          setTeamCountInput(String(parsed.teamCount));
+          setTeamCountInput(toPersianDigits(parsed.teamCount));
         }
         if (Array.isArray(parsed.teamNames)) setTeamNames(parsed.teamNames);
         if (typeof parsed.numGroups === "number") setNumGroups(parsed.numGroups);
@@ -350,7 +370,14 @@ function PlannerWizard() {
           setIndependentSecondLeg(parsed.independentSecondLeg);
         if (typeof parsed.advanceBestThirds === "boolean")
           setAdvanceBestThirds(parsed.advanceBestThirds);
-        if (parsed.pointsRule) setPointsRule(parsed.pointsRule);
+        if (parsed.pointsRule) {
+          setPointsRule(parsed.pointsRule);
+          if (parsed.pointsRule.sport === "custom") {
+            setCustomWin(parsed.pointsRule.win ?? 3);
+            setCustomDraw(parsed.pointsRule.draw ?? 1);
+            setCustomLoss(parsed.pointsRule.loss ?? 0);
+          }
+        }
         if (parsed.metadata) setMetadata(parsed.metadata);
         if (parsed.result) setResult(parsed.result);
         if (parsed.scores) setScores(parsed.scores);
@@ -476,16 +503,15 @@ function PlannerWizard() {
   function handleTeamCountChange(count: number) {
     const validCount = Math.min(128, Math.max(2, count));
     setTeamCount(validCount);
-    setTeamCountInput(String(validCount));
+    setTeamCountInput(toPersianDigits(validCount));
     setNumGroups(calculateDefaultNumGroups(validCount));
   }
 
   function handleTypingTeamCount(val: string) {
-    // Keep user's raw keystrokes (digits only), allowing empty string while deleting
-    const digits = val.replace(/[^0-9]/g, "");
-    setTeamCountInput(digits);
-    if (digits.length > 0) {
-      const parsed = parseInt(digits, 10);
+    const eng = toEnglishDigits(val).replace(/[^0-9]/g, "");
+    setTeamCountInput(toPersianDigits(eng));
+    if (eng.length > 0) {
+      const parsed = parseInt(eng, 10);
       if (parsed >= 2 && parsed <= 128) {
         setTeamCount(parsed);
         setNumGroups(calculateDefaultNumGroups(parsed));
@@ -494,18 +520,19 @@ function PlannerWizard() {
   }
 
   function handleBlurTeamCount() {
-    let parsed = parseInt(teamCountInput, 10);
+    const eng = toEnglishDigits(teamCountInput).replace(/[^0-9]/g, "");
+    let parsed = parseInt(eng, 10);
     if (isNaN(parsed) || parsed < 2) parsed = 2;
     if (parsed > 128) parsed = 128;
     setTeamCount(parsed);
-    setTeamCountInput(String(parsed));
+    setTeamCountInput(toPersianDigits(parsed));
     setNumGroups(calculateDefaultNumGroups(parsed));
   }
 
   function ensureNames() {
     setTeamNames((prev) => {
       const next = [...prev];
-      while (next.length < teamCount) next.push(`تیم ${next.length + 1}`);
+      while (next.length < teamCount) next.push(`تیم ${toPersianDigits(next.length + 1)}`);
       return next.slice(0, teamCount);
     });
   }
@@ -551,7 +578,7 @@ function PlannerWizard() {
 
     // Limit check: at most numGroups per pot
     if (currentList.length >= numGroups) {
-      setError(`حداکثر ${numGroups} تیم (به تعداد گروه‌ها) برای سید ${potNum} قابل انتخاب است.`);
+      setError(`حداکثر ${toPersianDigits(numGroups)} تیم (به تعداد گروه‌ها) برای سید ${toPersianDigits(potNum)} قابل انتخاب است.`);
       setTimeout(() => setError(null), 3500);
       return;
     }
@@ -597,7 +624,7 @@ function PlannerWizard() {
         nextNames.push(valid[i]);
       } else {
         // Keep existing name or default
-        nextNames.push(teamNames[i]?.trim() || `تیم ${i + 1}`);
+        nextNames.push(teamNames[i]?.trim() || `تیم ${toPersianDigits(i + 1)}`);
       }
     }
 
@@ -608,16 +635,16 @@ function PlannerWizard() {
     if (valid.length < teamCount) {
       const remaining = teamCount - valid.length;
       setInfoMessage(
-        `✅ تعداد اسامی واردشده (${valid.length} تیم) کمتر از ظرفیت مسابقه بود؛ ${valid.length} تیم اول جایگزین شدند و ${remaining} تیم با نام پیش‌فرض باقی ماندند.`
+        `✅ تعداد اسامی واردشده (${toPersianDigits(valid.length)} تیم) کمتر از ظرفیت مسابقه بود؛ ${toPersianDigits(valid.length)} تیم اول جایگزین شدند و ${toPersianDigits(remaining)} تیم با نام پیش‌فرض باقی ماندند.`
       );
       setTimeout(() => setInfoMessage(null), 4500);
     } else if (valid.length > teamCount) {
       setInfoMessage(
-        `⚠️ تعداد اسامی واردشده (${valid.length} تیم) بیشتر از تعداد تیم‌های مسابقه (${teamCount} تیم) است؛ تنها ${teamCount} تیم اول لیست به مسابقات وارد شدند.`
+        `⚠️ تعداد اسامی واردشده (${toPersianDigits(valid.length)} تیم) بیشتر از تعداد تیم‌های مسابقه (${toPersianDigits(teamCount)} تیم) است؛ تنها ${toPersianDigits(teamCount)} تیم اول لیست به مسابقات وارد شدند.`
       );
       setTimeout(() => setInfoMessage(null), 5000);
     } else {
-      setInfoMessage(`✅ تمامی ${teamCount} تیم انتخابی با موفقیت در لیست مسابقات قرار گرفتند!`);
+      setInfoMessage(`✅ تمامی ${toPersianDigits(teamCount)} تیم انتخابی با موفقیت در لیست مسابقات قرار گرفتند!`);
       setTimeout(() => setInfoMessage(null), 3500);
     }
   }
@@ -691,7 +718,7 @@ function PlannerWizard() {
         setShowBulkModal(true);
         const count = excelHasHeader && extracted.length > 1 ? extracted.length - 1 : extracted.length;
         setInfoMessage(
-          `📊 فایل اکسل با موفقیت خوانده شد (${count} نام تیم استخراج گردید).`
+          `📊 فایل اکسل با موفقیت خوانده شد (${toPersianDigits(count)} نام تیم استخراج گردید).`
         );
         setTimeout(() => setInfoMessage(null), 4000);
 
@@ -859,6 +886,9 @@ function PlannerWizard() {
       setIndependentSecondLeg(true);
       setAdvanceBestThirds(true);
       setMetadata({ title: "", venue: "" });
+      setCustomWin(3);
+      setCustomDraw(1);
+      setCustomLoss(0);
       setPointsRule({
         win: 3,
         draw: 1,
@@ -926,7 +956,7 @@ function PlannerWizard() {
       if (s.format) setFormat(s.format);
       if (typeof s.teamCount === "number") {
         setTeamCount(s.teamCount);
-        setTeamCountInput(String(s.teamCount));
+        setTeamCountInput(toPersianDigits(s.teamCount));
       }
       if (Array.isArray(s.teamNames)) setTeamNames(s.teamNames);
       if (typeof s.numGroups === "number") setNumGroups(s.numGroups);
@@ -945,7 +975,14 @@ function PlannerWizard() {
         setIndependentSecondLeg(s.independentSecondLeg);
       if (typeof s.advanceBestThirds === "boolean")
         setAdvanceBestThirds(s.advanceBestThirds);
-      if (s.pointsRule) setPointsRule(s.pointsRule);
+      if (s.pointsRule) {
+        setPointsRule(s.pointsRule);
+        if (s.pointsRule.sport === "custom") {
+          setCustomWin(s.pointsRule.win ?? 3);
+          setCustomDraw(s.pointsRule.draw ?? 1);
+          setCustomLoss(s.pointsRule.loss ?? 0);
+        }
+      }
       if (s.metadata) setMetadata(s.metadata);
       else setMetadata({ title: t.title, venue: "" });
       if (s.result) setResult(s.result);
@@ -1030,7 +1067,7 @@ function PlannerWizard() {
         if (parsed.format) setFormat(parsed.format);
         if (typeof parsed.teamCount === "number") {
           setTeamCount(parsed.teamCount);
-          setTeamCountInput(String(parsed.teamCount));
+          setTeamCountInput(toPersianDigits(parsed.teamCount));
         }
         if (Array.isArray(parsed.teamNames)) setTeamNames(parsed.teamNames);
         if (typeof parsed.numGroups === "number") setNumGroups(parsed.numGroups);
@@ -1049,7 +1086,14 @@ function PlannerWizard() {
           setIndependentSecondLeg(parsed.independentSecondLeg);
         if (typeof parsed.advanceBestThirds === "boolean")
           setAdvanceBestThirds(parsed.advanceBestThirds);
-        if (parsed.pointsRule) setPointsRule(parsed.pointsRule);
+        if (parsed.pointsRule) {
+          setPointsRule(parsed.pointsRule);
+          if (parsed.pointsRule.sport === "custom") {
+            setCustomWin(parsed.pointsRule.win ?? 3);
+            setCustomDraw(parsed.pointsRule.draw ?? 1);
+            setCustomLoss(parsed.pointsRule.loss ?? 0);
+          }
+        }
         if (parsed.metadata) setMetadata(parsed.metadata);
         if (parsed.result) setResult(parsed.result);
         if (parsed.scores) setScores(parsed.scores);
@@ -1231,7 +1275,7 @@ function PlannerWizard() {
                     : "bg-white border border-line text-ink/70 hover:border-pitch/40"
                 }`}
               >
-                همه فرمت‌ها ({FORMAT_OPTIONS.length})
+                همه فرمت‌ها ({toPersianDigits(FORMAT_OPTIONS.length)})
               </button>
               <button
                 type="button"
@@ -1242,7 +1286,7 @@ function PlannerWizard() {
                     : "bg-white border border-line text-ink/70 hover:border-pitch/40"
                 }`}
               >
-                🏆 جام‌ها و مسابقات حذفی ({tournamentCount})
+                🏆 جام‌ها و مسابقات حذفی ({toPersianDigits(tournamentCount)})
               </button>
               <button
                 type="button"
@@ -1253,7 +1297,7 @@ function PlannerWizard() {
                     : "bg-white border border-line text-ink/70 hover:border-pitch/40"
                 }`}
               >
-                ⚽ لیگ و دوره‌ای ({leagueCount})
+                ⚽ لیگ و دوره‌ای ({toPersianDigits(leagueCount)})
               </button>
             </div>
 
@@ -1519,42 +1563,42 @@ function PlannerWizard() {
           <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-50/70 to-teal-50/50 p-4 sm:p-5 text-xs text-slate-700 space-y-2 shadow-2xs">
             <div className="font-black text-emerald-800 flex items-center gap-2">
               <span className="text-base">📋</span>
-              <span className="text-sm font-black">ساختار مسابقات شما با {teamCount} تیم:</span>
+              <span className="text-sm font-black">ساختار مسابقات شما با {toPersianDigits(teamCount)} تیم:</span>
             </div>
             {format === "groups-knockout" && (
               <p className="leading-6 pr-6 text-slate-700">
-                با <strong>{teamCount} تیم</strong>، مسابقات در <strong>{numGroups} گروه</strong> ({formatGroupDistribution(teamCount, numGroups)}) آغاز می‌شود و سپس تیم‌های اول و دوم وارد جدول حذفی خواهند شد.
+                با <strong>{toPersianDigits(teamCount)} تیم</strong>، مسابقات در <strong>{toPersianDigits(numGroups)} گروه</strong> ({formatGroupDistribution(teamCount, numGroups)}) آغاز می‌شود و سپس تیم‌های اول و دوم وارد جدول حذفی خواهند شد.
               </p>
             )}
             {format === "knockout" && (
               <p className="leading-6 pr-6 text-slate-700">
                 {Math.log2(teamCount) % 1 === 0 ? (
-                  <>تعداد {teamCount} تیم دقیقاً توان ۲ است؛ بنابراین مسابقات بدون استراحت و در <strong>{Math.log2(teamCount)} مرحله کامل</strong> برگزار خواهد شد.</>
+                  <>تعداد {toPersianDigits(teamCount)} تیم دقیقاً توان ۲ است؛ بنابراین مسابقات بدون استراحت و در <strong>{toPersianDigits(Math.log2(teamCount))} مرحله کامل</strong> برگزار خواهد شد.</>
                 ) : (
                   <>
-                    با توجه به اینکه {teamCount} توان ۲ نیست، جدول براکت {Math.pow(2, Math.ceil(Math.log2(teamCount)))} تیمی تشکیل شده و به <strong>{Math.pow(2, Math.ceil(Math.log2(teamCount))) - teamCount} تیم برتر</strong> استراحت مستقیم دور اول (Bye) داده می‌شود.
+                    با توجه به اینکه {toPersianDigits(teamCount)} توان ۲ نیست، جدول براکت {toPersianDigits(Math.pow(2, Math.ceil(Math.log2(teamCount))))} تیمی تشکیل شده و به <strong>{toPersianDigits(Math.pow(2, Math.ceil(Math.log2(teamCount))) - teamCount)} تیم برتر</strong> استراحت مستقیم دور اول (Bye) داده می‌شود.
                   </>
                 )}
               </p>
             )}
             {format === "double-knockout" && (
               <p className="leading-6 pr-6 text-slate-700">
-                در فرمت دو حذفی با <strong>{teamCount} تیم</strong>، مسابقات در دو جدول موازی «برندگان» و «شانس مجدد / بازندگان» برگزار می‌شود. هیچ تیمی با اولین شکست حذف نمی‌شود و با دو باخت از گردونه رقابت‌ها کنار می‌رود. قهرمانان دو جدول در فینال بزرگ به مصاف یکدیگر خواهند رفت.
+                در فرمت دو حذفی با <strong>{toPersianDigits(teamCount)} تیم</strong>، مسابقات در دو جدول موازی «برندگان» و «شانس مجدد / بازندگان» برگزار می‌شود. هیچ تیمی با اولین شکست حذف نمی‌شود و با دو باخت از گردونه رقابت‌ها کنار می‌رود. قهرمانان دو جدول در فینال بزرگ به مصاف یکدیگر خواهند رفت.
               </p>
             )}
             {format === "league" && (
               <p className="leading-6 pr-6 text-slate-700">
-                هر تیم با تمام {teamCount - 1} رقیب خود یک مسابقه می‌دهد؛ مجموعاً <strong>{teamCount % 2 === 0 ? teamCount - 1 : teamCount} هفته مسابقاتی</strong> و <strong>{(teamCount * (teamCount - 1)) / 2} بازی عادلانه</strong> بدون مسابقه تکراری برگزار می‌شود.
+                هر تیم با تمام {toPersianDigits(teamCount - 1)} رقیب خود یک مسابقه می‌دهد؛ مجموعاً <strong>{toPersianDigits(teamCount % 2 === 0 ? teamCount - 1 : teamCount)} هفته مسابقاتی</strong> و <strong>{toPersianDigits((teamCount * (teamCount - 1)) / 2)} بازی عادلانه</strong> بدون مسابقه تکراری برگزار می‌شود.
               </p>
             )}
             {format === "double-league" && (
               <p className="leading-6 pr-6 text-slate-700">
-                هر دو تیم یک‌بار در زمین خود و یک‌بار در زمین حریف بازی می‌کنند؛ مجموعاً <strong>{2 * (teamCount % 2 === 0 ? teamCount - 1 : teamCount)} هفته مسابقاتی</strong> و <strong>{teamCount * (teamCount - 1)} بازی رفت‌وبرگشت</strong> برگزار خواهد شد.
+                هر دو تیم یک‌بار در زمین خود و یک‌بار در زمین حریف بازی می‌کنند؛ مجموعاً <strong>{toPersianDigits(2 * (teamCount % 2 === 0 ? teamCount - 1 : teamCount))} هفته مسابقاتی</strong> و <strong>{toPersianDigits(teamCount * (teamCount - 1))} بازی رفت‌وبرگشت</strong> برگزار خواهد شد.
               </p>
             )}
             {format === "groups" && (
               <p className="leading-6 pr-6 text-slate-700">
-                تیم‌ها به <strong>{numGroups} گروه</strong> ({formatGroupDistribution(teamCount, numGroups)}) تقسیم شده و درون هر گروه جدول امتیازات اختصاصی محاسبه می‌شود.
+                تیم‌ها به <strong>{toPersianDigits(numGroups)} گروه</strong> ({formatGroupDistribution(teamCount, numGroups)}) تقسیم شده و درون هر گروه جدول امتیازات اختصاصی محاسبه می‌شود.
               </p>
             )}
           </div>
@@ -1593,7 +1637,7 @@ function PlannerWizard() {
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900">نام تیم‌ها</h1>
                 <span className="rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-black text-emerald-800 border border-emerald-200/80 shadow-2xs">
-                  ظرفیت: {teamCount} تیم
+                  ظرفیت: {toPersianDigits(teamCount)} تیم
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-600 mt-1">
@@ -1631,7 +1675,7 @@ function PlannerWizard() {
                   <span>ورود سریع اسامی تیم‌ها (فایل اکسل یا متن)</span>
                 </h3>
                 <span className="rounded-full bg-emerald-50 px-3 py-0.5 text-xs font-black text-emerald-800 border border-emerald-200/80">
-                  🎯 ظرفیت مسابقه: {teamCount} تیم
+                  🎯 ظرفیت مسابقه: {toPersianDigits(teamCount)} تیم
                 </span>
               </div>
 
@@ -1715,7 +1759,7 @@ function PlannerWizard() {
                           .map((s) => s.trim())
                           .filter((s) => s.length > 0).length
                       }{" "}
-                      تیم شناسایی شد. چون کمتر از {teamCount} تیم است، بقیه خانه‌ها با نام
+                      تیم شناسایی شد. چون کمتر از {toPersianDigits(teamCount)} تیم است، بقیه خانه‌ها با نام
                       پیش‌فرض باقی خواهند ماند.
                     </span>
                   )}
@@ -1729,14 +1773,14 @@ function PlannerWizard() {
                           .map((s) => s.trim())
                           .filter((s) => s.length > 0).length
                       }{" "}
-                      تیم شناسایی شد. چون بیشتر از ظرفیت است، تنها {teamCount} تیم اول وارد لیست
+                      تیم شناسایی شد. چون بیشتر از ظرفیت است، تنها {toPersianDigits(teamCount)} تیم اول وارد لیست
                       خواهند شد.
                     </span>
                   )}
                   {bulkText.split(/[\n,]+/).map((s) => s.trim()).filter((s) => s.length > 0)
                     .length === teamCount && (
                     <span className="text-emerald-700">
-                      ✓ {teamCount} تیم شناسایی شد (دقیقاً برابر با ظرفیت انتخابی مسابقه).
+                      ✓ {toPersianDigits(teamCount)} تیم شناسایی شد (دقیقاً برابر با ظرفیت انتخابی مسابقه).
                     </span>
                   )}
                 </div>
@@ -1775,7 +1819,7 @@ function PlannerWizard() {
                     className={btnPrimary}
                     onClick={() => handleApplyBulk(bulkText.split(/[\n,]+/))}
                   >
-                    ثبت در جدول ({teamCount} تیم)
+                    ثبت در جدول ({toPersianDigits(teamCount)} تیم)
                   </button>
                 </div>
               </div>
@@ -1791,7 +1835,7 @@ function PlannerWizard() {
                 onClick={() => {
                   const sample = PRESET_IRAN_LEAGUE.slice(0, teamCount);
                   const next = [...sample];
-                  while (next.length < teamCount) next.push(`تیم ${next.length + 1}`);
+                  while (next.length < teamCount) next.push(`تیم ${toPersianDigits(next.length + 1)}`);
                   setTeamNames(next);
                 }}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer"
@@ -1803,7 +1847,7 @@ function PlannerWizard() {
                 onClick={() => {
                   const sample = PRESET_EUROPE.slice(0, teamCount);
                   const next = [...sample];
-                  while (next.length < teamCount) next.push(`تیم ${next.length + 1}`);
+                  while (next.length < teamCount) next.push(`تیم ${toPersianDigits(next.length + 1)}`);
                   setTeamNames(next);
                 }}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer"
@@ -1813,11 +1857,11 @@ function PlannerWizard() {
               <button
                 type="button"
                 onClick={() => {
-                  setTeamNames(Array.from({ length: teamCount }).map((_, i) => `تیم ${i + 1}`));
+                  setTeamNames(Array.from({ length: teamCount }).map((_, i) => `تیم ${toPersianDigits(i + 1)}`));
                 }}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer"
               >
-                🔢 تیم ۱ تا {teamCount}
+                🔢 تیم ۱ تا {toPersianDigits(teamCount)}
               </button>
             </div>
 
@@ -1842,8 +1886,8 @@ function PlannerWizard() {
                   key={i}
                   className="group relative flex items-center gap-2.5 rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs transition-all hover:border-emerald-400/80 hover:shadow-xs focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 font-mono text-xs font-black text-slate-700 group-hover:bg-emerald-50 group-hover:text-emerald-800 transition-colors">
-                    {i + 1}
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-black text-slate-700 group-hover:bg-emerald-50 group-hover:text-emerald-800 transition-colors">
+                    {toPersianDigits(i + 1)}
                   </div>
                   <input
                     value={name}
@@ -1853,11 +1897,11 @@ function PlannerWizard() {
                       setTeamNames(next);
                     }}
                     className="w-full bg-transparent text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:outline-none"
-                    placeholder={`تیم ${i + 1}`}
+                    placeholder={`تیم ${toPersianDigits(i + 1)}`}
                   />
                   {pot && (
                     <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800">
-                      سید {pot}
+                      سید {toPersianDigits(pot)}
                     </span>
                   )}
                   {name && (
@@ -2004,19 +2048,33 @@ function PlannerWizard() {
                     },
                   },
                   {
-                    id: "chess",
-                    title: "♟️ شطرنج و انفرادی (پینگ‌پنگ)",
-                    desc: "برد: ۲ | مساوی: ۱ | باخت: ۰",
-                    badge: "۲-۱-۰",
-                    rule: { sport: "chess" as const, win: 2, draw: 1, loss: 0, name: "انفرادی و شطرنج (۲-۱-۰)" },
+                    id: "custom",
+                    title: "⚙️ سفارشی‌سازی دلخواه",
+                    desc: `برد: ${toPersianDigits(customWin)} | مساوی: ${toPersianDigits(customDraw)} | باخت: ${toPersianDigits(customLoss)}`,
+                    badge: "سفارشی",
+                    rule: {
+                      sport: "custom" as const,
+                      win: customWin,
+                      draw: customDraw,
+                      loss: customLoss,
+                      name: `سفارشی (${toPersianDigits(customWin)}-${toPersianDigits(customDraw)}-${toPersianDigits(customLoss)})`,
+                    },
                   },
                 ].map((pts) => {
-                  const isSelected = pointsRule.name === pts.rule.name;
+                  const isSelected = pts.id === "custom"
+                    ? pointsRule.sport === "custom"
+                    : pointsRule.name === pts.rule.name;
                   return (
                     <button
                       key={pts.id}
                       type="button"
-                      onClick={() => setPointsRule(pts.rule)}
+                      onClick={() => {
+                        if (pts.id === "custom") {
+                          handleUpdateCustomPoints(customWin, customDraw, customLoss);
+                        } else {
+                          setPointsRule(pts.rule);
+                        }
+                      }}
                       className={`flex flex-col text-right p-3.5 rounded-xl border transition-all cursor-pointer relative overflow-hidden ${
                         isSelected
                           ? "border-emerald-500 bg-emerald-50/40 shadow-sm ring-2 ring-emerald-500/20"
@@ -2040,6 +2098,156 @@ function PlannerWizard() {
                   );
                 })}
               </div>
+
+              {/* Custom Scoring Configuration Panel */}
+              {pointsRule.sport === "custom" && (
+                <div className="rounded-2xl border-2 border-emerald-500/50 bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/40 p-4 sm:p-5 space-y-4 shadow-sm animate-fade-in">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">⚙️</span>
+                      <div>
+                        <h4 className="text-sm font-black text-emerald-950">
+                          تنظیم دستی و اختصاصی امتیازات مسابقه
+                        </h4>
+                        <p className="text-[11px] text-slate-600 mt-0.5">
+                          امتیاز مورد نظر خود را برای برد، مساوی و باخت وارد کنید؛ جدول رده‌بندی بر همین مبنا به صورت خودکار محاسبه خواهد شد:
+                        </p>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-emerald-600 text-white px-3 py-1 text-xs font-black shadow-2xs">
+                      سیستم: {toPersianDigits(customWin)} - {toPersianDigits(customDraw)} - {toPersianDigits(customLoss)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    {/* Win Points */}
+                    <div className="bg-white rounded-xl border border-emerald-200/90 p-3.5 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-black text-emerald-900 flex items-center gap-1.5">
+                          <span>🟢</span>
+                          <span>امتیاز برد (پیروزی):</span>
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateCustomPoints(Math.max(0, customWin - 1), customDraw, customLoss)}
+                          className="h-10 w-10 rounded-xl bg-slate-100 hover:bg-emerald-100 text-slate-800 font-black text-lg flex items-center justify-center transition-colors cursor-pointer border border-slate-200"
+                          title="کاهش امتیاز برد"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={toPersianDigits(customWin)}
+                          onChange={(e) => {
+                            const eng = toEnglishDigits(e.target.value).replace(/[^0-9]/g, "");
+                            const val = eng === "" ? 0 : Math.max(0, parseInt(eng, 10));
+                            handleUpdateCustomPoints(val, customDraw, customLoss);
+                          }}
+                          className="flex-1 h-10 rounded-xl border-2 border-emerald-500/70 bg-emerald-50/20 text-center font-black text-xl text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateCustomPoints(customWin + 1, customDraw, customLoss)}
+                          className="h-10 w-10 rounded-xl bg-slate-100 hover:bg-emerald-100 text-slate-800 font-black text-lg flex items-center justify-center transition-colors cursor-pointer border border-slate-200"
+                          title="افزایش امتیاز برد"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-slate-500 block text-center font-medium">
+                        امتیاز اختصاصی به تیم برنده در مسابقه
+                      </span>
+                    </div>
+
+                    {/* Draw Points */}
+                    <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                          <span>⚪</span>
+                          <span>امتیاز مساوی (تساوی):</span>
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateCustomPoints(customWin, Math.max(0, customDraw - 1), customLoss)}
+                          className="h-10 w-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg flex items-center justify-center transition-colors cursor-pointer border border-slate-200"
+                          title="کاهش امتیاز مساوی"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={toPersianDigits(customDraw)}
+                          onChange={(e) => {
+                            const eng = toEnglishDigits(e.target.value).replace(/[^0-9]/g, "");
+                            const val = eng === "" ? 0 : Math.max(0, parseInt(eng, 10));
+                            handleUpdateCustomPoints(customWin, val, customLoss);
+                          }}
+                          className="flex-1 h-10 rounded-xl border-2 border-slate-300 bg-slate-50/50 text-center font-black text-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400/30"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateCustomPoints(customWin, customDraw + 1, customLoss)}
+                          className="h-10 w-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg flex items-center justify-center transition-colors cursor-pointer border border-slate-200"
+                          title="افزایش امتیاز مساوی"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-slate-500 block text-center font-medium">
+                        امتیاز کسب‌شده توسط هر دو تیم در تساوی
+                      </span>
+                    </div>
+
+                    {/* Loss Points */}
+                    <div className="bg-white rounded-xl border border-rose-200/90 p-3.5 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-black text-rose-900 flex items-center gap-1.5">
+                          <span>🔴</span>
+                          <span>امتیاز باخت (شکست):</span>
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateCustomPoints(customWin, customDraw, Math.max(0, customLoss - 1))}
+                          className="h-10 w-10 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-800 font-black text-lg flex items-center justify-center transition-colors cursor-pointer border border-slate-200"
+                          title="کاهش امتیاز باخت"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={toPersianDigits(customLoss)}
+                          onChange={(e) => {
+                            const eng = toEnglishDigits(e.target.value).replace(/[^0-9]/g, "");
+                            const val = eng === "" ? 0 : Math.max(0, parseInt(eng, 10));
+                            handleUpdateCustomPoints(customWin, customDraw, val);
+                          }}
+                          className="flex-1 h-10 rounded-xl border-2 border-rose-400/60 bg-rose-50/20 text-center font-black text-xl text-rose-950 focus:outline-none focus:ring-2 focus:ring-rose-400/30"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateCustomPoints(customWin, customDraw, customLoss + 1)}
+                          className="h-10 w-10 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-800 font-black text-lg flex items-center justify-center transition-colors cursor-pointer border border-slate-200"
+                          title="افزایش امتیاز باخت"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-slate-500 block text-center font-medium">
+                        امتیاز تیم بازنده مسابقه (معمولاً ۰)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Sport-specific rule details */}
               {pointsRule.sport === "volleyball" && (
@@ -2113,7 +2321,7 @@ function PlannerWizard() {
                       className="text-[11px] text-emerald-700 hover:underline font-bold cursor-pointer"
                       title="تنظیم خودکار بر اساس حداکثر ۴ تیم در هر گروه"
                     >
-                      پیش‌فرض ({calculateDefaultNumGroups(teamCount)} گروه)
+                      پیش‌فرض ({toPersianDigits(calculateDefaultNumGroups(teamCount))} گروه)
                     </button>
                   </div>
                   <input
@@ -2129,12 +2337,12 @@ function PlannerWizard() {
                   <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
                     {teamCount % Math.max(1, numGroups) === 0 ? (
                       <>
-                        با {teamCount} تیم در {numGroups} گروه، هر گروه شامل{" "}
-                        <strong className="text-emerald-700">{teamCount / Math.max(1, numGroups)} تیم</strong> خواهد بود.
+                        با {toPersianDigits(teamCount)} تیم در {toPersianDigits(numGroups)} گروه، هر گروه شامل{" "}
+                        <strong className="text-emerald-700">{toPersianDigits(Math.floor(teamCount / Math.max(1, numGroups)))} تیم</strong> خواهد بود.
                       </>
                     ) : (
                       <>
-                        با {teamCount} تیم در {numGroups} گروه،{" "}
+                        با {toPersianDigits(teamCount)} تیم در {toPersianDigits(numGroups)} گروه،{" "}
                         <strong className="text-emerald-700">{formatGroupDistribution(teamCount, numGroups)}</strong> تشکیل خواهد شد.
                       </>
                     )}
@@ -2181,7 +2389,7 @@ function PlannerWizard() {
                     <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-950 font-medium">
                       <span className="font-black text-emerald-800">✅ ساختار ایده‌آل:</span>
                       <span>
-                        با {numGroups} گروه و صعود {qualifiersPerGroup} تیم، مجموعاً <strong>{baseQualifiers} تیم</strong> به مرحله <strong>{targetBracketSize} تیمی</strong> صعود می‌کنند و جدول حذفی کاملاً متقارن است.
+                        با {toPersianDigits(numGroups)} گروه و صعود {toPersianDigits(qualifiersPerGroup)} تیم، مجموعاً <strong>{toPersianDigits(baseQualifiers)} تیم</strong> به مرحله <strong>{toPersianDigits(targetBracketSize)} تیمی</strong> صعود می‌کنند و جدول حذفی کاملاً متقارن است.
                       </span>
                     </div>
                   ) : canUseBestThirds ? (
@@ -2196,12 +2404,12 @@ function PlannerWizard() {
                         </span>
                       </div>
                       <p className="leading-relaxed text-amber-950/90">
-                        با صعود ۲ تیم اول هر گروه، مجموعاً <strong>{baseQualifiers} تیم</strong> صعود می‌کنند که توان ۲ نیست. برای تشکیل جدول استاندارد <strong>{targetBracketSize} تیمی</strong>، دقیقاً <strong>{missingForPowerOfTwo} تیم</strong> کم است. سیستم هوشمند NexSport مشابه مسابقات یورو، این {missingForPowerOfTwo} تیم را از میان <strong>برترین تیم‌های رتبه سوم گروه‌ها</strong> تکمیل می‌کند تا مرحله حذفی بدون استراحت و با نهایت هیجان برگزار شود.
+                        با صعود ۲ تیم اول هر گروه، مجموعاً <strong>{toPersianDigits(baseQualifiers)} تیم</strong> صعود می‌کنند که توان ۲ نیست. برای تشکیل جدول استاندارد <strong>{toPersianDigits(targetBracketSize)} تیمی</strong>، دقیقاً <strong>{toPersianDigits(missingForPowerOfTwo)} تیم</strong> کم است. سیستم هوشمند NexSport مشابه مسابقات یورو، این {toPersianDigits(missingForPowerOfTwo)} تیم را از میان <strong>برترین تیم‌های رتبه سوم گروه‌ها</strong> تکمیل می‌کند تا مرحله حذفی بدون استراحت و با نهایت هیجان برگزار شود.
                       </p>
                     </div>
                   ) : (
                     <div className="rounded-xl bg-slate-100 border border-slate-200 p-3 text-xs text-slate-700 leading-relaxed">
-                      <span className="font-black text-slate-900">ℹ️ وضعیت جدول حذفی:</span> با صعود {baseQualifiers} تیم، مرحله حذفی {targetBracketSize} تیمی تشکیل می‌شود و {missingForPowerOfTwo} جایگاه استراحت (BYE) به سرگروه‌های برتر تعلق می‌گیرد.
+                      <span className="font-black text-slate-900">ℹ️ وضعیت جدول حذفی:</span> با صعود {toPersianDigits(baseQualifiers)} تیم، مرحله حذفی {toPersianDigits(targetBracketSize)} تیمی تشکیل می‌شود و {toPersianDigits(missingForPowerOfTwo)} جایگاه استراحت (BYE) به سرگروه‌های برتر تعلق می‌گیرد.
                     </div>
                   )}
 
@@ -2307,10 +2515,10 @@ function PlannerWizard() {
                 <div>
                   <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
                     <span className="text-base text-amber-500">🏆</span>
-                    <span>نحوه تکمیل جدول مرحله حذفی ({targetBracketSize} تیمی)</span>
+                    <span>نحوه تکمیل جدول مرحله حذفی ({toPersianDigits(targetBracketSize)} تیمی)</span>
                   </h3>
                   <p className="text-xs text-slate-600 mt-0.5">
-                    با صعود {baseQualifiers} تیم اول و دوم، برای تکمیل مرحله {targetBracketSize} تیمی شیوه موردنظر خود را انتخاب کنید:
+                    با صعود {toPersianDigits(baseQualifiers)} تیم اول و دوم، برای تکمیل مرحله {toPersianDigits(targetBracketSize)} تیمی شیوه موردنظر خود را انتخاب کنید:
                   </p>
                 </div>
                 <span className="text-[11px] font-black bg-amber-100 text-amber-900 px-3 py-1 rounded-full border border-amber-200/80">
@@ -2336,7 +2544,7 @@ function PlannerWizard() {
                         className="text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                       />
                       <span className="font-black text-sm text-slate-900">
-                        صعود {missingForPowerOfTwo} تیم برتر رتبه سوم (استاندارد یورو)
+                        صعود {toPersianDigits(missingForPowerOfTwo)} تیم برتر رتبه سوم (استاندارد یورو)
                       </span>
                     </div>
                     <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
@@ -2344,7 +2552,7 @@ function PlannerWizard() {
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-slate-600 leading-relaxed pr-6">
-                    {baseQualifiers} تیم اول و دوم به همراه {missingForPowerOfTwo} تیم برتر رتبه سوم صعود می‌کنند تا جدول {targetBracketSize} تیمی کاملاً پر شده و هیچ تیمی در دور اول استراحت نابرابر نداشته باشد.
+                    {toPersianDigits(baseQualifiers)} تیم اول و دوم به همراه {toPersianDigits(missingForPowerOfTwo)} تیم برتر رتبه سوم صعود می‌کنند تا جدول {toPersianDigits(targetBracketSize)} تیمی کاملاً پر شده و هیچ تیمی در دور اول استراحت نابرابر نداشته باشد.
                   </p>
                 </label>
 
@@ -2373,7 +2581,7 @@ function PlannerWizard() {
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-slate-600 leading-relaxed pr-6">
-                    فقط {baseQualifiers} تیم صعود می‌کنند و {missingForPowerOfTwo} تیم سرگروه برتر در دور اول حذفی استراحت (BYE) خواهند داشت.
+                    فقط {toPersianDigits(baseQualifiers)} تیم صعود می‌کنند و {toPersianDigits(missingForPowerOfTwo)} تیم سرگروه برتر در دور اول حذفی استراحت (BYE) خواهند داشت.
                   </p>
                 </label>
               </div>
@@ -2603,7 +2811,7 @@ function PlannerWizard() {
                           : "border-slate-200 bg-white text-slate-700 hover:border-emerald-500/60 hover:bg-slate-50")
                       }
                     >
-                      {selected && <span className="font-black text-amber-600">سید {idx + 1}</span>}
+                      {selected && <span className="font-black text-amber-600">سید {toPersianDigits(idx + 1)}</span>}
                       <span>{team}</span>
                     </button>
                   );
@@ -2622,11 +2830,11 @@ function PlannerWizard() {
                     <span>سیدبندی گروه‌ها (اختیاری - سیدهای ۱، ۲، ۳ و ۴)</span>
                   </h3>
                   <p className="text-xs text-slate-600 mt-0.5">
-                    تعیین سیدها اختیاری است. تیم‌های هر سید در گروه‌های مجزا قرعه‌کشی می‌شوند تا با یکدیگر در یک گروه قرار نگیرند (حداکثر {numGroups} تیم در هر سید).
+                    تعیین سیدها اختیاری است. تیم‌های هر سید در گروه‌های مجزا قرعه‌کشی می‌شوند تا با یکدیگر در یک گروه قرار نگیرند (حداکثر {toPersianDigits(numGroups)} تیم در هر سید).
                   </p>
                 </div>
                 <span className="text-[11px] font-black bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-3 py-1 rounded-full shadow-2xs">
-                  حداکثر {numGroups} تیم در هر سید
+                  حداکثر {toPersianDigits(numGroups)} تیم در هر سید
                 </span>
               </div>
 
@@ -2660,7 +2868,7 @@ function PlannerWizard() {
                             pot.count > 0 ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-600"
                           }`}
                         >
-                          {pot.count} از {numGroups} تیم
+                          {toPersianDigits(pot.count)} از {toPersianDigits(numGroups)} تیم
                         </span>
                       </div>
                     </button>
@@ -2674,22 +2882,22 @@ function PlannerWizard() {
                   <div className="text-xs text-slate-700">
                     {activePotTab === 1 && (
                       <span>
-                        🌟 <strong>سرگروه‌ها (سید ۱):</strong> در رأس هر یک از {numGroups} گروه قرعه‌کشی می‌شوند (حداکثر {numGroups} تیم).
+                        🌟 <strong>سرگروه‌ها (سید ۱):</strong> در رأس هر یک از {toPersianDigits(numGroups)} گروه قرعه‌کشی می‌شوند (حداکثر {toPersianDigits(numGroups)} تیم).
                       </span>
                     )}
                     {activePotTab === 2 && (
                       <span>
-                        🥈 <strong>سید دو:</strong> تیم‌های سطح دو؛ هر تیم در یک گروه جداگانه قرعه‌کشی می‌شود و با هم هم‌گروه نمی‌شوند (حداکثر {numGroups} تیم).
+                        🥈 <strong>سید دو:</strong> تیم‌های سطح دو؛ هر تیم در یک گروه جداگانه قرعه‌کشی می‌شود و با هم هم‌گروه نمی‌شوند (حداکثر {toPersianDigits(numGroups)} تیم).
                       </span>
                     )}
                     {activePotTab === 3 && (
                       <span>
-                        🥉 <strong>سید سه:</strong> تیم‌های سطح سه؛ در گروه‌های جداگانه قرعه‌کشی می‌شوند (حداکثر {numGroups} تیم).
+                        🥉 <strong>سید سه:</strong> تیم‌های سطح سه؛ در گروه‌های جداگانه قرعه‌کشی می‌شوند (حداکثر {toPersianDigits(numGroups)} تیم).
                       </span>
                     )}
                     {activePotTab === 4 && (
                       <span>
-                        🏅 <strong>سید چهار:</strong> تیم‌های سطح چهار؛ در گروه‌های جداگانه قرعه‌کشی می‌شوند (حداکثر {numGroups} تیم).
+                        🏅 <strong>سید چهار:</strong> تیم‌های سطح چهار؛ در گروه‌های جداگانه قرعه‌کشی می‌شوند (حداکثر {toPersianDigits(numGroups)} تیم).
                       </span>
                     )}
                   </div>
@@ -2709,7 +2917,7 @@ function PlannerWizard() {
                       }}
                       className="text-[11px] text-rose-600 hover:underline font-black cursor-pointer"
                     >
-                      ✕ پاک‌کردن تیم‌های سید {activePotTab}
+                      ✕ پاک‌کردن تیم‌های سید {toPersianDigits(activePotTab)}
                     </button>
                   )}
                 </div>
@@ -2747,10 +2955,10 @@ function PlannerWizard() {
                         className={buttonClass}
                         title={
                           isInOtherPot
-                            ? `این تیم هم‌اکنون در سید ${currentPot} است. برای انتقال به سید ${activePotTab} کلیک کنید.`
+                            ? `این تیم هم‌اکنون در سید ${toPersianDigits(currentPot)} است. برای انتقال به سید ${toPersianDigits(activePotTab)} کلیک کنید.`
                             : isInActivePot
                             ? "برای حذف از این سید کلیک کنید."
-                            : `افزودن به سید ${activePotTab}`
+                            : `افزودن به سید ${toPersianDigits(activePotTab)}`
                         }
                       >
                         {isInActivePot && (
@@ -2759,7 +2967,7 @@ function PlannerWizard() {
                         <span>{team}</span>
                         {isInOtherPot && (
                           <span className="text-[10px] text-slate-600 bg-slate-200 px-1.5 py-0.5 rounded-full font-bold">
-                            سید {currentPot}
+                            سید {toPersianDigits(currentPot)}
                           </span>
                         )}
                       </button>
@@ -2773,24 +2981,24 @@ function PlannerWizard() {
                 <span className="font-black text-slate-800">خلاصه سیدبندی:</span>
                 <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs">
                   <span>🌟 سید ۱:</span>
-                  <strong className="text-emerald-700">{seededTeams.length}</strong>
+                  <strong className="text-emerald-700">{toPersianDigits(seededTeams.length)}</strong>
                 </span>
                 <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs">
                   <span>🥈 سید ۲:</span>
-                  <strong className="text-emerald-700">{pot2Teams.length}</strong>
+                  <strong className="text-emerald-700">{toPersianDigits(pot2Teams.length)}</strong>
                 </span>
                 <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs">
                   <span>🥉 سید ۳:</span>
-                  <strong className="text-emerald-700">{pot3Teams.length}</strong>
+                  <strong className="text-emerald-700">{toPersianDigits(pot3Teams.length)}</strong>
                 </span>
                 <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs">
                   <span>🏅 سید ۴:</span>
-                  <strong className="text-emerald-700">{pot4Teams.length}</strong>
+                  <strong className="text-emerald-700">{toPersianDigits(pot4Teams.length)}</strong>
                 </span>
                 <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs">
                   <span>⚪ قرعه آزاد:</span>
                   <strong className="text-emerald-700">
-                    {teamCount - (seededTeams.length + pot2Teams.length + pot3Teams.length + pot4Teams.length)}
+                    {toPersianDigits(teamCount - (seededTeams.length + pot2Teams.length + pot3Teams.length + pot4Teams.length))}
                   </strong>
                 </span>
               </div>

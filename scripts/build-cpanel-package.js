@@ -207,3 +207,8 @@ console.log(`🎉 Successfully generated: ${ZIP_OUTPUT}`);
 const ALT_ZIP = '/home/user/nexsport-direct-upload.zip';
 fs.copyFileSync(ZIP_OUTPUT, ALT_ZIP);
 console.log(`✓ Also updated: ${ALT_ZIP}`);
+
+// Also copy to nexsport-phase2-final-cpanel.zip
+const FINAL_CPANEL_ZIP = '/home/user/nexsport-phase2-final-cpanel.zip';
+fs.copyFileSync(ZIP_OUTPUT, FINAL_CPANEL_ZIP);
+console.log(`✓ Also updated: ${FINAL_CPANEL_ZIP}`);

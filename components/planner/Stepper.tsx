@@ -1,4 +1,5 @@
 import React from "react";
+import { toPersianDigits } from "@/lib/digits";
 
 export function Stepper({ labels, current }: { labels: string[]; current: number }) {
   const progressPercent = Math.min(100, Math.round((current / (labels.length - 1)) * 100));
@@ -39,7 +40,7 @@ export function Stepper({ labels, current }: { labels: string[]; current: number
                     : "bg-slate-200 text-slate-500"
                 }`}
               >
-                {isDone ? "✓" : i + 1}
+                {isDone ? "✓" : toPersianDigits(i + 1)}
               </span>
               <span className="text-[11px] sm:text-xs truncate">{label}</span>
             </li>

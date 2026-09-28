@@ -20,6 +20,7 @@ import {
 } from "@/lib/scheduling";
 import { NexSportIcon } from "@/components/NexSportLogo";
 import { PrintModal, PrintSettings } from "./PrintModal";
+import { toPersianDigits } from "@/lib/digits";
 
 interface ScheduleViewProps {
   result: ScheduleResult;
@@ -472,13 +473,13 @@ export function ScheduleView({
                     <div className="flex items-center gap-2">
                       <span className="text-base">🏆</span>
                       <h3 className="font-bold text-pitch text-base">
-                        جدول مقایسه تیم‌های رتبه سوم (صعود {euroBestThirds.extraNeeded} تیم برتر سوم به مرحله حذفی)
+                        جدول مقایسه تیم‌های رتبه سوم (صعود {toPersianDigits(euroBestThirds.extraNeeded)} تیم برتر سوم به مرحله حذفی)
                       </h3>
                     </div>
                     <span className="text-xs text-ink/60">
                       {euroBestThirds.allCompleted
-                        ? `مسابقات مرحله گروهی پایان یافته است (${euroBestThirds.extraNeeded} تیم سوم صعود کردند)`
-                        : `در حال برگزاری مسابقات (${euroBestThirds.extraNeeded} تیم برتر در موقعیت صعود هستند)`}
+                        ? `مسابقات مرحله گروهی پایان یافته است (${toPersianDigits(euroBestThirds.extraNeeded)} تیم سوم صعود کردند)`
+                        : `در حال برگزاری مسابقات (${toPersianDigits(euroBestThirds.extraNeeded)} تیم برتر در موقعیت صعود هستند)`}
                     </span>
                   </div>
 
@@ -527,7 +528,7 @@ export function ScheduleView({
                                       : "bg-chalk text-ink/70 border border-line")
                                   }
                                 >
-                                  {idx + 1}
+                                  {toPersianDigits(idx + 1)}
                                 </span>
                               </td>
                               <td className="py-2.5 px-4 text-right font-semibold text-ink">
@@ -536,14 +537,14 @@ export function ScheduleView({
                               <td className="py-2.5 px-3 text-xs text-ink/70 font-medium">
                                 {row.groupName}
                               </td>
-                              <td className="py-2.5 px-2.5 text-ink/80">{row.standing.played}</td>
-                              <td className="py-2.5 px-2.5 font-bold text-pitch">{row.standing.won}</td>
+                              <td className="py-2.5 px-2.5 text-ink/80">{toPersianDigits(row.standing.played)}</td>
+                              <td className="py-2.5 px-2.5 font-bold text-pitch">{toPersianDigits(row.standing.won)}</td>
                               {meta?.pointsRule?.sport !== "volleyball" && (
-                                <td className="py-2.5 px-2.5 text-ink/60">{row.standing.drawn}</td>
+                                <td className="py-2.5 px-2.5 text-ink/60">{toPersianDigits(row.standing.drawn)}</td>
                               )}
-                              <td className="py-2.5 px-2.5 text-brick">{row.standing.lost}</td>
-                              <td className="py-2.5 px-2.5 text-ink/80">{row.standing.goalsFor}</td>
-                              <td className="py-2.5 px-2.5 text-ink/80">{row.standing.goalsAgainst}</td>
+                              <td className="py-2.5 px-2.5 text-brick">{toPersianDigits(row.standing.lost)}</td>
+                              <td className="py-2.5 px-2.5 text-ink/80">{toPersianDigits(row.standing.goalsFor)}</td>
+                              <td className="py-2.5 px-2.5 text-ink/80">{toPersianDigits(row.standing.goalsAgainst)}</td>
                               <td
                                 className={
                                   "py-2.5 px-2.5 font-bold " +
@@ -554,10 +555,10 @@ export function ScheduleView({
                                     : "text-ink/50")
                                 }
                               >
-                                {row.standing.goalDifference > 0 ? `+${row.standing.goalDifference}` : row.standing.goalDifference}
+                                {row.standing.goalDifference > 0 ? `+${toPersianDigits(row.standing.goalDifference)}` : toPersianDigits(row.standing.goalDifference)}
                               </td>
                               <td className="py-2.5 px-3 bg-pitch/5 font-extrabold text-pitch text-base">
-                                {row.standing.points}
+                                {toPersianDigits(row.standing.points)}
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 {isFinal ? (
@@ -766,9 +767,9 @@ function RoundsTable({
               <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                 <span className="font-black text-sm text-slate-900 flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  <span>هفته {round.round}</span>
+                  <span>هفته {toPersianDigits(round.round)}</span>
                 </span>
-                <span className="text-xs text-slate-500 font-semibold bg-slate-100 px-2.5 py-0.5 rounded-full">{visibleMatches.length} مسابقه</span>
+                <span className="text-xs text-slate-500 font-semibold bg-slate-100 px-2.5 py-0.5 rounded-full">{toPersianDigits(visibleMatches.length)} مسابقه</span>
               </div>
               <div className="space-y-2.5">
                 {visibleMatches.map((m, idx) => {
@@ -863,9 +864,9 @@ function RoundsTable({
                             <span>🕒</span>
                             <span>
                               {[
-                                dt.date,
-                                dt.time ? `ساعت ${dt.time}` : "",
-                                dt.pitch ? `زمین ${dt.pitch}` : "",
+                                dt.date ? toPersianDigits(dt.date) : "",
+                                dt.time ? `ساعت ${toPersianDigits(dt.time)}` : "",
+                                dt.pitch ? `زمین ${toPersianDigits(dt.pitch)}` : "",
                               ]
                                 .filter(Boolean)
                                 .join(" | ")}
@@ -914,8 +915,8 @@ function RoundsTable({
           return (
             <div key={round.round} className="space-y-1.5">
               <div className="bg-pitch/10 text-pitch font-bold text-xs py-1 px-3 rounded flex items-center justify-between border-r-4 border-pitch">
-                <span className="font-extrabold">هفته {round.round}</span>
-                <span className="text-[10px] text-ink/70">{visibleMatches.length} مسابقه</span>
+                <span className="font-extrabold">هفته {toPersianDigits(round.round)}</span>
+                <span className="text-[10px] text-ink/70">{toPersianDigits(visibleMatches.length)} مسابقه</span>
               </div>
               <div className="w-full overflow-hidden rounded-lg border border-line bg-white print:border-line/70">
                 <table className="w-full text-right text-xs print:text-[11px]">
@@ -942,25 +943,25 @@ function RoundsTable({
                       const awayWon = Boolean(hasScore && (sc.away as number) > (sc.home as number));
                       const dt = matchDetails?.[matchId];
                       const datePitchStr = [
-                        dt?.date,
-                        dt?.time ? `ساعت ${dt.time}` : "",
-                        dt?.pitch ? `زمین ${dt.pitch}` : "",
+                        dt?.date ? toPersianDigits(dt.date) : "",
+                        dt?.time ? `ساعت ${toPersianDigits(dt.time)}` : "",
+                        dt?.pitch ? `زمین ${toPersianDigits(dt.pitch)}` : "",
                       ]
                         .filter(Boolean)
                         .join(" • ");
 
                       return (
                         <tr key={matchId} className="even:bg-chalk/30 print-avoid-break">
-                          <td className="py-1.5 px-2 text-center font-mono text-ink/60">{idx + 1}</td>
-                          <td className="py-1.5 px-2 text-center font-mono text-pitch font-bold text-[10px]">
-                            بازی {idx + 1}
+                          <td className="py-1.5 px-2 text-center font-bold text-ink/60">{toPersianDigits(idx + 1)}</td>
+                          <td className="py-1.5 px-2 text-center font-bold text-pitch text-[10px]">
+                            بازی {toPersianDigits(idx + 1)}
                           </td>
                           <td className={`py-1.5 px-3 text-left ${homeWon ? "font-bold text-pitch" : "text-ink"}`}>
                             {homeWon && <span className="ml-1 text-pitch font-bold">✓</span>}
                             {m.home}
                           </td>
-                          <td className="py-1.5 px-2 text-center font-mono font-bold">
-                            {hasScore ? `${sc.home} - ${sc.away}` : "—"}
+                          <td className="py-1.5 px-2 text-center font-bold">
+                            {hasScore ? `${toPersianDigits(sc.home)} - ${toPersianDigits(sc.away)}` : "—"}
                           </td>
                           <td className={`py-1.5 px-3 text-right ${awayWon ? "font-bold text-pitch" : "text-ink"}`}>
                             {m.away}
@@ -1027,7 +1028,7 @@ function GroupsMatchesView({
                 : "bg-line/40 text-ink/70 hover:bg-line")
             }
           >
-            همه گروه‌ها ({groups.length})
+            همه گروه‌ها ({toPersianDigits(groups.length)})
           </button>
           {groups.map((g, idx) => (
             <button
@@ -1189,7 +1190,7 @@ function StandingsTable({
                         : "bg-slate-100 text-slate-600 border border-slate-200")
                     }
                   >
-                    {idx + 1}
+                    {toPersianDigits(idx + 1)}
                   </span>
                 </td>
                 <td className="py-2.5 px-4 text-right print:py-1.5 print:px-2">
@@ -1215,14 +1216,14 @@ function StandingsTable({
                     )}
                   </div>
                 </td>
-                <td className="py-2.5 px-2.5 text-slate-700 font-medium print:py-1.5 print:px-1.5">{s.played}</td>
-                <td className="py-2.5 px-2.5 font-bold text-emerald-800 print:py-1.5 print:px-1.5">{s.won}</td>
+                <td className="py-2.5 px-2.5 text-slate-700 font-medium print:py-1.5 print:px-1.5">{toPersianDigits(s.played)}</td>
+                <td className="py-2.5 px-2.5 font-bold text-emerald-800 print:py-1.5 print:px-1.5">{toPersianDigits(s.won)}</td>
                 {!isVolleyball && (
-                  <td className="py-2.5 px-2.5 text-slate-500 font-medium print:py-1.5 print:px-1.5">{s.drawn}</td>
+                  <td className="py-2.5 px-2.5 text-slate-500 font-medium print:py-1.5 print:px-1.5">{toPersianDigits(s.drawn)}</td>
                 )}
-                <td className="py-2.5 px-2.5 text-rose-600 font-bold print:py-1.5 print:px-1.5">{s.lost}</td>
-                <td className="py-2.5 px-2.5 text-slate-600 font-medium print:py-1.5 print:px-1.5">{s.goalsFor}</td>
-                <td className="py-2.5 px-2.5 text-slate-600 font-medium print:py-1.5 print:px-1.5">{s.goalsAgainst}</td>
+                <td className="py-2.5 px-2.5 text-rose-600 font-bold print:py-1.5 print:px-1.5">{toPersianDigits(s.lost)}</td>
+                <td className="py-2.5 px-2.5 text-slate-600 font-medium print:py-1.5 print:px-1.5">{toPersianDigits(s.goalsFor)}</td>
+                <td className="py-2.5 px-2.5 text-slate-600 font-medium print:py-1.5 print:px-1.5">{toPersianDigits(s.goalsAgainst)}</td>
                 <td
                   className={
                     "py-2.5 px-2.5 font-bold print:py-1.5 print:px-1.5 " +
@@ -1233,11 +1234,11 @@ function StandingsTable({
                       : "text-slate-400")
                   }
                 >
-                  {s.goalDifference > 0 ? `+${s.goalDifference}` : s.goalDifference}
+                  {s.goalDifference > 0 ? `+${toPersianDigits(s.goalDifference)}` : toPersianDigits(s.goalDifference)}
                 </td>
                 <td className="py-2.5 px-3 print:py-1.5 print:px-2">
-                  <span className="inline-block bg-pitch/10 text-pitch font-black text-sm px-2.5 py-0.5 rounded-lg border border-pitch/15 font-mono">
-                    {s.points}
+                  <span className="inline-block bg-pitch/10 text-pitch font-black text-sm px-2.5 py-0.5 rounded-lg border border-pitch/15">
+                    {toPersianDigits(s.points)}
                   </span>
                 </td>
               </tr>
@@ -1265,8 +1266,12 @@ function StandingsTable({
             <span className="text-[11px] text-pitch font-medium bg-pitch/5 px-2 py-0.5 rounded border border-pitch/15">
               🤾 <b>قوانین رسمی هندبال:</b> برد (۲ امتیاز) | مساوی (۱ امتیاز) | باخت (۰ امتیاز)
             </span>
+          ) : pointsRule.sport === "custom" ? (
+            <span className="text-[11px] text-emerald-800 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              ⚙️ <b>سیستم امتیازدهی سفارشی:</b> برد ({toPersianDigits(pointsRule.win)} امتیاز) | مساوی ({toPersianDigits(pointsRule.draw)} امتیاز) | باخت ({toPersianDigits(pointsRule.loss)} امتیاز)
+            </span>
           ) : (
-            <span>(برد: {pointsRule.win} امتیاز | مساوی: {pointsRule.draw} | باخت: {pointsRule.loss})</span>
+            <span>(برد: {toPersianDigits(pointsRule.win)} امتیاز | مساوی: {toPersianDigits(pointsRule.draw)} | باخت: {toPersianDigits(pointsRule.loss)})</span>
           )}
         </div>
       )}
@@ -1319,8 +1324,8 @@ function renderPrintMatchRow(
   return (
     <tr key={m.id} className="even:bg-chalk/30 print-avoid-break text-xs print:text-[11px]">
       {idx !== undefined && (
-        <td className="py-2 px-2 text-center font-mono text-ink/60 border-b border-line/60 w-10">
-          {idx + 1}
+        <td className="py-2 px-2 text-center font-bold text-ink/60 border-b border-line/60 w-10">
+          {toPersianDigits(idx + 1)}
         </td>
       )}
       {stageLabel && (
@@ -1328,11 +1333,11 @@ function renderPrintMatchRow(
           {stageLabel}
         </td>
       )}
-      <td className="py-2 px-2 text-center font-mono font-bold text-pitch border-b border-line/60 w-24">
-        {m.matchCode || `بازی ${m.slot !== undefined ? m.slot + 1 : m.id}`}
+      <td className="py-2 px-2 text-center font-bold text-pitch border-b border-line/60 w-24">
+        {toPersianDigits(m.matchCode || `بازی ${m.slot !== undefined ? m.slot + 1 : m.id}`)}
       </td>
       <td className="py-2 px-2 text-center text-ink/70 border-b border-line/60 text-[10px]">
-        {datePitchStr || "—"}
+        {datePitchStr ? toPersianDigits(datePitchStr) : "—"}
       </td>
       <td
         className={`py-2 px-3 text-left border-b border-line/60 font-medium ${
@@ -1352,7 +1357,7 @@ function renderPrintMatchRow(
           </span>
         )}
       </td>
-      <td className="py-2 px-2 text-center font-mono font-bold border-b border-line/60 w-24">
+      <td className="py-2 px-2 text-center font-bold border-b border-line/60 w-24">
         {isBye ? (
           <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">
             صعود مستقیم
@@ -1360,12 +1365,12 @@ function renderPrintMatchRow(
         ) : hasScore ? (
           <div className="flex flex-col items-center">
             <span>
-              {sc.home} - {sc.away}
+              {toPersianDigits(sc.home)} - {toPersianDigits(sc.away)}
             </span>
             {(sc.homePenalty !== null && sc.homePenalty !== undefined) ||
             (sc.awayPenalty !== null && sc.awayPenalty !== undefined) ? (
               <span className="text-[9px] text-amber-800 font-normal">
-                پنالتی: ({sc.homePenalty ?? 0} - {sc.awayPenalty ?? 0})
+                پنالتی: ({toPersianDigits(sc.homePenalty ?? 0)} - {toPersianDigits(sc.awayPenalty ?? 0)})
               </span>
             ) : null}
           </div>
@@ -1712,7 +1717,7 @@ function InteractiveBracket({
 
       {knockout.byes > 0 && (
         <p className="text-xs text-ink/60">
-          💡 به دلیل تعداد تیم‌ها، {knockout.byes} تیم برتر دارای استراحت (Bye) در دور اول هستند و
+          💡 به دلیل تعداد تیم‌ها، {toPersianDigits(knockout.byes)} تیم برتر دارای استراحت (Bye) در دور اول هستند و
           مستقیماً صعود می‌کنند.
         </p>
       )}
@@ -2005,7 +2010,7 @@ function InteractiveDoubleKnockoutBracket({
               </p>
             </div>
             <span className="text-xs font-bold bg-pitch/10 text-pitch px-2.5 py-1 rounded-full">
-              {doubleKnockout.winnersBracket.length} دور مسابقه
+              {toPersianDigits(doubleKnockout.winnersBracket.length)} دور مسابقه
             </span>
           </div>
 
@@ -2061,7 +2066,7 @@ function InteractiveDoubleKnockoutBracket({
               </p>
             </div>
             <span className="text-xs font-bold bg-amber-600/10 text-amber-900 px-2.5 py-1 rounded-full">
-              {doubleKnockout.losersBracket.length} دور مسابقه
+              {toPersianDigits(doubleKnockout.losersBracket.length)} دور مسابقه
             </span>
           </div>
 
@@ -2448,11 +2453,11 @@ function MatchBracketCard({
       >
         <div className="flex items-center gap-1.5 font-bold">
           {m.matchCode && (
-            <span className="rounded bg-pitch/10 text-pitch px-1.5 py-0.2 text-[10px] font-mono">
-              {m.matchCode}
+            <span className="rounded bg-pitch/10 text-pitch px-1.5 py-0.2 text-[10px]">
+              {toPersianDigits(m.matchCode)}
             </span>
           )}
-          <span>{label || (m.matchCode ? "" : `بازی ${m.slot + 1}`)}</span>
+          <span>{label || (m.matchCode ? "" : `بازی ${toPersianDigits(m.slot + 1)}`)}</span>
         </div>
 
         {/* State Badges */}
@@ -2809,13 +2814,13 @@ function MatchBracketCard({
           {m.nextMatchWinnerCode && (
             <span className="text-pitch font-medium flex items-center gap-1">
               <span className="text-ink/60">برنده:</span>
-              <span className="font-bold text-pitch">{m.nextMatchWinnerCode}</span>
+              <span className="font-bold text-pitch">{toPersianDigits(m.nextMatchWinnerCode)}</span>
             </span>
           )}
           {m.nextMatchLoserCode && (
             <span className="text-amber-900/90 font-medium flex items-center gap-1">
               <span className="text-ink/60">بازنده:</span>
-              <span className="font-bold">{m.nextMatchLoserCode}</span>
+              <span className="font-bold">{toPersianDigits(m.nextMatchLoserCode)}</span>
             </span>
           )}
         </div>
@@ -2826,9 +2831,9 @@ function MatchBracketCard({
         {dt?.date || dt?.time || dt?.pitch ? (
           <span className="truncate font-medium text-pitch">
             {[
-              dt.date,
-              dt.time ? `ساعت ${dt.time}` : "",
-              dt.pitch ? `زمین ${dt.pitch}` : "",
+              dt.date ? toPersianDigits(dt.date) : "",
+              dt.time ? `ساعت ${toPersianDigits(dt.time)}` : "",
+              dt.pitch ? `زمین ${toPersianDigits(dt.pitch)}` : "",
             ]
               .filter(Boolean)
               .join(" | ")}

@@ -1,6 +1,7 @@
 import { ScheduleResult, BracketRound, BracketMatch, MatchScheduleDetail } from "./types";
 import { MatchScore, computeKnockoutWithScores } from "./knockout";
 import { computeDoubleKnockoutWithScores } from "./doubleKnockout";
+import { toPersianDigits } from "../digits";
 
 function formatScheduleDetail(dt?: MatchScheduleDetail): string {
   if (!dt) return "";
@@ -37,13 +38,13 @@ export function formatScheduleAsText(
 
   if (result.format === "league" || result.format === "double-league") {
     for (const round of result.rounds) {
-      lines.push(`\n📅 هفته ${round.round}:`);
+      lines.push(`\n📅 هفته ${toPersianDigits(round.round)}:`);
       for (const m of round.matches) {
         const sc = m.id && scores && scores[m.id] ? scores[m.id] : null;
         const dt = m.id && matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
         const scoreStr =
           sc && sc.home !== null && sc.away !== null
-            ? ` (${sc.home} - ${sc.away})`
+            ? ` (${toPersianDigits(sc.home)} - ${toPersianDigits(sc.away)})`
             : "";
         lines.push(`  ⚽ ${m.home} 🆚 ${m.away}${scoreStr}${formatScheduleDetail(dt)}`);
       }
@@ -52,13 +53,13 @@ export function formatScheduleAsText(
     for (const g of result.groups) {
       lines.push(`\n📌 ${g.name}: [${g.teams.join("، ")}]`);
       for (const round of g.rounds) {
-        lines.push(`  📅 هفته ${round.round}:`);
+        lines.push(`  📅 هفته ${toPersianDigits(round.round)}:`);
         for (const m of round.matches) {
           const sc = m.id && scores && scores[m.id] ? scores[m.id] : null;
           const dt = m.id && matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
           const scoreStr =
             sc && sc.home !== null && sc.away !== null
-              ? ` (${sc.home} - ${sc.away})`
+              ? ` (${toPersianDigits(sc.home)} - ${toPersianDigits(sc.away)})`
               : "";
           lines.push(`    ⚽ ${m.home} 🆚 ${m.away}${scoreStr}${formatScheduleDetail(dt)}`);
         }
@@ -69,13 +70,13 @@ export function formatScheduleAsText(
     for (const g of result.groups) {
       lines.push(`\n📌 ${g.name}: [${g.teams.join("، ")}]`);
       for (const round of g.rounds) {
-        lines.push(`  📅 هفته ${round.round}:`);
+        lines.push(`  📅 هفته ${toPersianDigits(round.round)}:`);
         for (const m of round.matches) {
           const sc = m.id && scores && scores[m.id] ? scores[m.id] : null;
           const dt = m.id && matchDetails && matchDetails[m.id] ? matchDetails[m.id] : undefined;
           const scoreStr =
             sc && sc.home !== null && sc.away !== null
-              ? ` (${sc.home} - ${sc.away})`
+              ? ` (${toPersianDigits(sc.home)} - ${toPersianDigits(sc.away)})`
               : "";
           lines.push(`    ⚽ ${m.home} 🆚 ${m.away}${scoreStr}${formatScheduleDetail(dt)}`);
         }
@@ -115,14 +116,14 @@ export function formatScheduleAsText(
 
 function formatMatchScoreString(sc?: MatchScore | null): string {
   if (!sc || sc.home === null || sc.away === null) return "";
-  let s = ` (${sc.home} - ${sc.away}`;
+  let s = ` (${toPersianDigits(sc.home)} - ${toPersianDigits(sc.away)}`;
   if (
     sc.homePenalty !== null &&
     sc.awayPenalty !== null &&
     sc.homePenalty !== undefined &&
     sc.awayPenalty !== undefined
   ) {
-    s += ` | پنالتی: ${sc.homePenalty} - ${sc.awayPenalty}`;
+    s += ` | پنالتی: ${toPersianDigits(sc.homePenalty)} - ${toPersianDigits(sc.awayPenalty)}`;
   }
   s += ")";
   return s;

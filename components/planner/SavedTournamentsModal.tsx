@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
+import { toPersianDigits } from "@/lib/digits";
 
 export interface SavedTournamentItem {
   id: string;
@@ -501,7 +502,7 @@ export function SavedTournamentsModal({
                         <div className="flex items-center gap-2 text-[11px] text-ink/60">
                           <span>{FORMAT_LABELS[t.format] || t.format}</span>
                           <span>•</span>
-                          <span>{t.team_count} تیم</span>
+                          <span>{toPersianDigits(t.team_count)} تیم</span>
                           <span>•</span>
                           <span title={t.updated_at}>آخرین ویرایش: {formatPersianDate(t.updated_at)}</span>
                         </div>
