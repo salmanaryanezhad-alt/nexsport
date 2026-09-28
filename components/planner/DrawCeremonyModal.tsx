@@ -406,16 +406,34 @@ export function DrawCeremonyModal({
       ? result.groups
       : [];
 
+  // Dynamic responsive max-width based on number of groups/teams
+  const modalMaxWidthClass = useMemo(() => {
+    const count = groupsList.length;
+    if (count > 6) return "max-w-5xl";
+    if (count > 4) return "max-w-4xl";
+    return "max-w-2xl";
+  }, [groupsList.length]);
+
+  // Dynamic responsive grid columns for groups preview
+  const groupGridColsClass = useMemo(() => {
+    const count = groupsList.length;
+    if (count <= 2) return "grid-cols-1 sm:grid-cols-2";
+    if (count <= 4) return "grid-cols-2 sm:grid-cols-4";
+    if (count <= 6) return "grid-cols-2 sm:grid-cols-3 md:grid-cols-6";
+    if (count <= 8) return "grid-cols-2 sm:grid-cols-4 lg:grid-cols-4";
+    return "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6";
+  }, [groupsList.length]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border border-emerald-500/35 shadow-[0_0_60px_rgba(16,185,129,0.22)] text-white p-5 sm:p-8 overflow-hidden text-right flex flex-col justify-between min-h-[460px]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+      <div className={`relative w-full ${modalMaxWidthClass} max-h-[92vh] sm:max-h-[90vh] rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border border-emerald-500/35 shadow-[0_0_60px_rgba(16,185,129,0.22)] text-white p-4 sm:p-6 md:p-7 overflow-hidden text-right flex flex-col justify-between`}>
         
         {/* Ambient Top Glows */}
         <div className="pointer-events-none absolute -top-24 left-1/2 h-56 w-96 -translate-x-1/2 rounded-full bg-emerald-500/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 left-1/4 h-56 w-72 rounded-full bg-amber-500/15 blur-3xl" />
 
         {/* Top Control Bar */}
-        <div className="relative z-10 flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+        <div className="shrink-0 relative z-10 flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
           <div className="flex items-center gap-2">
             <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-ping" />
             <span className="rounded-full bg-rose-500/20 border border-rose-500/40 px-2.5 py-0.5 text-[11px] font-black text-rose-300">
@@ -445,7 +463,7 @@ export function DrawCeremonyModal({
         </div>
 
         {/* Center Arena Section */}
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center">
+        <div className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-center overflow-y-auto py-1 custom-scrollbar">
 
           {/* STAGE 0: INTRO - THE DRAW TUMBLER (~1.5s) */}
           {stage === "intro" && (
@@ -531,7 +549,7 @@ export function DrawCeremonyModal({
 
                 {/* Groups Preview or Clashes Preview */}
                 {isGroupFormat && groupsList.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-[160px] overflow-y-auto">
+                  <div className={`grid ${groupGridColsClass} gap-2 max-h-[220px] sm:max-h-[280px] overflow-y-auto pr-1 custom-scrollbar`}>
                     {groupsList.map((grp, gIdx) => (
                       <div
                         key={grp.name}
@@ -570,7 +588,7 @@ export function DrawCeremonyModal({
                     ))}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[180px] sm:max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
                     {drawnItemsSoFar.map((item) => (
                       <div
                         key={item.id}
@@ -605,7 +623,7 @@ export function DrawCeremonyModal({
 
               {/* Full Groups Summary Grid */}
               {isGroupFormat && groupsList.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[160px] overflow-y-auto text-right p-1">
+                <div className={`grid ${groupGridColsClass} gap-2.5 max-h-[260px] sm:max-h-[340px] overflow-y-auto text-right p-1 pr-2 custom-scrollbar`}>
                   {groupsList.map((grp) => (
                     <div
                       key={grp.name}
