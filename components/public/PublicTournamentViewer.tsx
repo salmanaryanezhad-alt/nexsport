@@ -310,7 +310,10 @@ export function PublicTournamentViewer({
       setRefreshMessage(null);
     }
     try {
-      const res = await fetch(`/api/tournaments/public/${tournament.id}?_t=${Date.now()}`);
+      let res = await fetch(`/api/tournaments/public/${tournament.id}/?_t=${Date.now()}`);
+      if (!res.ok && res.status === 404) {
+        res = await fetch(`/api/tournaments/public/${tournament.id}?_t=${Date.now()}`);
+      }
       if (res.ok) {
         const data = await res.json();
         if (data.tournament?.state) {

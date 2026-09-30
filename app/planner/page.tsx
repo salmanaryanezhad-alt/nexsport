@@ -517,7 +517,7 @@ function PlannerWizard() {
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
       syncTimeoutRef.current = setTimeout(async () => {
         try {
-          await fetch(`/api/tournaments/${tid}/sync`, {
+          await fetch(`/api/tournaments/${tid}/sync/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
