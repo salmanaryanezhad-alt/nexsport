@@ -338,9 +338,22 @@ function PlannerWizard() {
 
   const loadQuota = useCallback(async () => {
     try {
-      const res = await fetch("/api/tournaments/quota");
+      const res = await fetch("/api/tournaments/quota/");
       if (res.ok) {
         const data = await res.json();
+        if (data.isGuest && typeof window !== "undefined") {
+          const localGuestCount = parseInt(
+            localStorage.getItem("nexsport_guest_tournaments_count") || "0",
+            10
+          );
+          const effectiveCount = Math.max(data.guestCount || 0, localGuestCount);
+          setQuota({
+            ...data,
+            guestCount: effectiveCount,
+            remaining: Math.max(0, (data.guestLimit || 2) - effectiveCount),
+          });
+          return;
+        }
         setQuota(data);
       }
     } catch {}
@@ -991,11 +1004,17 @@ function PlannerWizard() {
         .then((res) => res.json())
         .then((data) => {
           if (data.isGuest) {
+            const currentLocal = parseInt(
+              localStorage.getItem("nexsport_guest_tournaments_count") || "0",
+              10
+            );
+            const newCount = Math.max(data.count || 1, currentLocal + 1);
+            localStorage.setItem("nexsport_guest_tournaments_count", String(newCount));
             setQuota((prev) =>
-              prev ? { ...prev, guestCount: data.count, remaining: data.remaining } : null
+              prev ? { ...prev, guestCount: newCount, remaining: Math.max(0, 2 - newCount) } : null
             );
             setInfoMessage(
-              `🎉 مسابقه رایگان مهمان ایجاد شد (${toPersianDigits(data.count)} از ۲). با ثبت‌نام ۵ مسابقه دیگر هدیه بگیرید.`
+              `🎉 مسابقه رایگان مهمان ایجاد شد (${toPersianDigits(newCount)} از ۲). با ثبت‌نام ۵ مسابقه دیگر هدیه بگیرید.`
             );
             setTimeout(() => setInfoMessage(null), 5000);
           } else if (!data.isVip) {
