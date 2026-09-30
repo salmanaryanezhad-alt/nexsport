@@ -303,30 +303,140 @@ export function PublicTournamentViewer({
 
   const progressPercent = totalMatches > 0 ? Math.round((playedMatches / totalMatches) * 100) : 0;
 
-  async function handleRefresh() {
+  async function handleRefresh(silent = false) {
     if (!tournament) return;
-    setIsRefreshing(true);
-    setRefreshMessage(null);
+    if (!silent) {
+      setIsRefreshing(true);
+      setRefreshMessage(null);
+    }
     try {
-      const res = await fetch(`/api/tournaments/public/${tournament.id}`);
+      const res = await fetch(`/api/tournaments/public/${tournament.id}?_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.tournament) {
-          setTournament(data.tournament);
-          setRefreshMessage("✓ آخرین نتایج با موفقیت به‌روزرسانی شد.");
-          setTimeout(() => setRefreshMessage(null), 3000);
+        if (data.tournament?.state) {
+          setTournament((prev) => {
+            if (!prev) return data.tournament;
+            return {
+              ...data.tournament,
+              state: {
+                ...prev.state,
+                ...data.tournament.state,
+                scores: data.tournament.state.scores || prev.state.scores,
+                matchDetails: data.tournament.state.matchDetails || prev.state.matchDetails,
+                result: data.tournament.state.result || prev.state.result,
+              },
+            };
+          });
+          if (!silent) {
+            setRefreshMessage("✓ آخرین نتایج با موفقیت به‌روزرسانی شد.");
+            setTimeout(() => setRefreshMessage(null), 3000);
+          }
           return;
         }
       }
-      setRefreshMessage("✓ نتایج همگام‌سازی شد.");
-      setTimeout(() => setRefreshMessage(null), 2500);
     } catch {
+      // Fallback to local storage
+    }
+
+    // Client-side recovery check
+    if (typeof window !== "undefined") {
+      try {
+        const updatedScoresStr = localStorage.getItem(`nexsport_t_${tournament.id}_scores`);
+        const updatedDetailsStr = localStorage.getItem(`nexsport_t_${tournament.id}_matchDetails`);
+        const wizStr = localStorage.getItem("nexsport_wizard_state_v4");
+
+        let newScores = updatedScoresStr ? JSON.parse(updatedScoresStr) : null;
+        let newDetails = updatedDetailsStr ? JSON.parse(updatedDetailsStr) : null;
+
+        if (!newScores && wizStr) {
+          const wiz = JSON.parse(wizStr);
+          if (wiz?.scores) newScores = wiz.scores;
+          if (wiz?.matchDetails) newDetails = wiz.matchDetails;
+        }
+
+        if (newScores) {
+          setTournament((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              state: {
+                ...prev.state,
+                scores: newScores,
+                matchDetails: newDetails || prev.state.matchDetails,
+              },
+            };
+          });
+          if (!silent) {
+            setRefreshMessage("✓ نتایج همگام‌سازی شد.");
+            setTimeout(() => setRefreshMessage(null), 2500);
+          }
+          return;
+        }
+      } catch {}
+    }
+
+    if (!silent) {
       setRefreshMessage("امکان دریافت جدیدترین نسخه مسابقه وجود ندارد.");
       setTimeout(() => setRefreshMessage(null), 3000);
-    } finally {
+    }
+    if (!silent) {
       setIsRefreshing(false);
     }
   }
+
+  // Real-time synchronization for same-browser organizer tabs
+  useEffect(() => {
+    if (!tournamentId) return;
+
+    function handleStorageChange(e: StorageEvent) {
+      if (e.key === "nexsport_t_updated" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && (parsed.id === tournamentId || !parsed.id)) {
+            setTournament((prev) => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                state: {
+                  ...prev.state,
+                  scores: parsed.scores || prev.state.scores,
+                  matchDetails: parsed.matchDetails || prev.state.matchDetails,
+                  result: parsed.result || prev.state.result,
+                },
+              };
+            });
+            setRefreshMessage("⚡ نتیجه بازی به‌روزرسانی شد!");
+            setTimeout(() => setRefreshMessage(null), 2500);
+          }
+        } catch {}
+      }
+
+      if (e.key === `nexsport_t_${tournamentId}_scores` && e.newValue) {
+        try {
+          const newScores = JSON.parse(e.newValue);
+          setTournament((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              state: { ...prev.state, scores: newScores },
+            };
+          });
+        } catch {}
+      }
+    }
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [tournamentId]);
+
+  // Periodic background polling every 5s for spectator devices
+  useEffect(() => {
+    if (!tournament?.id) return;
+    const interval = setInterval(() => {
+      handleRefresh(true);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [tournament?.id]);
 
   function handleOpenPrint() {
     window.print();
@@ -360,7 +470,7 @@ export function PublicTournamentViewer({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleRefresh}
+              onClick={() => handleRefresh(false)}
               disabled={isRefreshing}
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
               title="بارگذاری مجدد آخرین نتایج ثبت‌شده"

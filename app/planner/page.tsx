@@ -488,6 +488,51 @@ function PlannerWizard() {
     matchDetails,
   ]);
 
+  // Auto-sync scores & matchDetails to public spectator links whenever updated
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!isLoaded || step !== 4) return;
+    const tid = currentSavedId;
+
+    // 1. Local real-time broadcast for same-browser spectator tabs
+    try {
+      const syncPayload = {
+        id: tid,
+        scores,
+        matchDetails,
+        result,
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem("nexsport_t_updated", JSON.stringify(syncPayload));
+
+      if (tid) {
+        localStorage.setItem(`nexsport_t_${tid}_scores`, JSON.stringify(scores));
+        localStorage.setItem(`nexsport_t_${tid}_matchDetails`, JSON.stringify(matchDetails));
+      }
+    } catch {}
+
+    // 2. Debounced background sync to server
+    if (tid) {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = setTimeout(async () => {
+        try {
+          await fetch(`/api/tournaments/${tid}/sync`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ scores, matchDetails, result }),
+          });
+        } catch {
+          // Fallback silently
+        }
+      }, 400);
+    }
+
+    return () => {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    };
+  }, [scores, matchDetails, result, currentSavedId, step, isLoaded]);
+
   const needsGroupRules = format === "groups" || format === "groups-knockout";
   const needsSeedRules = format === "knockout" || format === "double-knockout" || needsGroupRules;
   const supportsThirdPlace = format === "knockout" || format === "groups-knockout";
