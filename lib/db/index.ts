@@ -1073,7 +1073,23 @@ export const db = {
     const format = data.format;
     const sport = data.sport || null;
     const teamCount = data.teamCount;
-    const stateJson = JSON.stringify(data.state);
+
+    // Preserve existing payment status if client didn't supply it
+    let mergedState = data.state;
+    if (data.id && (!mergedState || !mergedState.payment)) {
+      try {
+        const existing = await this.getTournament(data.id, data.userId);
+        if (existing?.state?.payment) {
+          mergedState = {
+            ...mergedState,
+            payment: existing.state.payment,
+          };
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    }
+    const stateJson = JSON.stringify(mergedState);
 
     if (mysqlPool) {
       await initTablesIfRealDb();
@@ -1096,7 +1112,7 @@ export const db = {
         format,
         sport,
         team_count: teamCount,
-        state: data.state,
+        state: mergedState,
         created_at: now,
         updated_at: now,
       };
@@ -1143,7 +1159,7 @@ export const db = {
       format,
       sport,
       team_count: teamCount,
-      state: data.state,
+      state: mergedState,
       created_at: memoryStore.tournaments.get(id)?.created_at || now,
       updated_at: now,
     };

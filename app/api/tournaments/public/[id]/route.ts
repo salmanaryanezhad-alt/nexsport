@@ -22,6 +22,19 @@ export async function GET(
       );
     }
 
+    // Verify dedicated link payment activation
+    const isPaid = Boolean(tournament.state?.payment?.isPaid);
+    if (!isPaid) {
+      return NextResponse.json(
+        {
+          error: "لینک اختصاصی این مسابقه هنوز پرداخت و فعال‌سازی نشده است. برگزارکننده محترم مسابقه می‌تواند نسبت به پرداخت و فعال‌سازی آن در پنل کاربری اقدام نماید.",
+          notActivated: true,
+          tournamentTitle: tournament.title,
+        },
+        { status: 402 }
+      );
+    }
+
     // Return sanitized public tournament payload
     return NextResponse.json({
       tournament: {

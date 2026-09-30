@@ -316,6 +316,8 @@ function PlannerWizard() {
   const [savedModalOpen, setSavedModalOpen] = useState(false);
   const [savedModalMode, setSavedModalMode] = useState<"save" | "list">("list");
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareModalTournamentId, setShareModalTournamentId] = useState<string | null>(null);
+  const [shareModalTournamentTitle, setShareModalTournamentTitle] = useState<string>("");
 
   // Live Draw Ceremony state
   const [showDrawCeremony, setShowDrawCeremony] = useState(false);
@@ -945,6 +947,21 @@ function PlannerWizard() {
     }
     setSavedModalMode("list");
     setSavedModalOpen(true);
+  }
+
+  function handleOpenShareModal(tournamentId?: string, tournamentTitle?: string) {
+    if (tournamentId) {
+      setShareModalTournamentId(tournamentId);
+      setShareModalTournamentTitle(tournamentTitle || "");
+    } else {
+      setShareModalTournamentId(currentSavedId);
+      setShareModalTournamentTitle(
+        metadata.title?.trim() ||
+        FORMAT_OPTIONS.find((f) => f.key === format)?.title ||
+        "مسابقه ورزشی"
+      );
+    }
+    setShareModalOpen(true);
   }
 
   async function handleEnsureSavedForShare(): Promise<string | null> {
@@ -3113,8 +3130,8 @@ function PlannerWizard() {
 
               <button
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500 bg-gradient-to-r from-emerald-600 to-teal-700 px-3.5 py-2 text-xs font-black text-white hover:from-emerald-700 hover:to-teal-800 shadow-sm hover:shadow-md transition-all cursor-pointer"
-                onClick={() => setShareModalOpen(true)}
-                title="ایجاد و دریافت لینک اختصاصی مسابقه برای تماشاگران و بازیکنان"
+                onClick={() => handleOpenShareModal()}
+                title="ایجاد، فعال‌سازی و دریافت لینک اختصاصی مسابقه برای تماشاگران و بازیکنان"
               >
                 <span>🔗</span>
                 <span>ایجاد لینک اختصاصی</span>
@@ -3251,14 +3268,20 @@ function PlannerWizard() {
         }
         onLoadTournament={handleLoadCloudTournament}
         onSavedSuccess={handleCloudSaveSuccess}
+        onOpenShareModal={(id, title) => handleOpenShareModal(id, title)}
       />
 
       {/* Share / Public Tournament Link Modal */}
       <ShareTournamentModal
         isOpen={shareModalOpen}
-        onClose={() => setShareModalOpen(false)}
-        tournamentId={currentSavedId}
+        onClose={() => {
+          setShareModalOpen(false);
+          setShareModalTournamentId(null);
+          setShareModalTournamentTitle("");
+        }}
+        tournamentId={shareModalTournamentId || currentSavedId}
         tournamentTitle={
+          shareModalTournamentTitle ||
           metadata.title ||
           FORMAT_OPTIONS.find((f) => f.key === format)?.title ||
           "مسابقه ورزشی"

@@ -33,6 +33,8 @@ interface SavedTournamentsModalProps {
   onLoadTournament: (tournament: SavedTournamentItem) => void;
   // Callback when tournament is saved
   onSavedSuccess?: (tournament: SavedTournamentItem) => void;
+  // Callback to open dedicated link / share modal
+  onOpenShareModal?: (tournamentId: string, tournamentTitle: string) => void;
 }
 
 const SPORT_OPTIONS = [
@@ -61,6 +63,7 @@ export function SavedTournamentsModal({
   currentTournament,
   onLoadTournament,
   onSavedSuccess,
+  onOpenShareModal,
 }: SavedTournamentsModalProps) {
   const { user, openAuthModal, handleSessionExpired } = useAuth();
 
@@ -513,16 +516,21 @@ export function SavedTournamentsModal({
                         <button
                           type="button"
                           onClick={() => {
-                            const url = `${window.location.origin}/t/${t.id}`;
-                            navigator.clipboard.writeText(url);
-                            setCopiedId(t.id);
-                            setTimeout(() => setCopiedId(null), 2500);
+                            if (onOpenShareModal) {
+                              onOpenShareModal(t.id, t.title);
+                              handleClose();
+                            } else {
+                              const url = `${window.location.origin}/t/${t.id}`;
+                              navigator.clipboard.writeText(url);
+                              setCopiedId(t.id);
+                              setTimeout(() => setCopiedId(null), 2500);
+                            }
                           }}
-                          title="کپی لینک اختصاصی مسابقه جهت اشتراک‌گذاری با تماشاگران و تیم‌ها"
+                          title="مشاهده، فعال‌سازی و دریافت لینک اختصاصی تماشاگران"
                           className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors cursor-pointer inline-flex items-center gap-1"
                         >
                           <span>{copiedId === t.id ? "✓" : "🔗"}</span>
-                          <span className="hidden sm:inline">{copiedId === t.id ? "کپی شد" : "لینک"}</span>
+                          <span className="hidden sm:inline">{copiedId === t.id ? "کپی شد" : "لینک اختصاصی"}</span>
                         </button>
                         <button
                           type="button"

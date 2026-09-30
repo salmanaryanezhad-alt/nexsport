@@ -510,6 +510,71 @@ async function run() {
     assert(prevented, "کاربران رسمی تاییدشده نباید قابل حذف باشند.");
   });
 
+  await test("سیستم پرداخت و فعال‌سازی لینک اختصاصی (۲۰۰,۰۰۰ تومان و درایور شبیه‌ساز)", async () => {
+    const { paymentService, DEDICATED_LINK_PRICE_TOMANS } = await import("@/lib/payment");
+
+    // ۱. بررسی مبلغ مصوب تعرفه فاز ۳: ۲۰۰,۰۰۰ تومان
+    assertEqual(DEDICATED_LINK_PRICE_TOMANS, 200000, "هزینه فعال‌سازی لینک اختصاصی باید ۲۰۰,۰۰۰ تومان باشد.");
+
+    // ۲. ایجاد کاربر و مسابقه تستی
+    const organizer = await db.createUser({
+      name: "برگزارکننده لیگ آزمایشی",
+      email: "organizer_pay@nexsport.ir",
+      mobile: "09127778899",
+      passwordHash: hashPassword("OrgSecret1"),
+      isVerified: true,
+    });
+
+    const tournament = await db.saveTournament({
+      userId: organizer.id,
+      title: "جام برتر فوتسال فجر",
+      format: "league",
+      sport: "فوتسال",
+      teamCount: 4,
+      state: { step: 4, teams: ["تیم الف", "تیم ب", "تیم ج", "تیم د"], scores: {} },
+    });
+
+    // ۳. پیش از پرداخت: وضعیت فعال‌سازی باید false باشد
+    const initialPaidStatus = await paymentService.isTournamentPaid(tournament.id);
+    assertEqual(initialPaidStatus, false, "پیش از پرداخت، لینک مسابقه نباید فعال باشد.");
+
+    // ۴. ثبت و شبیه‌سازی پرداخت ۲۰۰,۰۰۰ تومانی بدون خروج از برنامه
+    const payResult = await paymentService.initiateTournamentPayment({
+      tournamentId: tournament.id,
+      userId: organizer.id,
+      userEmail: organizer.email,
+      userMobile: organizer.mobile || undefined,
+      origin: "https://nexsport.ir",
+    });
+
+    assert(payResult.success, "پرداخت باید با موفقیت ثبت شود.");
+    assertEqual(payResult.isDirectSuccess, true, "در حالت شبیه‌ساز، تایید باید فوری و بدون ریدایرکت باشد.");
+    assertEqual(payResult.isPaid, true, "وضعیت پرداخت مسابقه باید تایید گردد.");
+    assert(Boolean(payResult.refId), "باید کد رهگیری بانکی تولید شده باشد.");
+    assert(payResult.refId?.startsWith("TRX-"), "فرمت کد رهگیری بانکی باید TRX- باشد.");
+
+    // ۵. پس از پرداخت: وضعیت فعال‌سازی باید true باشد
+    const afterPaidStatus = await paymentService.isTournamentPaid(tournament.id);
+    assertEqual(afterPaidStatus, true, "پس از پرداخت، لینک مسابقه باید فعال باشد.");
+
+    const paymentInfo = await paymentService.getTournamentPaymentInfo(tournament.id);
+    assertEqual(paymentInfo?.amount, 200000, "مبلغ ثبت شده در تراکنش باید ۲۰۰,۰۰۰ تومان باشد.");
+    assertEqual(paymentInfo?.isPaid, true, "فلگ isPaid در دیتابیس مسابقه باید true باشد.");
+
+    // ۶. محافظت از وضعیت پرداخت در زمان ویرایش و ذخیره مجدد نتایج مسابقه
+    const updatedTournament = await db.saveTournament({
+      id: tournament.id,
+      userId: organizer.id,
+      title: "جام برتر فوتسال فجر (هفته دوم)",
+      format: "league",
+      sport: "فوتسال",
+      teamCount: 4,
+      state: { step: 4, teams: ["تیم الف", "تیم ب", "تیم ج", "تیم د"], scores: { "m-1": { home: 2, away: 0 } } },
+    });
+
+    assertEqual(updatedTournament.state?.payment?.isPaid, true, "وضعیت پرداخت نباید پس از ویرایش نتایج مسابقه پاک شود.");
+  });
+
   console.log("\n======================================");
   console.log(`تست‌های موفق: ${passed}`);
   console.log(`تست‌های ناموفق: ${failed}`);

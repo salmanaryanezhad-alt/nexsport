@@ -555,6 +555,70 @@ if (preg_match('#^tournaments/([^/]+)$#', $path, $matches) && $method === 'GET')
     json_response(['tournament' => $tournament]);
 }
 
+// 13.1 GET /api/tournaments/{id}/payment-status
+if (preg_match('#^tournaments/([^/]+)/payment-status$#', $path, $matches) && $method === 'GET') {
+    $tournamentId = $matches[1];
+    $tournament = db_get_public_tournament($pdo, $tournamentId);
+    $state = $tournament['state'] ?? [];
+    $isPaid = !empty($state['payment']['isPaid']);
+    json_response([
+        'tournamentId' => $tournamentId,
+        'isPaid'       => $isPaid,
+        'paymentInfo'  => $state['payment'] ?? null
+    ]);
+}
+
+// 13.2 POST /api/payment/create
+if ($path === 'payment/create' && $method === 'POST') {
+    list($session) = require_auth($pdo);
+    $body = get_json_input();
+    $tournamentId = trim((string)($body['tournamentId'] ?? ''));
+
+    if (!$tournamentId) {
+        json_response(['error' => 'شناسه مسابقه ارسال نشده است.'], 400);
+    }
+
+    $tournament = db_get_tournament($pdo, $tournamentId, $session['user_id']);
+    if (!$tournament) {
+        json_response(['error' => 'مسابقه یافت نشد یا دسترسی ویرایش آن را ندارید.'], 404);
+    }
+
+    $orderId = 'ord_' . time() . '_' . substr(md5(uniqid()), 0, 5);
+    $refId = 'TRX-' . rand(10000000, 99999999);
+    $paidAt = date('c');
+
+    $state = $tournament['state'] ?? [];
+    $state['payment'] = [
+        'isPaid'   => true,
+        'amount'   => 200000,
+        'currency' => 'TOMAN',
+        'gateway'  => 'mock',
+        'orderId'  => $orderId,
+        'refId'    => $refId,
+        'paidAt'   => $paidAt
+    ];
+
+    db_save_tournament(
+        $pdo,
+        $tournament['id'],
+        $session['user_id'],
+        $tournament['title'],
+        $tournament['format'],
+        $tournament['sport'],
+        $tournament['team_count'],
+        $state
+    );
+
+    json_response([
+        'success'         => true,
+        'isDirectSuccess' => true,
+        'isPaid'          => true,
+        'orderId'         => $orderId,
+        'refId'           => $refId,
+        'tournamentId'    => $tournamentId
+    ]);
+}
+
 // 14. DELETE /api/tournaments/{id}
 if (preg_match('#^tournaments/([^/]+)$#', $path, $matches) && $method === 'DELETE') {
     list($session) = require_auth($pdo);

@@ -82,6 +82,44 @@ export default async function PublicTournamentPage({
     );
   }
 
+  // If dedicated link has not been activated and paid by organizer
+  if (!tournamentRecord.state?.payment?.isPaid) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 text-center space-y-4 shadow-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 text-2xl">
+            🔒
+          </div>
+          <div className="space-y-1.5">
+            <h1 className="text-lg font-black text-slate-900">
+              لینک اختصاصی هنوز فعال‌سازی نشده است
+            </h1>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              صفحه مسابقه «{tournamentRecord.title}» در انتظار پرداخت و فعال‌سازی توسط برگزارکننده است.
+            </p>
+          </div>
+          <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200/80 p-3 text-[11px] text-emerald-950 text-right leading-relaxed">
+            💡 اگر شما برگزارکننده این مسابقه هستید، می‌توانید با مراجعه به برنامه‌ریز و کلیک روی دکمه «🔗 ایجاد لینک اختصاصی»، این صفحه را فعال نمایید.
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+            <Link
+              href="/"
+              className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              صفحه اصلی
+            </Link>
+            <Link
+              href="/planner"
+              className="w-full sm:w-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-black transition-colors"
+            >
+              ورود به برنامه‌ریز مسابقات
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const publicData: PublicTournamentData = {
     id: tournamentRecord.id,
     title: tournamentRecord.title,
