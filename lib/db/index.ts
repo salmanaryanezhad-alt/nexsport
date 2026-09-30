@@ -1,6 +1,7 @@
 import { Pool as PgPool } from "pg";
 import mysql, { Pool as MySqlPool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import crypto from "crypto";
+import { generateShortId } from "../shortId";
 
 export interface UserRecord {
   id: string;
@@ -1066,7 +1067,7 @@ export const db = {
     teamCount: number;
     state: any;
   }): Promise<TournamentRecord> {
-    const id = data.id || crypto.randomUUID();
+    const id = data.id || generateShortId(8);
     const now = new Date();
     const title = data.title.trim();
     const format = data.format;
@@ -1235,6 +1236,48 @@ export const db = {
       return t;
     }
     return null;
+  },
+
+  async getPublicTournament(id: string): Promise<TournamentRecord | null> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `tournaments` WHERE id = ? LIMIT 1",
+        [id]
+      );
+      if (!rows[0]) return null;
+      const r = rows[0];
+      return {
+        id: r.id,
+        user_id: r.user_id,
+        title: r.title,
+        format: r.format,
+        sport: r.sport,
+        team_count: r.team_count,
+        state: typeof r.state === "string" ? JSON.parse(r.state) : r.state,
+        created_at: new Date(r.created_at),
+        updated_at: new Date(r.updated_at),
+      };
+    }
+
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT * FROM tournaments WHERE id = $1 LIMIT 1",
+        [id]
+      );
+      if (!res.rows[0]) return null;
+      const r = res.rows[0];
+      return {
+        ...r,
+        state: typeof r.state === "string" ? JSON.parse(r.state) : r.state,
+        created_at: new Date(r.created_at),
+        updated_at: new Date(r.updated_at),
+      };
+    }
+
+    const t = memoryStore.tournaments.get(id);
+    return t || null;
   },
 
   async deleteTournament(id: string, userId: string): Promise<boolean> {

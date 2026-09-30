@@ -71,6 +71,7 @@ export function SavedTournamentsModal({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Save form state
   const [saveTitle, setSaveTitle] = useState("");
@@ -509,6 +510,20 @@ export function SavedTournamentsModal({
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = `${window.location.origin}/t/${t.id}`;
+                            navigator.clipboard.writeText(url);
+                            setCopiedId(t.id);
+                            setTimeout(() => setCopiedId(null), 2500);
+                          }}
+                          title="کپی لینک اختصاصی مسابقه جهت اشتراک‌گذاری با تماشاگران و تیم‌ها"
+                          className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <span>{copiedId === t.id ? "✓" : "🔗"}</span>
+                          <span className="hidden sm:inline">{copiedId === t.id ? "کپی شد" : "لینک"}</span>
+                        </button>
                         <button
                           type="button"
                           disabled={actionLoading}

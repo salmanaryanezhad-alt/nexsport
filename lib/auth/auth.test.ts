@@ -315,6 +315,40 @@ async function run() {
     assertEqual(listAfter[0].id, t2.id, "مسابقه باقی‌مانده باید دومین مسابقه باشد.");
   });
 
+  await test("صفحه عمومی و لینک اختصاصی مسابقات (فاز سوم): بازیابی عمومی بدون نشست و اعتبارسنجی شناسه کوتاه", async () => {
+    const user = await db.createUser({
+      name: "برگزارکننده لیگ عمومی",
+      email: "public-league@nexsport.ir",
+      mobile: "09124445566",
+      password_hash: hashPassword("passPublic123"),
+      is_verified: true,
+    });
+
+    // 1. Save tournament with automatically generated short ID
+    const tournament = await db.saveTournament({
+      userId: user.id,
+      title: "لیگ برتر فوتسال پیشکسوتان",
+      format: "league-single",
+      sport: "فوتسال",
+      teamCount: 6,
+      state: { step: 4, rounds: [], scores: { "m-1": { home: 3, away: 1 } } },
+    });
+
+    assert(Boolean(tournament.id), "مسابقه باید دارای شناسه اختصاصی باشد.");
+    assertEqual(tournament.id.length, 8, "شناسه لینک کوتاه تولیدشده باید ۸ کاراکتر باشد.");
+
+    // 2. Public retrieval without userId
+    const publicData = await db.getPublicTournament(tournament.id);
+    assert(Boolean(publicData), "مسابقه باید به صورت عمومی بدون لاگین قابل بازیابی باشد.");
+    assertEqual(publicData?.title, "لیگ برتر فوتسال پیشکسوتان", "عنوان مسابقه عمومی باید تطابق داشته باشد.");
+    assertEqual(publicData?.team_count, 6, "تعداد تیم‌ها باید درست باشد.");
+    assertEqual(publicData?.state?.scores?.["m-1"]?.home, 3, "نتایج بازی‌ها باید در داده‌های عمومی موجود باشد.");
+
+    // 3. Non-existent ID returns null
+    const notFound = await db.getPublicTournament("unknown-xyz");
+    assertEqual(notFound, null, "شناسه ناموجود باید null برگرداند.");
+  });
+
   await test("قانون اتصال دوگانه (Dual-Device Policy): همزمانی ۱ رایانه و ۱ موبایل", async () => {
     const user = await db.createUser({
       name: "کاربر تست دو دستگاه",

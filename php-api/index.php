@@ -532,6 +532,16 @@ if ($path === 'tournaments' && $method === 'POST') {
     ]);
 }
 
+// 12.1 GET /api/tournaments/public/{id}
+if (preg_match('#^tournaments/public/([^/]+)$#', $path, $matches) && $method === 'GET') {
+    $tournamentId = $matches[1];
+    $tournament = db_get_public_tournament($pdo, $tournamentId);
+    if (!$tournament) {
+        json_response(['error' => 'مسابقه یافت نشد یا ممکن است توسط برگزارکننده حذف شده باشد.'], 404);
+    }
+    json_response(['tournament' => $tournament]);
+}
+
 // 13. GET /api/tournaments/{id}
 if (preg_match('#^tournaments/([^/]+)$#', $path, $matches) && $method === 'GET') {
     list($session) = require_auth($pdo);

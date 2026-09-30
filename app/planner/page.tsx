@@ -28,6 +28,7 @@ import {
   SavedTournamentsModal,
   SavedTournamentItem,
 } from "@/components/planner/SavedTournamentsModal";
+import { ShareTournamentModal } from "@/components/planner/ShareTournamentModal";
 import { DrawCeremonyModal } from "@/components/planner/DrawCeremonyModal";
 import { toPersianDigits, toEnglishDigits } from "@/lib/digits";
 
@@ -314,6 +315,7 @@ function PlannerWizard() {
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
   const [savedModalOpen, setSavedModalOpen] = useState(false);
   const [savedModalMode, setSavedModalMode] = useState<"save" | "list">("list");
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   // Live Draw Ceremony state
   const [showDrawCeremony, setShowDrawCeremony] = useState(false);
@@ -943,6 +945,63 @@ function PlannerWizard() {
     }
     setSavedModalMode("list");
     setSavedModalOpen(true);
+  }
+
+  async function handleEnsureSavedForShare(): Promise<string | null> {
+    const currentId = currentSavedId || undefined;
+    const title =
+      metadata.title?.trim() ||
+      FORMAT_OPTIONS.find((f) => f.key === format)?.title ||
+      "مسابقات ورزشی";
+
+    const payload = {
+      id: currentId,
+      title,
+      format,
+      sport: pointsRule?.sport,
+      teamCount,
+      state: {
+        step: 4,
+        format,
+        teamCount,
+        teamNames,
+        numGroups,
+        qualifiersPerGroup,
+        seededTeams,
+        pot2Teams,
+        pot3Teams,
+        pot4Teams,
+        avoidPairs,
+        hasThirdPlace,
+        hasResetFinal,
+        independentSecondLeg,
+        advanceBestThirds,
+        pointsRule,
+        metadata,
+        result,
+        scores,
+        matchDetails,
+      },
+    };
+
+    try {
+      const res = await fetch("/api/tournaments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.tournament?.id) {
+          setCurrentSavedId(data.tournament.id);
+          return data.tournament.id;
+        }
+      }
+    } catch (err) {
+      console.error("[Ensure Saved For Share Error]", err);
+    }
+    return null;
   }
 
   function handleLoadCloudTournament(t: SavedTournamentItem) {
@@ -3053,6 +3112,15 @@ function PlannerWizard() {
               </button>
 
               <button
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500 bg-gradient-to-r from-emerald-600 to-teal-700 px-3.5 py-2 text-xs font-black text-white hover:from-emerald-700 hover:to-teal-800 shadow-sm hover:shadow-md transition-all cursor-pointer"
+                onClick={() => setShareModalOpen(true)}
+                title="ایجاد و دریافت لینک اختصاصی مسابقه برای تماشاگران و بازیکنان"
+              >
+                <span>🔗</span>
+                <span>ایجاد لینک اختصاصی</span>
+              </button>
+
+              <button
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-black text-amber-900 hover:bg-amber-100 hover:shadow-xs transition-all cursor-pointer"
                 onClick={handleOpenSaveCloud}
                 title="ذخیره این مسابقه و نتایج آن در فضای ابری حساب کاربری"
@@ -3183,6 +3251,19 @@ function PlannerWizard() {
         }
         onLoadTournament={handleLoadCloudTournament}
         onSavedSuccess={handleCloudSaveSuccess}
+      />
+
+      {/* Share / Public Tournament Link Modal */}
+      <ShareTournamentModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        tournamentId={currentSavedId}
+        tournamentTitle={
+          metadata.title ||
+          FORMAT_OPTIONS.find((f) => f.key === format)?.title ||
+          "مسابقه ورزشی"
+        }
+        onEnsureSaved={handleEnsureSavedForShare}
       />
 
       {/* Live Draw Ceremony Modal */}

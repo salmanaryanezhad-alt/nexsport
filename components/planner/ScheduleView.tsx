@@ -26,7 +26,7 @@ interface ScheduleViewProps {
   result: ScheduleResult;
   scores: Record<string, MatchScore>;
   matchDetails?: Record<string, MatchScheduleDetail>;
-  onScoreChange: (
+  onScoreChange?: (
     matchId: string,
     home: number | null,
     away: number | null,
@@ -41,17 +41,19 @@ interface ScheduleViewProps {
   onResetScores?: () => void;
   teams: string[];
   qualifiersPerGroup?: number;
+  readOnly?: boolean;
 }
 
 export function ScheduleView({
   result,
   scores,
   matchDetails = {},
-  onScoreChange,
+  onScoreChange = () => {},
   onMatchDetailChange,
   onResetScores,
   teams,
   qualifiersPerGroup = 2,
+  readOnly = false,
 }: ScheduleViewProps) {
   const [activeTab, setActiveTab] = useState<"matches" | "standings">("matches");
   const [selectedGroupIndex, setSelectedGroupIndex] = useState<number | "all">("all");
@@ -238,10 +240,10 @@ export function ScheduleView({
             </button>
           </div>
 
-          {onResetScores && Object.keys(scores).length > 0 && (
+          {!readOnly && onResetScores && Object.keys(scores).length > 0 && (
             <button
               onClick={onResetScores}
-              className="text-xs text-rose-700 hover:text-rose-900 hover:underline font-bold px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200/60 transition-colors"
+              className="text-xs text-rose-700 hover:text-rose-900 hover:underline font-bold px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200/60 transition-colors cursor-pointer"
               title="پاک کردن گل‌ها و نتایج ثبت‌شده بدون تغییر در قرعه‌کشی مسابقات"
             >
               🧹 پاک کردن نتایج بازی‌ها
@@ -304,8 +306,9 @@ export function ScheduleView({
               onScoreChange={onScoreChange}
               metadata={meta}
               matchDetails={matchDetails}
-              onOpenEditModal={handleOpenEditModal}
+              onOpenEditModal={readOnly ? undefined : handleOpenEditModal}
               filterTeam={filterTeam}
+              readOnly={readOnly}
             />
           )}
 
@@ -318,8 +321,9 @@ export function ScheduleView({
               onSelectGroup={setSelectedGroupIndex}
               metadata={meta}
               matchDetails={matchDetails}
-              onOpenEditModal={handleOpenEditModal}
+              onOpenEditModal={readOnly ? undefined : handleOpenEditModal}
               filterTeam={filterTeam}
+              readOnly={readOnly}
             />
           )}
 
@@ -337,8 +341,9 @@ export function ScheduleView({
                   onSelectGroup={setSelectedGroupIndex}
                   metadata={meta}
                   matchDetails={matchDetails}
-                  onOpenEditModal={handleOpenEditModal}
+                  onOpenEditModal={readOnly ? undefined : handleOpenEditModal}
                   filterTeam={filterTeam}
+                  readOnly={readOnly}
                 />
               </div>
 
@@ -358,9 +363,10 @@ export function ScheduleView({
                   scores={scores}
                   onScoreChange={onScoreChange}
                   matchDetails={matchDetails}
-                  onOpenEditModal={handleOpenEditModal}
+                  onOpenEditModal={readOnly ? undefined : handleOpenEditModal}
                   filterTeam={filterTeam}
                   printBracketStyle={printSettings.bracketStyle}
+                  readOnly={readOnly}
                 />
               </div>
             </div>
@@ -371,8 +377,9 @@ export function ScheduleView({
               <div className="mb-6 print:mb-3">
                 <h2 className="text-lg font-bold text-pitch print:text-base">براکت حذفی مسابقات</h2>
                 <p className="text-xs text-ink/60 mt-1 print:text-[10px]">
-                  نتایج هر مسابقه را ثبت کنید تا تیم‌های برنده مستقیماً به مراحل بعدی و فینال راه پیدا
-                  کنند. در صورت تساوی، فیلد ضربات پنالتی فعال می‌شود.
+                  {readOnly
+                    ? "نمودار براکت حذفی مسابقات، نتایج بازی‌ها و صعودکنندگان تا مرحله فینال."
+                    : "نتایج هر مسابقه را ثبت کنید تا تیم‌های برنده مستقیماً به مراحل بعدی و فینال راه پیدا کنند. در صورت تساوی، فیلد ضربات پنالتی فعال می‌شود."}
                 </p>
               </div>
               <InteractiveBracket
@@ -380,9 +387,10 @@ export function ScheduleView({
                 scores={scores}
                 onScoreChange={onScoreChange}
                 matchDetails={matchDetails}
-                onOpenEditModal={handleOpenEditModal}
+                onOpenEditModal={readOnly ? undefined : handleOpenEditModal}
                 filterTeam={filterTeam}
                 printBracketStyle={printSettings.bracketStyle}
+                readOnly={readOnly}
               />
             </div>
           )}
@@ -405,9 +413,10 @@ export function ScheduleView({
                 scores={scores}
                 onScoreChange={onScoreChange}
                 matchDetails={matchDetails}
-                onOpenEditModal={handleOpenEditModal}
+                onOpenEditModal={readOnly ? undefined : handleOpenEditModal}
                 filterTeam={filterTeam}
                 printBracketStyle={printSettings.bracketStyle}
+                readOnly={readOnly}
               />
             </div>
           )}
@@ -726,6 +735,7 @@ function RoundsTable({
   matchDetails,
   onOpenEditModal,
   filterTeam,
+  readOnly = false,
 }: {
   rounds: RoundRobinRound[];
   title?: string;
@@ -742,6 +752,7 @@ function RoundsTable({
   matchDetails?: Record<string, MatchScheduleDetail>;
   onOpenEditModal?: (id: string, home: string, away: string) => void;
   filterTeam?: string;
+  readOnly?: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -803,40 +814,52 @@ function RoundsTable({
                           </span>
                         </div>
 
-                        {/* Score inputs */}
-                        <div className="mx-1 flex items-center gap-1.5 shrink-0 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200">
-                          <input
-                            type="number"
-                            min="0"
-                            max="99"
-                            value={sc.home !== null && sc.home !== undefined ? sc.home : ""}
-                            onChange={(e) => {
-                              const val =
-                                e.target.value === ""
-                                  ? null
-                                  : Math.max(0, parseInt(e.target.value) || 0);
-                              onScoreChange(matchId, val, sc.away ?? null);
-                            }}
-                            placeholder="-"
-                            className="w-8 sm:w-9 h-7 rounded-lg border border-slate-300 bg-white text-center font-black text-xs sm:text-sm text-slate-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
-                          />
-                          <span className="text-slate-400 font-bold">:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max="99"
-                            value={sc.away !== null && sc.away !== undefined ? sc.away : ""}
-                            onChange={(e) => {
-                              const val =
-                                e.target.value === ""
-                                  ? null
-                                  : Math.max(0, parseInt(e.target.value) || 0);
-                              onScoreChange(matchId, sc.home ?? null, val);
-                            }}
-                            placeholder="-"
-                            className="w-8 sm:w-9 h-7 rounded-lg border border-slate-300 bg-white text-center font-black text-xs sm:text-sm text-slate-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
-                          />
-                        </div>
+                        {/* Score display or inputs */}
+                        {readOnly ? (
+                          <div className="mx-1 flex items-center justify-center gap-1.5 shrink-0 bg-slate-100 px-3 py-1 rounded-xl border border-slate-200 min-w-[65px]">
+                            {sc.home !== null && sc.home !== undefined && sc.away !== null && sc.away !== undefined ? (
+                              <span className="font-black text-xs sm:text-sm text-slate-900 tracking-wider">
+                                {toPersianDigits(sc.home)} : {toPersianDigits(sc.away)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs font-bold">— : —</span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="mx-1 flex items-center gap-1.5 shrink-0 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200">
+                            <input
+                              type="number"
+                              min="0"
+                              max="99"
+                              value={sc.home !== null && sc.home !== undefined ? sc.home : ""}
+                              onChange={(e) => {
+                                const val =
+                                  e.target.value === ""
+                                    ? null
+                                    : Math.max(0, parseInt(e.target.value) || 0);
+                                onScoreChange(matchId, val, sc.away ?? null);
+                              }}
+                              placeholder="-"
+                              className="w-8 sm:w-9 h-7 rounded-lg border border-slate-300 bg-white text-center font-black text-xs sm:text-sm text-slate-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
+                            />
+                            <span className="text-slate-400 font-bold">:</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max="99"
+                              value={sc.away !== null && sc.away !== undefined ? sc.away : ""}
+                              onChange={(e) => {
+                                const val =
+                                  e.target.value === ""
+                                    ? null
+                                    : Math.max(0, parseInt(e.target.value) || 0);
+                                onScoreChange(matchId, sc.home ?? null, val);
+                              }}
+                              placeholder="-"
+                              className="w-8 sm:w-9 h-7 rounded-lg border border-slate-300 bg-white text-center font-black text-xs sm:text-sm text-slate-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all"
+                            />
+                          </div>
+                        )}
 
                         {/* Away Team */}
                         <div className="flex items-center justify-end gap-2 flex-1 min-w-0">
@@ -994,6 +1017,7 @@ function GroupsMatchesView({
   matchDetails,
   onOpenEditModal,
   filterTeam,
+  readOnly = false,
 }: {
   groups: GroupResult[];
   scores: Record<string, MatchScore>;
@@ -1011,6 +1035,7 @@ function GroupsMatchesView({
   matchDetails?: Record<string, MatchScheduleDetail>;
   onOpenEditModal?: (id: string, home: string, away: string) => void;
   filterTeam?: string;
+  readOnly?: boolean;
 }) {
   const filteredGroups =
     selectedGroupIndex === "all" ? groups : [groups[selectedGroupIndex]];
@@ -1062,6 +1087,7 @@ function GroupsMatchesView({
               matchDetails={matchDetails}
               onOpenEditModal={onOpenEditModal}
               filterTeam={filterTeam}
+              readOnly={readOnly}
             />
           </div>
         ))}
@@ -1640,6 +1666,7 @@ function InteractiveBracket({
   onOpenEditModal,
   filterTeam,
   printBracketStyle = "stages",
+  readOnly = false,
 }: {
   originalKnockout: ScheduleResult extends { knockout: infer K } ? K : any;
   groups?: GroupResult[];
@@ -1657,6 +1684,7 @@ function InteractiveBracket({
   onOpenEditModal?: (id: string, home: string, away: string) => void;
   filterTeam?: string;
   printBracketStyle?: "tree" | "stages" | "both";
+  readOnly?: boolean;
 }) {
   const { knockout, champion, runnerUp, thirdPlace } = useMemo(
     () => computeKnockoutWithScores(originalKnockout, scores, groups, pointsRule),
@@ -1754,6 +1782,7 @@ function InteractiveBracket({
                       onOpenEditModal={onOpenEditModal}
                       filterTeam={filterTeam}
                       checkDownstreamPlayed={checkDownstreamPlayed}
+                      readOnly={readOnly}
                     />
                   ))}
                 </div>
@@ -1792,6 +1821,7 @@ function InteractiveBracket({
               onOpenEditModal={onOpenEditModal}
               filterTeam={filterTeam}
               checkDownstreamPlayed={checkDownstreamPlayed}
+              readOnly={readOnly}
             />
           </div>
         </div>
@@ -1819,6 +1849,7 @@ function InteractiveDoubleKnockoutBracket({
   onOpenEditModal,
   filterTeam,
   printBracketStyle = "stages",
+  readOnly = false,
 }: {
   originalDoubleKnockout: DoubleKnockoutResult;
   scores: Record<string, MatchScore>;
@@ -1834,6 +1865,7 @@ function InteractiveDoubleKnockoutBracket({
   onOpenEditModal?: (id: string, home: string, away: string) => void;
   filterTeam?: string;
   printBracketStyle?: "tree" | "stages" | "both";
+  readOnly?: boolean;
 }) {
   const [bracketView, setBracketView] = useState<"all" | "winners" | "losers" | "finals">("all");
 
@@ -2038,6 +2070,7 @@ function InteractiveDoubleKnockoutBracket({
                         onOpenEditModal={onOpenEditModal}
                         filterTeam={filterTeam}
                         checkDownstreamPlayed={checkDownstreamPlayed}
+                        readOnly={readOnly}
                       />
                     ))}
                   </div>
@@ -2113,6 +2146,7 @@ function InteractiveDoubleKnockoutBracket({
                         onOpenEditModal={onOpenEditModal}
                         filterTeam={filterTeam}
                         checkDownstreamPlayed={checkDownstreamPlayed}
+                        readOnly={readOnly}
                       />
                     ))}
                   </div>
@@ -2157,6 +2191,7 @@ function InteractiveDoubleKnockoutBracket({
                 onOpenEditModal={onOpenEditModal}
                 filterTeam={filterTeam}
                 checkDownstreamPlayed={checkDownstreamPlayed}
+                readOnly={readOnly}
               />
             </div>
 
@@ -2172,6 +2207,7 @@ function InteractiveDoubleKnockoutBracket({
                   onOpenEditModal={onOpenEditModal}
                   filterTeam={filterTeam}
                   checkDownstreamPlayed={checkDownstreamPlayed}
+                  readOnly={readOnly}
                 />
               </div>
             )}
@@ -2203,6 +2239,7 @@ function MatchBracketCard({
   onOpenEditModal,
   filterTeam,
   checkDownstreamPlayed,
+  readOnly = false,
 }: {
   match: any;
   scores: Record<string, MatchScore>;
@@ -2220,6 +2257,7 @@ function MatchBracketCard({
   onOpenEditModal?: (id: string, home: string, away: string) => void;
   filterTeam?: string;
   checkDownstreamPlayed?: (matchId: string) => any;
+  readOnly?: boolean;
 }) {
   const sc = scores[m.id] || {
     home: m.homeScore ?? null,
@@ -2482,41 +2520,53 @@ function MatchBracketCard({
           </span>
         )}
         {isReadyToPlay && m.winner && (
-          <button
-            type="button"
-            onClick={() => {
-              if (isDownstreamBlocked) {
-                warnDownstreamPlayed();
-                return;
+          readOnly ? (
+            <span className="rounded px-2.5 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
+              ✓ برنده: {m.winner}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (isDownstreamBlocked) {
+                  warnDownstreamPlayed();
+                  return;
+                }
+                onScoreChange(m.id, null, null, null, null, null);
+              }}
+              className={
+                "rounded px-2 py-0.5 text-[10px] font-bold transition-all " +
+                (isDownstreamBlocked
+                  ? "bg-amber-100 text-amber-900 border border-amber-300 cursor-not-allowed"
+                  : "bg-pitch/10 text-pitch hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300 border border-pitch/20 cursor-pointer")
               }
-              onScoreChange(m.id, null, null, null, null, null);
-            }}
-            className={
-              "rounded px-2 py-0.5 text-[10px] font-bold transition-all " +
-              (isDownstreamBlocked
-                ? "bg-amber-100 text-amber-900 border border-amber-300 cursor-not-allowed"
-                : "bg-pitch/10 text-pitch hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300 border border-pitch/20 cursor-pointer")
-            }
-            title={
-              isDownstreamBlocked
-                ? `امکان لغو یا تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
-                : "کلیک برای لغو برنده و پاک کردن نتیجه این مسابقه"
-            }
-          >
-            ✓ برنده: {m.winner}
-            {!isDownstreamBlocked ? (
-              <span className="mr-1 text-[9px] opacity-75 font-normal">
-                (لغو ✕)
-              </span>
-            ) : (
-              <span className="mr-1 text-[9px] font-normal">🔒</span>
-            )}
-          </button>
+              title={
+                isDownstreamBlocked
+                  ? `امکان لغو یا تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
+                  : "کلیک برای لغو برنده و پاک کردن نتیجه این مسابقه"
+              }
+            >
+              ✓ برنده: {m.winner}
+              {!isDownstreamBlocked ? (
+                <span className="mr-1 text-[9px] opacity-75 font-normal">
+                  (لغو ✕)
+                </span>
+              ) : (
+                <span className="mr-1 text-[9px] font-normal">🔒</span>
+              )}
+            </button>
+          )
         )}
         {isReadyToPlay && !m.winner && (
-          <span className="rounded bg-sky-100 text-sky-800 px-2 py-0.5 text-[10px] font-bold border border-sky-300">
-            ⚽ آماده ثبت نتیجه
-          </span>
+          readOnly ? (
+            <span className="rounded bg-slate-100 text-slate-600 px-2 py-0.5 text-[10px] font-bold border border-slate-200">
+              ⏳ در انتظار برگزاری
+            </span>
+          ) : (
+            <span className="rounded bg-sky-100 text-sky-800 px-2 py-0.5 text-[10px] font-bold border border-sky-300">
+              ⚽ آماده ثبت نتیجه
+            </span>
+          )
         )}
       </div>
 
@@ -2560,84 +2610,117 @@ function MatchBracketCard({
         }
       >
         {isHomeReal ? (
-          <div className="flex items-center justify-between flex-1 gap-2">
-            <button
-              type="button"
-              onClick={handleHomeClick}
-              disabled={!isReadyToPlay || hasUnequalScore}
-              className={
-                "text-right flex-1 truncate text-xs font-semibold transition-colors " +
-                (isReadyToPlay
-                  ? isDownstreamBlocked
-                    ? "cursor-not-allowed text-ink hover:text-amber-800"
-                    : hasUnequalScore
-                    ? isHomeWinner
-                      ? "text-pitch cursor-default font-bold"
-                      : "text-ink/60 cursor-default"
-                    : isHomeWinner
-                    ? "text-pitch cursor-pointer hover:text-rose-700"
-                    : "hover:text-pitch cursor-pointer text-ink"
-                  : "cursor-default text-ink")
-              }
-              title={
-                !isReadyToPlay
-                  ? "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
-                  : isDownstreamBlocked
-                  ? `امکان تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
-                  : hasUnequalScore
-                  ? `برنده مسابقه مستقیماً با نتیجه گل‌ها تعیین شده است`
-                  : isHomeWinner
-                  ? `کلیک برای لغو انتخاب ${m.home} به عنوان برنده`
-                  : `کلیک برای انتخاب مستقیم ${m.home} به عنوان برنده`
-              }
-            >
-              <span>{m.home}</span>
-              {isHomeWinner && !isDownstreamBlocked && (
-                <span className="mr-1.5 inline-block text-[9px] text-pitch font-bold bg-pitch/10 border border-pitch/20 rounded px-1.5 py-0.2">
-                  ✓ برنده {hasUnequalScore ? "" : "(کلیک برای لغو)"}
-                </span>
-              )}
-              {isHomeWinner && isDownstreamBlocked && (
-                <span className="mr-1.5 inline-block text-[9px] text-amber-900 font-bold bg-amber-100 border border-amber-300 rounded px-1.5 py-0.2">
-                  🔒 قفل‌شده
-                </span>
-              )}
-              {isSingleBye && m.autoAdvance === m.home && (
-                <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
-                  ✓ صعود مستقیم
-                </span>
-              )}
-              {isPartiallyKnown && isHomeReal && (
-                <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
-                  حضور قطعی
-                </span>
-              )}
-            </button>
-
-            {isReadyToPlay && (
-              <input
-                type="number"
-                min="0"
-                max="99"
-                value={
-                  sc.home !== null && sc.home !== undefined ? sc.home : ""
-                }
-                onChange={handleHomeScoreInput}
-                placeholder="-"
+          readOnly ? (
+            <div className="flex items-center justify-between flex-1 gap-2">
+              <div
                 className={
-                  "w-9 h-7 text-center text-xs font-bold rounded border bg-white focus:outline-none " +
-                  (isDownstreamBlocked
-                    ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
-                    : "border-line focus:border-gold")
+                  "text-right flex-1 truncate text-xs font-semibold " +
+                  (isHomeWinner ? "text-emerald-800 font-black" : "text-slate-800")
+                }
+              >
+                <span>{m.home}</span>
+                {isHomeWinner && (
+                  <span className="mr-1.5 inline-block text-[10px] text-emerald-800 font-black bg-emerald-100 border border-emerald-300 rounded px-1.5 py-0.2">
+                    ✓ برنده
+                  </span>
+                )}
+                {isSingleBye && m.autoAdvance === m.home && (
+                  <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
+                    ✓ صعود مستقیم
+                  </span>
+                )}
+                {isPartiallyKnown && isHomeReal && (
+                  <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
+                    حضور قطعی
+                  </span>
+                )}
+              </div>
+              {isReadyToPlay && (
+                <div className="w-8 h-7 flex items-center justify-center rounded-lg bg-slate-100 border border-slate-200 font-black text-xs text-slate-900 shrink-0">
+                  {sc.home !== null && sc.home !== undefined ? toPersianDigits(sc.home) : "—"}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between flex-1 gap-2">
+              <button
+                type="button"
+                onClick={handleHomeClick}
+                disabled={!isReadyToPlay || hasUnequalScore}
+                className={
+                  "text-right flex-1 truncate text-xs font-semibold transition-colors " +
+                  (isReadyToPlay
+                    ? isDownstreamBlocked
+                      ? "cursor-not-allowed text-ink hover:text-amber-800"
+                      : hasUnequalScore
+                      ? isHomeWinner
+                        ? "text-pitch cursor-default font-bold"
+                        : "text-ink/60 cursor-default"
+                      : isHomeWinner
+                      ? "text-pitch cursor-pointer hover:text-rose-700"
+                      : "hover:text-pitch cursor-pointer text-ink"
+                    : "cursor-default text-ink")
                 }
                 title={
-                  isDownstreamBlocked
-                    ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
-                    : undefined
+                  !isReadyToPlay
+                    ? "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+                    : isDownstreamBlocked
+                    ? `امکان تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
+                    : hasUnequalScore
+                    ? `برنده مسابقه مستقیماً با نتیجه گل‌ها تعیین شده است`
+                    : isHomeWinner
+                    ? `کلیک برای لغو انتخاب ${m.home} به عنوان برنده`
+                    : `کلیک برای انتخاب مستقیم ${m.home} به عنوان برنده`
                 }
-              />
-            )}
-          </div>
+              >
+                <span>{m.home}</span>
+                {isHomeWinner && !isDownstreamBlocked && (
+                  <span className="mr-1.5 inline-block text-[9px] text-pitch font-bold bg-pitch/10 border border-pitch/20 rounded px-1.5 py-0.2">
+                    ✓ برنده {hasUnequalScore ? "" : "(کلیک برای لغو)"}
+                  </span>
+                )}
+                {isHomeWinner && isDownstreamBlocked && (
+                  <span className="mr-1.5 inline-block text-[9px] text-amber-900 font-bold bg-amber-100 border border-amber-300 rounded px-1.5 py-0.2">
+                    🔒 قفل‌شده
+                  </span>
+                )}
+                {isSingleBye && m.autoAdvance === m.home && (
+                  <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
+                    ✓ صعود مستقیم
+                  </span>
+                )}
+                {isPartiallyKnown && isHomeReal && (
+                  <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
+                    حضور قطعی
+                  </span>
+                )}
+              </button>
+
+              {isReadyToPlay && (
+                <input
+                  type="number"
+                  min="0"
+                  max="99"
+                  value={
+                    sc.home !== null && sc.home !== undefined ? sc.home : ""
+                  }
+                  onChange={handleHomeScoreInput}
+                  placeholder="-"
+                  className={
+                    "w-9 h-7 text-center text-xs font-bold rounded border bg-white focus:outline-none " +
+                    (isDownstreamBlocked
+                      ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                      : "border-line focus:border-gold")
+                  }
+                  title={
+                    isDownstreamBlocked
+                      ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                      : undefined
+                  }
+                />
+              )}
+            </div>
+          )
         ) : isEmptyDoubleBye || (isSingleBye && !isHomeReal) ? (
           <div className="flex items-center justify-between flex-1 py-0.5 text-ink/40 italic text-xs">
             <span>— قرعه استراحت (بدون بازی) —</span>
@@ -2659,84 +2742,117 @@ function MatchBracketCard({
         }
       >
         {isAwayReal ? (
-          <div className="flex items-center justify-between flex-1 gap-2">
-            <button
-              type="button"
-              onClick={handleAwayClick}
-              disabled={!isReadyToPlay || hasUnequalScore}
-              className={
-                "text-right flex-1 truncate text-xs font-semibold transition-colors " +
-                (isReadyToPlay
-                  ? isDownstreamBlocked
-                    ? "cursor-not-allowed text-ink hover:text-amber-800"
-                    : hasUnequalScore
-                    ? isAwayWinner
-                      ? "text-pitch cursor-default font-bold"
-                      : "text-ink/60 cursor-default"
-                    : isAwayWinner
-                    ? "text-pitch cursor-pointer hover:text-rose-700"
-                    : "hover:text-pitch cursor-pointer text-ink"
-                  : "cursor-default text-ink")
-              }
-              title={
-                !isReadyToPlay
-                  ? "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
-                  : isDownstreamBlocked
-                  ? `امکان تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
-                  : hasUnequalScore
-                  ? `برنده مسابقه مستقیماً با نتیجه گل‌ها تعیین شده است`
-                  : isAwayWinner
-                  ? `کلیک برای لغو انتخاب ${m.away} به عنوان برنده`
-                  : `کلیک برای انتخاب مستقیم ${m.away} به عنوان برنده`
-              }
-            >
-              <span>{m.away}</span>
-              {isAwayWinner && !isDownstreamBlocked && (
-                <span className="mr-1.5 inline-block text-[9px] text-pitch font-bold bg-pitch/10 border border-pitch/20 rounded px-1.5 py-0.2">
-                  ✓ برنده {hasUnequalScore ? "" : "(کلیک برای لغو)"}
-                </span>
-              )}
-              {isAwayWinner && isDownstreamBlocked && (
-                <span className="mr-1.5 inline-block text-[9px] text-amber-900 font-bold bg-amber-100 border border-amber-300 rounded px-1.5 py-0.2">
-                  🔒 قفل‌شده
-                </span>
-              )}
-              {isSingleBye && m.autoAdvance === m.away && (
-                <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
-                  ✓ صعود مستقیم
-                </span>
-              )}
-              {isPartiallyKnown && isAwayReal && (
-                <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
-                  حضور قطعی
-                </span>
-              )}
-            </button>
-
-            {isReadyToPlay && (
-              <input
-                type="number"
-                min="0"
-                max="99"
-                value={
-                  sc.away !== null && sc.away !== undefined ? sc.away : ""
-                }
-                onChange={handleAwayScoreInput}
-                placeholder="-"
+          readOnly ? (
+            <div className="flex items-center justify-between flex-1 gap-2">
+              <div
                 className={
-                  "w-9 h-7 text-center text-xs font-bold rounded border bg-white focus:outline-none " +
-                  (isDownstreamBlocked
-                    ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
-                    : "border-line focus:border-gold")
+                  "text-right flex-1 truncate text-xs font-semibold " +
+                  (isAwayWinner ? "text-emerald-800 font-black" : "text-slate-800")
+                }
+              >
+                <span>{m.away}</span>
+                {isAwayWinner && (
+                  <span className="mr-1.5 inline-block text-[10px] text-emerald-800 font-black bg-emerald-100 border border-emerald-300 rounded px-1.5 py-0.2">
+                    ✓ برنده
+                  </span>
+                )}
+                {isSingleBye && m.autoAdvance === m.away && (
+                  <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
+                    ✓ صعود مستقیم
+                  </span>
+                )}
+                {isPartiallyKnown && isAwayReal && (
+                  <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
+                    حضور قطعی
+                  </span>
+                )}
+              </div>
+              {isReadyToPlay && (
+                <div className="w-8 h-7 flex items-center justify-center rounded-lg bg-slate-100 border border-slate-200 font-black text-xs text-slate-900 shrink-0">
+                  {sc.away !== null && sc.away !== undefined ? toPersianDigits(sc.away) : "—"}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between flex-1 gap-2">
+              <button
+                type="button"
+                onClick={handleAwayClick}
+                disabled={!isReadyToPlay || hasUnequalScore}
+                className={
+                  "text-right flex-1 truncate text-xs font-semibold transition-colors " +
+                  (isReadyToPlay
+                    ? isDownstreamBlocked
+                      ? "cursor-not-allowed text-ink hover:text-amber-800"
+                      : hasUnequalScore
+                      ? isAwayWinner
+                        ? "text-pitch cursor-default font-bold"
+                        : "text-ink/60 cursor-default"
+                      : isAwayWinner
+                      ? "text-pitch cursor-pointer hover:text-rose-700"
+                      : "hover:text-pitch cursor-pointer text-ink"
+                    : "cursor-default text-ink")
                 }
                 title={
-                  isDownstreamBlocked
-                    ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
-                    : undefined
+                  !isReadyToPlay
+                    ? "امکان تعیین برنده تا مشخص شدن حریف غیرفعال است"
+                    : isDownstreamBlocked
+                    ? `امکان تغییر وجود ندارد؛ ابتدا نتیجه مسابقه مرحله بعد (${downstreamPlayed?.matchCode || "مرحله بعد"}) را پاک کنید`
+                    : hasUnequalScore
+                    ? `برنده مسابقه مستقیماً با نتیجه گل‌ها تعیین شده است`
+                    : isAwayWinner
+                    ? `کلیک برای لغو انتخاب ${m.away} به عنوان برنده`
+                    : `کلیک برای انتخاب مستقیم ${m.away} به عنوان برنده`
                 }
-              />
-            )}
-          </div>
+              >
+                <span>{m.away}</span>
+                {isAwayWinner && !isDownstreamBlocked && (
+                  <span className="mr-1.5 inline-block text-[9px] text-pitch font-bold bg-pitch/10 border border-pitch/20 rounded px-1.5 py-0.2">
+                    ✓ برنده {hasUnequalScore ? "" : "(کلیک برای لغو)"}
+                  </span>
+                )}
+                {isAwayWinner && isDownstreamBlocked && (
+                  <span className="mr-1.5 inline-block text-[9px] text-amber-900 font-bold bg-amber-100 border border-amber-300 rounded px-1.5 py-0.2">
+                    🔒 قفل‌شده
+                  </span>
+                )}
+                {isSingleBye && m.autoAdvance === m.away && (
+                  <span className="mr-1.5 inline-block text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.2">
+                    ✓ صعود مستقیم
+                  </span>
+                )}
+                {isPartiallyKnown && isAwayReal && (
+                  <span className="mr-1.5 inline-block text-[10px] text-amber-800 font-medium bg-amber-100/70 border border-amber-300 rounded px-1.5 py-0.2">
+                    حضور قطعی
+                  </span>
+                )}
+              </button>
+
+              {isReadyToPlay && (
+                <input
+                  type="number"
+                  min="0"
+                  max="99"
+                  value={
+                    sc.away !== null && sc.away !== undefined ? sc.away : ""
+                  }
+                  onChange={handleAwayScoreInput}
+                  placeholder="-"
+                  className={
+                    "w-9 h-7 text-center text-xs font-bold rounded border bg-white focus:outline-none " +
+                    (isDownstreamBlocked
+                      ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                      : "border-line focus:border-gold")
+                  }
+                  title={
+                    isDownstreamBlocked
+                      ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                      : undefined
+                  }
+                />
+              )}
+            </div>
+          )
         ) : isEmptyDoubleBye || (isSingleBye && !isAwayReal) ? (
           <div className="flex items-center justify-between flex-1 py-0.5 text-ink/40 italic text-xs">
             <span>— قرعه استراحت (بدون بازی) —</span>
@@ -2756,55 +2872,63 @@ function MatchBracketCard({
           <span className="text-[11px] font-bold text-gold-dark">
             ضربات پنالتی:
           </span>
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              min="0"
-              max="99"
-              value={
-                sc.homePenalty !== null && sc.homePenalty !== undefined
-                  ? sc.homePenalty
-                  : ""
-              }
-              onChange={handleHomePenaltyInput}
-              placeholder="میزبان"
-              className={
-                "w-10 h-6 text-center text-xs font-bold rounded border bg-white " +
-                (isDownstreamBlocked
-                  ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
-                  : "border-gold/60")
-              }
-              title={
-                isDownstreamBlocked
-                  ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
-                  : undefined
-              }
-            />
-            <span className="text-gold-dark font-bold">:</span>
-            <input
-              type="number"
-              min="0"
-              max="99"
-              value={
-                sc.awayPenalty !== null && sc.awayPenalty !== undefined
-                  ? sc.awayPenalty
-                  : ""
-              }
-              onChange={handleAwayPenaltyInput}
-              placeholder="میهمان"
-              className={
-                "w-10 h-6 text-center text-xs font-bold rounded border bg-white " +
-                (isDownstreamBlocked
-                  ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
-                  : "border-gold/60")
-              }
-              title={
-                isDownstreamBlocked
-                  ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
-                  : undefined
-              }
-            />
-          </div>
+          {readOnly ? (
+            <span className="font-black text-xs text-amber-950">
+              {sc.homePenalty !== null && sc.homePenalty !== undefined && sc.awayPenalty !== null && sc.awayPenalty !== undefined
+                ? `(${toPersianDigits(sc.homePenalty)} - ${toPersianDigits(sc.awayPenalty)})`
+                : "—"}
+            </span>
+          ) : (
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min="0"
+                max="99"
+                value={
+                  sc.homePenalty !== null && sc.homePenalty !== undefined
+                    ? sc.homePenalty
+                    : ""
+                }
+                onChange={handleHomePenaltyInput}
+                placeholder="میزبان"
+                className={
+                  "w-10 h-6 text-center text-xs font-bold rounded border bg-white " +
+                  (isDownstreamBlocked
+                    ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                    : "border-gold/60")
+                }
+                title={
+                  isDownstreamBlocked
+                    ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                    : undefined
+                }
+              />
+              <span className="text-gold-dark font-bold">:</span>
+              <input
+                type="number"
+                min="0"
+                max="99"
+                value={
+                  sc.awayPenalty !== null && sc.awayPenalty !== undefined
+                    ? sc.awayPenalty
+                    : ""
+                }
+                onChange={handleAwayPenaltyInput}
+                placeholder="میهمان"
+                className={
+                  "w-10 h-6 text-center text-xs font-bold rounded border bg-white " +
+                  (isDownstreamBlocked
+                    ? "border-amber-300 bg-amber-50/50 cursor-not-allowed"
+                    : "border-gold/60")
+                }
+                title={
+                  isDownstreamBlocked
+                    ? `نتیجه مسابقه مرحله بعد ثبت شده است؛ ابتدا آن را پاک کنید`
+                    : undefined
+                }
+              />
+            </div>
+          )}
         </div>
       )}
 

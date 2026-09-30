@@ -607,6 +607,30 @@ function db_get_tournament($pdo, $id, $userId) {
     ];
 }
 
+function db_get_public_tournament($pdo, $id) {
+    $stmt = $pdo->prepare("SELECT * FROM tournaments WHERE id = ? LIMIT 1");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    if (!$row) return null;
+
+    $stateData = json_decode($row['state'], true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        $stateData = $row['state'];
+    }
+
+    return [
+        'id'          => $row['id'],
+        'title'       => $row['title'],
+        'format'      => $row['format'],
+        'sport'       => $row['sport'],
+        'team_count'  => (int)$row['team_count'],
+        'teamCount'   => (int)$row['team_count'],
+        'state'       => $stateData,
+        'created_at'  => $row['created_at'],
+        'updated_at'  => $row['updated_at']
+    ];
+}
+
 function db_delete_tournament($pdo, $id, $userId) {
     $stmt = $pdo->prepare("DELETE FROM tournaments WHERE id = ? AND user_id = ?");
     $stmt->execute([$id, $userId]);
