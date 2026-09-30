@@ -16,7 +16,7 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { scores, matchDetails, result } = body || {};
+    const { scores, matchDetails, result, fallbackData } = body || {};
 
     let tournament = await db.getPublicTournament(tournamentId);
 
@@ -40,6 +40,20 @@ export async function POST(
           };
         }
       }
+    }
+
+    if (!tournament && fallbackData) {
+      tournament = {
+        id: tournamentId,
+        user_id: "public",
+        title: fallbackData.title || "مسابقات ورزشی",
+        format: fallbackData.format || "league",
+        sport: fallbackData.sport || null,
+        team_count: Number(fallbackData.teamCount) || 4,
+        state: fallbackData.state || {},
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
     }
 
     if (!tournament) {

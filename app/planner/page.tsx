@@ -520,7 +520,37 @@ function PlannerWizard() {
           await fetch(`/api/tournaments/${tid}/sync`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ scores, matchDetails, result }),
+            body: JSON.stringify({
+              scores,
+              matchDetails,
+              result,
+              fallbackData: {
+                title: metadata.title || FORMAT_OPTIONS.find((f) => f.key === format)?.title || "مسابقات ورزشی",
+                format,
+                sport: pointsRule?.sport,
+                teamCount,
+                state: {
+                  step: 4,
+                  format,
+                  teamCount,
+                  teamNames,
+                  numGroups,
+                  qualifiersPerGroup,
+                  seededTeams,
+                  avoidPairs,
+                  hasThirdPlace,
+                  hasResetFinal,
+                  independentSecondLeg,
+                  advanceBestThirds,
+                  pointsRule,
+                  metadata,
+                  result,
+                  scores,
+                  matchDetails,
+                  payment: { isPaid: true, amount: 200000 },
+                },
+              },
+            }),
           });
         } catch {
           // Fallback silently
