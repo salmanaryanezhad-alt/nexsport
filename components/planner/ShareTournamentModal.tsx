@@ -34,6 +34,21 @@ export function ShareTournamentModal({
   const [copied, setCopied] = useState(false);
   const [shareTextCopied, setShareTextCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quota, setQuota] = useState<{
+    isVip?: boolean;
+    freeLinkAvailable?: boolean;
+    planningCredits?: number;
+  } | null>(null);
+
+  const loadUserQuota = useCallback(async () => {
+    try {
+      const res = await fetch("/api/tournaments/quota");
+      if (res.ok) {
+        const data = await res.json();
+        setQuota(data);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     setActiveId(tournamentId);
@@ -87,6 +102,7 @@ export function ShareTournamentModal({
       setError(null);
 
       if (user) {
+        loadUserQuota();
         if (activeId) {
           checkPaymentStatus(activeId);
         } else {
@@ -94,7 +110,7 @@ export function ShareTournamentModal({
         }
       }
     }
-  }, [isOpen, user, activeId, checkPaymentStatus, handleAutoSave]);
+  }, [isOpen, user, activeId, checkPaymentStatus, handleAutoSave, loadUserQuota]);
 
   const encodedToken = useMemo(() => {
     let payload = tournamentData;
@@ -374,19 +390,37 @@ export function ShareTournamentModal({
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  <span className="font-black text-slate-800 text-xs sm:text-sm">
-                    مبلغ قابل پرداخت:
-                  </span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="font-black text-lg sm:text-xl text-emerald-700">
-                      {toPersianDigits(
-                        DEDICATED_LINK_PRICE_TOMANS.toLocaleString("en-US")
-                      )}
+                {quota?.isVip ? (
+                  <div className="rounded-xl bg-amber-100/70 border border-amber-300 p-2.5 text-amber-950 flex items-center justify-between">
+                    <span className="font-black text-xs flex items-center gap-1.5">
+                      <span>👑</span>
+                      <span>هدیه عضویت ویژه VIP (۱۰۰٪ رایگان)</span>
                     </span>
-                    <span className="font-bold text-slate-600 text-xs">تومان</span>
+                    <span className="font-black text-emerald-800 text-sm">۰ تومان</span>
                   </div>
-                </div>
+                ) : quota?.freeLinkAvailable ? (
+                  <div className="rounded-xl bg-emerald-100/80 border border-emerald-300 p-2.5 text-emerald-950 flex items-center justify-between">
+                    <span className="font-black text-xs flex items-center gap-1.5">
+                      <span>🎁</span>
+                      <span>هدیه اولین لینک مسابقه ثبت‌نام (۱۰۰٪ رایگان)</span>
+                    </span>
+                    <span className="font-black text-emerald-800 text-sm">۰ تومان</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="font-black text-slate-800 text-xs sm:text-sm">
+                      مبلغ قابل پرداخت:
+                    </span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="font-black text-lg sm:text-xl text-emerald-700">
+                        {toPersianDigits(
+                          DEDICATED_LINK_PRICE_TOMANS.toLocaleString("en-US")
+                        )}
+                      </span>
+                      <span className="font-bold text-slate-600 text-xs">تومان</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* What the organizer gets */}
@@ -437,14 +471,32 @@ export function ShareTournamentModal({
               <div className="pt-1 space-y-2">
                 <button
                   type="button"
-                  disabled={paymentLoading}
+                  disabled={paymentLoading || !activeId}
                   onClick={handleProcessPayment}
-                  className="w-full rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 py-3.5 px-4 text-white font-black text-sm sm:text-base shadow-lg shadow-emerald-700/20 hover:from-emerald-700 hover:to-teal-800 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+                  className={`w-full rounded-2xl py-3.5 px-4 font-black text-sm sm:text-base shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 ${
+                    quota?.isVip
+                      ? "bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-slate-950 shadow-amber-600/20 hover:from-amber-400 hover:to-amber-500"
+                      : quota?.freeLinkAvailable
+                      ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-emerald-700/20 hover:from-emerald-700 hover:to-teal-800"
+                      : "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-emerald-700/20 hover:from-emerald-700 hover:to-teal-800"
+                  }`}
                 >
                   {paymentLoading ? (
                     <>
-                      <div className="w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      <span>در حال تایید پرداخت و فعال‌سازی...</span>
+                      <div className="w-5 h-5 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                      <span>در حال فعال‌سازی لینک اختصاصی...</span>
+                    </>
+                  ) : quota?.isVip ? (
+                    <>
+                      <span>👑</span>
+                      <span>فعال‌سازی رایگان با اشتراک ویژه VIP (۰ تومان)</span>
+                      <span>←</span>
+                    </>
+                  ) : quota?.freeLinkAvailable ? (
+                    <>
+                      <span>🎁</span>
+                      <span>فعال‌سازی رایگان مسابقه (هدیه اولین لینک)</span>
+                      <span>←</span>
                     </>
                   ) : (
                     <>

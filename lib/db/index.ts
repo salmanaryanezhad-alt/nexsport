@@ -11,8 +11,18 @@ export interface UserRecord {
   password_hash: string;
   is_verified: boolean;
   role: string;
+  planning_credits?: number;
+  free_link_used?: boolean;
+  vip_expires_at?: Date | null;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface GuestUsageRecord {
+  ip: string;
+  count: number;
+  last_used_at: Date;
+  created_at: Date;
 }
 
 export interface EmailVerificationRecord {
@@ -123,6 +133,8 @@ const memoryStore = {
   sessions: new Map<string, SessionRecord>(),
   passwordResets: new Map<string, PasswordResetRecord>(),
   tournaments: new Map<string, TournamentRecord>(),
+  guestUsage: new Map<string, GuestUsageRecord>(),
+  orders: new Map<string, any>(),
 };
 
 function normalizeUserRow(row: any): UserRecord {
@@ -135,6 +147,12 @@ function normalizeUserRow(row: any): UserRecord {
     password_hash: row.password_hash,
     is_verified: Boolean(row.is_verified),
     role: isSuperAdmin ? "admin" : (row.role || "user"),
+    planning_credits:
+      row.planning_credits !== undefined && row.planning_credits !== null
+        ? Number(row.planning_credits)
+        : 5,
+    free_link_used: Boolean(row.free_link_used),
+    vip_expires_at: row.vip_expires_at ? new Date(row.vip_expires_at) : null,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
   };
@@ -227,6 +245,47 @@ async function initTablesIfRealDb() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      try {
+        await mysqlPool.query("ALTER TABLE `users` ADD COLUMN `planning_credits` INT DEFAULT 5");
+      } catch {}
+      try {
+        await mysqlPool.query("ALTER TABLE `users` ADD COLUMN `free_link_used` TINYINT(1) DEFAULT 0");
+      } catch {}
+      try {
+        await mysqlPool.query("ALTER TABLE `users` ADD COLUMN `vip_expires_at` TIMESTAMP NULL DEFAULT NULL");
+      } catch {}
+
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`guest_usage\` (
+          \`ip\` VARCHAR(64) NOT NULL,
+          \`count\` INT DEFAULT 0,
+          \`last_used_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`ip\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`payment_orders\` (
+          \`id\` VARCHAR(64) NOT NULL,
+          \`item_type\` VARCHAR(50) NOT NULL,
+          \`user_id\` VARCHAR(36) NOT NULL,
+          \`tournament_id\` VARCHAR(36) DEFAULT NULL,
+          \`item_quantity\` INT DEFAULT NULL,
+          \`item_duration_months\` INT DEFAULT NULL,
+          \`amount_tomans\` INT NOT NULL,
+          \`gateway\` VARCHAR(30) NOT NULL,
+          \`status\` VARCHAR(20) NOT NULL,
+          \`authority\` VARCHAR(100) DEFAULT NULL,
+          \`ref_id\` VARCHAR(100) DEFAULT NULL,
+          \`description\` TEXT,
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          \`paid_at\` TIMESTAMP NULL DEFAULT NULL,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_orders_user\` (\`user_id\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       tablesInitialized = true;
     } catch (err) {
       console.warn("[NexSport DB] MySQL table auto-init warning:", err);
@@ -299,6 +358,35 @@ async function initTablesIfRealDb() {
         );
 
         CREATE INDEX IF NOT EXISTS idx_tournaments_user_id ON tournaments(user_id);
+
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS planning_credits INT DEFAULT 5;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS free_link_used BOOLEAN DEFAULT FALSE;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS vip_expires_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+
+        CREATE TABLE IF NOT EXISTS guest_usage (
+          ip VARCHAR(64) PRIMARY KEY,
+          count INT DEFAULT 0,
+          last_used_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS payment_orders (
+          id VARCHAR(64) PRIMARY KEY,
+          item_type VARCHAR(50) NOT NULL,
+          user_id VARCHAR(36) NOT NULL,
+          tournament_id VARCHAR(36),
+          item_quantity INT,
+          item_duration_months INT,
+          amount_tomans INT NOT NULL,
+          gateway VARCHAR(30) NOT NULL,
+          status VARCHAR(20) NOT NULL,
+          authority VARCHAR(100),
+          ref_id VARCHAR(100),
+          description TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          paid_at TIMESTAMP WITH TIME ZONE
+        );
+        CREATE INDEX IF NOT EXISTS idx_orders_user ON payment_orders(user_id);
       `);
       tablesInitialized = true;
     } catch (err) {
@@ -1321,5 +1409,287 @@ export const db = {
       return true;
     }
     return false;
+  },
+
+  /* --- Guest IP & Quota Operations --- */
+
+  async getGuestUsage(ip: string): Promise<{ ip: string; count: number; remaining: number }> {
+    const cleanIp = (ip || "127.0.0.1").trim();
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT ip, count FROM `guest_usage` WHERE ip = ? LIMIT 1",
+        [cleanIp]
+      );
+      const count = rows[0]?.count ? Number(rows[0].count) : 0;
+      return { ip: cleanIp, count, remaining: Math.max(0, 2 - count) };
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT ip, count FROM guest_usage WHERE ip = $1 LIMIT 1",
+        [cleanIp]
+      );
+      const count = res.rows[0]?.count ? Number(res.rows[0].count) : 0;
+      return { ip: cleanIp, count, remaining: Math.max(0, 2 - count) };
+    }
+    const record = memoryStore.guestUsage.get(cleanIp);
+    const count = record ? record.count : 0;
+    return { ip: cleanIp, count, remaining: Math.max(0, 2 - count) };
+  },
+
+  async recordGuestUsage(ip: string): Promise<{ success: boolean; count: number; remaining: number }> {
+    const cleanIp = (ip || "127.0.0.1").trim();
+    const current = await this.getGuestUsage(cleanIp);
+    if (current.count >= 2) {
+      return { success: false, count: current.count, remaining: 0 };
+    }
+    const newCount = current.count + 1;
+    const now = new Date();
+
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute(
+        `INSERT INTO \`guest_usage\` (ip, count, last_used_at, created_at)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE count = ?, last_used_at = ?`,
+        [cleanIp, newCount, now, now, newCount, now]
+      );
+      return { success: true, count: newCount, remaining: Math.max(0, 2 - newCount) };
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query(
+        `INSERT INTO guest_usage (ip, count, last_used_at, created_at)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (ip) DO UPDATE SET count = $2, last_used_at = $3`,
+        [cleanIp, newCount, now, now]
+      );
+      return { success: true, count: newCount, remaining: Math.max(0, 2 - newCount) };
+    }
+    memoryStore.guestUsage.set(cleanIp, { ip: cleanIp, count: newCount, last_used_at: now, created_at: now });
+    return { success: true, count: newCount, remaining: Math.max(0, 2 - newCount) };
+  },
+
+  async getUserQuota(userId: string): Promise<{
+    isVip: boolean;
+    vipExpiresAt: Date | null;
+    planningCredits: number;
+    freeLinkAvailable: boolean;
+    role: string;
+  }> {
+    const user = await this.findUserById(userId);
+    if (!user) {
+      return {
+        isVip: false,
+        vipExpiresAt: null,
+        planningCredits: 0,
+        freeLinkAvailable: false,
+        role: "guest",
+      };
+    }
+    const isVip = Boolean(
+      user.vip_expires_at && new Date(user.vip_expires_at).getTime() > Date.now()
+    );
+    return {
+      isVip,
+      vipExpiresAt: user.vip_expires_at || null,
+      planningCredits: isVip
+        ? 999999
+        : user.planning_credits !== undefined
+        ? Number(user.planning_credits)
+        : 5,
+      freeLinkAvailable: !user.free_link_used,
+      role: user.role,
+    };
+  },
+
+  async consumePlanningCredit(userId: string): Promise<{
+    success: boolean;
+    isVip: boolean;
+    remainingCredits: number;
+    error?: string;
+  }> {
+    const user = await this.findUserById(userId);
+    if (!user) {
+      return { success: false, isVip: false, remainingCredits: 0, error: "کاربر یافت نشد." };
+    }
+    const isVip = Boolean(
+      user.vip_expires_at && new Date(user.vip_expires_at).getTime() > Date.now()
+    );
+    if (isVip) {
+      return { success: true, isVip: true, remainingCredits: 999999 };
+    }
+    const currentCredits = user.planning_credits !== undefined ? Number(user.planning_credits) : 5;
+    if (currentCredits <= 0) {
+      return {
+        success: false,
+        isVip: false,
+        remainingCredits: 0,
+        error: "اعتبار برنامه‌ریزی مسابقات شما به پایان رسیده است. جهت ادامه، لطفاً بسته اعتباری تهیه فرمایید یا به کاربر ویژه ارتقا دهید.",
+      };
+    }
+    const newCredits = currentCredits - 1;
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute("UPDATE `users` SET planning_credits = ? WHERE id = ?", [
+        newCredits,
+        userId,
+      ]);
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query("UPDATE users SET planning_credits = $1 WHERE id = $2", [
+        newCredits,
+        userId,
+      ]);
+    } else {
+      user.planning_credits = newCredits;
+      memoryStore.users.set(userId, user);
+    }
+    return { success: true, isVip: false, remainingCredits: newCredits };
+  },
+
+  async useFreeLink(userId: string): Promise<boolean> {
+    const user = await this.findUserById(userId);
+    if (!user) return false;
+    if (user.free_link_used) return false;
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute("UPDATE `users` SET free_link_used = 1 WHERE id = ?", [userId]);
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query("UPDATE users SET free_link_used = TRUE WHERE id = $1", [userId]);
+    } else {
+      user.free_link_used = true;
+      memoryStore.users.set(userId, user);
+    }
+    return true;
+  },
+
+  async addPlanningCredits(userId: string, count: number): Promise<number> {
+    const user = await this.findUserById(userId);
+    if (!user) return 0;
+    const currentCredits = user.planning_credits !== undefined ? Number(user.planning_credits) : 5;
+    const newCredits = currentCredits + Math.max(1, count);
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute("UPDATE `users` SET planning_credits = ? WHERE id = ?", [
+        newCredits,
+        userId,
+      ]);
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query("UPDATE users SET planning_credits = $1 WHERE id = $2", [
+        newCredits,
+        userId,
+      ]);
+    } else {
+      user.planning_credits = newCredits;
+      memoryStore.users.set(userId, user);
+    }
+    return newCredits;
+  },
+
+  async activateVipSubscription(userId: string, months: number): Promise<Date> {
+    const user = await this.findUserById(userId);
+    const now = new Date();
+    let currentExp =
+      user?.vip_expires_at && new Date(user.vip_expires_at).getTime() > now.getTime()
+        ? new Date(user.vip_expires_at)
+        : now;
+    const newExp = new Date(currentExp);
+    newExp.setMonth(newExp.getMonth() + Math.max(1, months));
+
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute("UPDATE `users` SET vip_expires_at = ? WHERE id = ?", [
+        newExp,
+        userId,
+      ]);
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query("UPDATE users SET vip_expires_at = $1 WHERE id = $2", [newExp, userId]);
+    } else if (user) {
+      user.vip_expires_at = newExp;
+      memoryStore.users.set(userId, user);
+    }
+    return newExp;
+  },
+
+  async savePaymentOrder(order: any): Promise<any> {
+    const id = order.id || `ord_${Date.now()}`;
+    const now = new Date();
+    const orderData = {
+      ...order,
+      id,
+      created_at: order.createdAt || order.created_at || now,
+    };
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute(
+        `INSERT INTO \`payment_orders\` (id, item_type, user_id, tournament_id, item_quantity, item_duration_months, amount_tomans, gateway, status, authority, ref_id, description, created_at, paid_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE status = VALUES(status), ref_id = VALUES(ref_id), paid_at = VALUES(paid_at)`,
+        [
+          id,
+          order.itemType || "tournament_link",
+          order.userId,
+          order.tournamentId || null,
+          order.itemQuantity || null,
+          order.itemDurationMonths || null,
+          order.amountTomans || 0,
+          order.gateway || "mock",
+          order.status || "pending",
+          order.authority || null,
+          order.refId || null,
+          order.description || null,
+          orderData.created_at,
+          order.paidAt ? new Date(order.paidAt) : null,
+        ]
+      );
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query(
+        `INSERT INTO payment_orders (id, item_type, user_id, tournament_id, item_quantity, item_duration_months, amount_tomans, gateway, status, authority, ref_id, description, created_at, paid_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         ON CONFLICT (id) DO UPDATE SET status = $9, ref_id = $11, paid_at = $14`,
+        [
+          id,
+          order.itemType || "tournament_link",
+          order.userId,
+          order.tournamentId || null,
+          order.itemQuantity || null,
+          order.itemDurationMonths || null,
+          order.amountTomans || 0,
+          order.gateway || "mock",
+          order.status || "pending",
+          order.authority || null,
+          order.refId || null,
+          order.description || null,
+          orderData.created_at,
+          order.paidAt ? new Date(order.paidAt) : null,
+        ]
+      );
+    } else {
+      memoryStore.orders.set(id, orderData);
+    }
+    return orderData;
+  },
+
+  async getPaymentOrder(orderId: string): Promise<any | null> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `payment_orders` WHERE id = ? LIMIT 1",
+        [orderId]
+      );
+      return rows[0] || null;
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query("SELECT * FROM payment_orders WHERE id = $1 LIMIT 1", [orderId]);
+      return res.rows[0] || null;
+    }
+    return memoryStore.orders.get(orderId) || null;
   },
 };

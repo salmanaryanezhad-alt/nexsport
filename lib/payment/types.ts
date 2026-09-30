@@ -7,16 +7,23 @@
  * touching frontend or business logic.
  */
 
+export * from "./pricing";
+
 export type PaymentGatewayType = "mock" | "zarinpal" | "idpay";
 
 export type PaymentStatus = "pending" | "paid" | "failed" | "canceled";
 
+export type PaymentItemType = "tournament_link" | "planning_credits" | "vip_subscription";
+
 export interface PaymentOrder {
   id: string; // Order reference, e.g. "ord_..."
-  tournamentId: string;
+  itemType: PaymentItemType;
+  tournamentId?: string;
   userId: string;
-  amountTomans: number; // 200,000 Tomans
-  amountRials: number; // 2,000,000 Rials
+  itemQuantity?: number; // for credits
+  itemDurationMonths?: number; // for VIP subscription (1, 3, 6, 12)
+  amountTomans: number;
+  amountRials: number;
   gateway: PaymentGatewayType;
   status: PaymentStatus;
   authority?: string;
@@ -67,8 +74,3 @@ export interface PaymentGatewayDriver {
   initiatePayment(params: InitiatePaymentParams): Promise<InitiatePaymentResult>;
   verifyPayment(params: VerifyPaymentParams): Promise<VerifyPaymentResult>;
 }
-
-/**
- * Standard Dedicated Link Activation Fee in Tomans (۲۰۰,۰۰۰ تومان)
- */
-export const DEDICATED_LINK_PRICE_TOMANS = 200000;

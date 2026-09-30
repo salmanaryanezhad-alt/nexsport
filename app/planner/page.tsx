@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, Suspense } from "react";
+import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import * as XLSX from "xlsx";
@@ -30,6 +30,7 @@ import {
 } from "@/components/planner/SavedTournamentsModal";
 import { ShareTournamentModal } from "@/components/planner/ShareTournamentModal";
 import { DrawCeremonyModal } from "@/components/planner/DrawCeremonyModal";
+import { StoreModal } from "@/components/planner/StoreModal";
 import { toPersianDigits, toEnglishDigits } from "@/lib/digits";
 import { encodeTournamentPayload } from "@/lib/tournamentCodec";
 
@@ -319,6 +320,35 @@ function PlannerWizard() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareModalTournamentId, setShareModalTournamentId] = useState<string | null>(null);
   const [shareModalTournamentTitle, setShareModalTournamentTitle] = useState<string>("");
+
+  // Store & Quota Management
+  const [storeModalOpen, setStoreModalOpen] = useState(false);
+  const [storeModalTab, setStoreModalTab] = useState<"credits" | "vip">("credits");
+  const [guestLimitModalOpen, setGuestLimitModalOpen] = useState(false);
+  const [quota, setQuota] = useState<{
+    isGuest: boolean;
+    planningCredits?: number;
+    freeLinkAvailable?: boolean;
+    isVip?: boolean;
+    vipExpiresAt?: string | null;
+    remaining?: number;
+    guestCount?: number;
+    guestLimit?: number;
+  } | null>(null);
+
+  const loadQuota = useCallback(async () => {
+    try {
+      const res = await fetch("/api/tournaments/quota");
+      if (res.ok) {
+        const data = await res.json();
+        setQuota(data);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadQuota();
+  }, [loadQuota, user]);
 
   // Live Draw Ceremony state
   const [showDrawCeremony, setShowDrawCeremony] = useState(false);
@@ -831,6 +861,24 @@ function PlannerWizard() {
   }
 
   function handleGenerate(isRedraw = false) {
+    // Quota check when creating a new tournament
+    if (!isRedraw) {
+      if (quota) {
+        if (quota.isGuest) {
+          if ((quota.guestCount ?? 0) >= (quota.guestLimit ?? 2)) {
+            setGuestLimitModalOpen(true);
+            return;
+          }
+        } else if (!quota.isVip) {
+          if ((quota.planningCredits ?? 5) <= 0) {
+            setStoreModalTab("credits");
+            setStoreModalOpen(true);
+            return;
+          }
+        }
+      }
+    }
+
     if (result && Object.keys(scores).length > 0) {
       const confirmed = window.confirm(
         "⚠️ توجه: شما قبلاً نتایجی برای این مسابقات ثبت کرده‌اید.\nبا تولید مجدد برنامه، تمامی گل‌ها و نتایج ثبت‌شده پاک خواهند شد.\n\nآیا از ادامه مطمئن هستید؟"
@@ -937,6 +985,30 @@ function PlannerWizard() {
       setScores({});
       setInfoMessage("🎲 قرعه‌کشی جدید با موفقیت اعمال و ثبت شد!");
       setTimeout(() => setInfoMessage(null), 3500);
+    } else {
+      // Consume quota for newly created tournament
+      fetch("/api/tournaments/quota", { method: "POST" })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.isGuest) {
+            setQuota((prev) =>
+              prev ? { ...prev, guestCount: data.count, remaining: data.remaining } : null
+            );
+            setInfoMessage(
+              `🎉 مسابقه رایگان مهمان ایجاد شد (${toPersianDigits(data.count)} از ۲). با ثبت‌نام ۵ مسابقه دیگر هدیه بگیرید.`
+            );
+            setTimeout(() => setInfoMessage(null), 5000);
+          } else if (!data.isVip) {
+            setQuota((prev) =>
+              prev ? { ...prev, planningCredits: data.remaining } : null
+            );
+            setInfoMessage(
+              `⚽ مسابقه ایجاد شد. اعتبار باقی‌مانده شما: ${toPersianDigits(data.remaining)} مسابقه.`
+            );
+            setTimeout(() => setInfoMessage(null), 4000);
+          }
+        })
+        .catch(() => {});
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -1383,6 +1455,51 @@ function PlannerWizard() {
               <span className="hidden sm:inline">ذخیره ابری</span>
             </button>
           )}
+
+          {/* Quota / Store Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!user && quota?.isGuest && (quota.guestCount ?? 0) >= (quota.guestLimit ?? 2)) {
+                setGuestLimitModalOpen(true);
+              } else {
+                setStoreModalOpen(true);
+              }
+            }}
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-black shadow-2xs transition-all cursor-pointer ${
+              quota?.isVip
+                ? "border-amber-400 bg-amber-50 text-amber-950 hover:bg-amber-100"
+                : quota?.isGuest
+                ? (quota.guestCount ?? 0) >= (quota.guestLimit ?? 2)
+                  ? "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 animate-pulse"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-emerald-500"
+                : (quota?.planningCredits ?? 5) > 0
+                ? "border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100/70"
+                : "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 animate-pulse"
+            }`}
+            title="افزایش اعتبار / اشتراک ویژه VIP"
+          >
+            {quota?.isVip ? (
+              <>
+                <span>👑</span>
+                <span>عضو VIP</span>
+              </>
+            ) : quota?.isGuest ? (
+              <>
+                <span>👤</span>
+                <span>
+                  مهمان: {toPersianDigits(quota.guestCount || 0)}/{toPersianDigits(quota.guestLimit || 2)}
+                </span>
+              </>
+            ) : (
+              <>
+                <span>💎</span>
+                <span>
+                  اعتبار: {toPersianDigits(quota?.planningCredits ?? 5)}
+                </span>
+              </>
+            )}
+          </button>
 
           <AuthHeaderNav />
 
@@ -3431,6 +3548,74 @@ function PlannerWizard() {
           onComplete={handleCeremonyComplete}
         />
       )}
+
+      {/* Guest Limit Modal */}
+      {guestLimitModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
+          <div
+            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-amber-300 text-right space-y-4"
+            dir="rtl"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 text-2xl shrink-0">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-black text-base text-slate-900">
+                  سقف مسابقات رایگان مهمان تکمیل شد
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  حداکثر ۲ مسابقه برای هر دستگاه مهمان
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-amber-50/80 border border-amber-200 p-3.5 text-xs text-amber-950 leading-relaxed space-y-2">
+              <p>
+                شما از سقف ۲ برنامه‌ریزی مسابقه رایگان کاربر مهمان در این دستگاه استفاده نموده‌اید.
+              </p>
+              <div className="font-bold text-emerald-900 bg-white/80 p-2.5 rounded-xl border border-emerald-200">
+                🎁 <strong>هدیه ثبت‌نام رایگان:</strong> با ثبت‌نام در کمتر از ۳۰ ثانیه،{" "}
+                <strong>۵ برنامه‌ریزی مسابقه + ۱ ایجاد لینک اختصاصی تماشاگران رایگان</strong>{" "}
+                دریافت کنید!
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setGuestLimitModalOpen(false);
+                  openAuthModal("register");
+                }}
+                className="w-full sm:flex-1 rounded-xl bg-emerald-600 py-2.5 px-4 font-black text-xs text-white hover:bg-emerald-700 shadow-sm transition-all cursor-pointer text-center"
+              >
+                ثبت‌نام سریع و دریافت هدیه ←
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setGuestLimitModalOpen(false);
+                  openAuthModal("login");
+                }}
+                className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white py-2.5 px-4 font-bold text-xs text-slate-700 hover:bg-slate-50 transition-all cursor-pointer text-center"
+              >
+                ورود به حساب
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Store & Membership Modal */}
+      <StoreModal
+        isOpen={storeModalOpen}
+        onClose={() => setStoreModalOpen(false)}
+        initialTab={storeModalTab}
+        onSuccess={() => {
+          loadQuota();
+        }}
+      />
     </main>
   );
 }

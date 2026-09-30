@@ -2,6 +2,7 @@ import { db } from "../db";
 import { hashPassword, verifyPassword } from "./password";
 import { generateVerificationCode } from "./email";
 import { cleanMobileNumber, toEnglishDigits, hasPersianLetters } from "./utils";
+import { paymentService } from "../payment";
 
 type TestFn = () => Promise<void> | void;
 
@@ -573,6 +574,205 @@ async function run() {
     });
 
     assertEqual(updatedTournament.state?.payment?.isPaid, true, "وضعیت پرداخت نباید پس از ویرایش نتایج مسابقه پاک شود.");
+  });
+
+  await test("محدودیت کاربر مهمان: حداکثر ۲ مسابقه با ثبت و بررسی IP", async () => {
+    const testIp = `192.168.10.${Math.floor(Math.random() * 200) + 10}`;
+
+    // 1. بررسی اولیه: ۰ مسابقه استفاده شده و ۲ مسابقه باقی‌مانده
+    const initial = await db.getGuestUsage(testIp);
+    assertEqual(initial.count, 0, "مهمان در ابتدا باید ۰ مسابقه داشته باشد.");
+    assertEqual(initial.remaining, 2, "مهمان باید ۲ مسابقه فرصت داشته باشد.");
+
+    // 2. ایجاد مسابقه اول مهمان
+    const step1 = await db.recordGuestUsage(testIp);
+    assertEqual(step1.success, true, "مسابقه اول مهمان باید با موفقیت ثبت شود.");
+    assertEqual(step1.count, 1, "تعداد مسابقات استفاده شده باید ۱ باشد.");
+    assertEqual(step1.remaining, 1, "۱ مسابقه باقی‌مانده است.");
+
+    // 3. ایجاد مسابقه دوم مهمان
+    const step2 = await db.recordGuestUsage(testIp);
+    assertEqual(step2.success, true, "مسابقه دوم مهمان باید با موفقیت ثبت شود.");
+    assertEqual(step2.count, 2, "تعداد مسابقات استفاده شده باید ۲ باشد.");
+    assertEqual(step2.remaining, 0, "۰ مسابقه باقی‌مانده است.");
+
+    // 4. تلاش برای ایجاد مسابقه سوم مهمان (باید رد شود)
+    const step3 = await db.recordGuestUsage(testIp);
+    assertEqual(step3.success, false, "مسابقه سوم مهمان باید رد شود (تکمیل سقف).");
+    assertEqual(step3.remaining, 0, "باقی‌مانده همچنان ۰ است.");
+  });
+
+  await test("سهمیه کاربر ثبت‌نام شده: ۵ برنامه‌ریزی مسابقه رایگان اولیه", async () => {
+    const registeredUser = await db.createUser({
+      name: "کاربر با ۵ مسابقه رایگان",
+      email: "free5user@nexsport.ir",
+      mobile: "09121112233",
+      passwordHash: hashPassword("Secret123"),
+      isVerified: true,
+    });
+
+    const quota = await db.getUserQuota(registeredUser.id);
+    assertEqual(quota.planningCredits, 5, "کاربر ثبت‌نام شده باید ۵ مسابقه رایگان داشته باشد.");
+    assertEqual(quota.freeLinkAvailable, true, "یک لینک هدیه رایگان باید فعال باشد.");
+    assertEqual(quota.isVip, false, "کاربر نباید در ابتدا VIP باشد.");
+
+    // استفاده از اعتبارها
+    for (let i = 1; i <= 5; i++) {
+      const res = await db.consumePlanningCredit(registeredUser.id);
+      assertEqual(res.success, true, `برنامه‌ریزی شماره ${i} باید موفقیت‌آمیز باشد.`);
+      assertEqual(res.remainingCredits, 5 - i, `اعتبار باقی‌مانده باید ${5 - i} باشد.`);
+    }
+
+    // تلاش برای برنامه‌ریزی ششم با اعتبار ۰ (باید رد شود)
+    const extra = await db.consumePlanningCredit(registeredUser.id);
+    assertEqual(extra.success, false, "برنامه‌ریزی بیش از ۵ مسابقه بدون خرید باید رد شود.");
+    assertEqual(extra.remainingCredits, 0, "اعتبار باقی‌مانده ۰ است.");
+
+    // خرید بسته اعتباری ۱۰ تایی
+    await db.addPlanningCredits(registeredUser.id, 10);
+    const afterBuyQuota = await db.getUserQuota(registeredUser.id);
+    assertEqual(afterBuyQuota.planningCredits, 10, "پس از خرید ۱۰ اعتبار باید موجودی ۱۰ شود.");
+
+    const afterBuyConsume = await db.consumePlanningCredit(registeredUser.id);
+    assertEqual(afterBuyConsume.success, true, "پس از شارژ اعتبار باید بتواند مسابقه ایجاد کند.");
+    assertEqual(afterBuyConsume.remainingCredits, 9, "موجودی باید ۹ شود.");
+  });
+
+  await test("فرمول محاسبات تخفیف بسته‌های اعتباری مسابقه (هر ۱۰ عدد ۱ درصد برای بالای ۱۰)", async () => {
+    const { calculateCreditPrice } = await import("../payment/pricing");
+
+    // ۱ تا ۱۰ عدد: ۰٪ تخفیف
+    const p5 = calculateCreditPrice(5);
+    assertEqual(p5.count, 5, "تعداد ۵");
+    assertEqual(p5.discountPercent, 0, "تخفیف ۵ عدد ۰٪ است.");
+    assertEqual(p5.finalPrice, 250000, "قیمت ۵ عدد ۲۵۰ هزار تومان است.");
+
+    const p10 = calculateCreditPrice(10);
+    assertEqual(p10.discountPercent, 0, "تخفیف ۱۰ عدد ۰٪ است.");
+    assertEqual(p10.finalPrice, 500000, "قیمت ۱۰ عدد ۵۰۰ هزار تومان است.");
+
+    // ۲۰ عدد: ۲٪ تخفیف
+    const p20 = calculateCreditPrice(20);
+    assertEqual(p20.discountPercent, 2, "تخفیف ۲۰ عدد ۲٪ است.");
+    assertEqual(p20.baseTotal, 1000000, "قیمت پایه ۲۰ عدد ۱ میلیون است.");
+    assertEqual(p20.discountTomans, 20000, "تخفیف ۲۰ هزار تومان.");
+    assertEqual(p20.finalPrice, 980000, "مبلغ نهایی ۹۸۰ هزار تومان.");
+
+    // ۵۰ عدد: ۵٪ تخفیف
+    const p50 = calculateCreditPrice(50);
+    assertEqual(p50.discountPercent, 5, "تخفیف ۵۰ عدد ۵٪ است.");
+    assertEqual(p50.finalPrice, 2375000, "مبلغ نهایی ۵۰ عدد ۲,۳۷۵,۰۰۰ تومان است.");
+
+    // ۱۰۰ عدد: ۱۰٪ تخفیف
+    const p100 = calculateCreditPrice(100);
+    assertEqual(p100.discountPercent, 10, "تخفیف ۱۰۰ عدد ۱۰٪ است.");
+    assertEqual(p100.finalPrice, 4500000, "مبلغ نهایی ۱۰۰ عدد ۴,۵۰۰,۰۰۰ تومان است.");
+
+    // عدد غیر رند و دلخواه (مثلاً ۲۵ عدد)
+    const p25 = calculateCreditPrice(25);
+    assertEqual(p25.count, 25, "تعداد ۲۵");
+    assertEqual(p25.discountPercent, 2, "تخفیف ۲۵ عدد ۲٪ است.");
+    assertEqual(p25.finalPrice, 1225000, "مبلغ نهایی ۲۵ عدد ۱,۲۲۵,۰۰۰ تومان است.");
+  });
+
+  await test("هدیه اولین ایجاد لینک اختصاصی رایگان و پرداخت برای لینک‌های دوم به بعد", async () => {
+    const user = await db.createUser({
+      name: "کاربر با لینک هدیه",
+      email: "freelinkuser@nexsport.ir",
+      mobile: "09123334455",
+      passwordHash: hashPassword("Pass123"),
+      isVerified: true,
+    });
+
+    const t1 = await db.saveTournament({
+      userId: user.id,
+      title: "مسابقه اول",
+      format: "league",
+      teamCount: 4,
+      state: { step: 4 },
+    });
+
+    const t2 = await db.saveTournament({
+      userId: user.id,
+      title: "مسابقه دوم",
+      format: "knockout",
+      teamCount: 4,
+      state: { step: 4 },
+    });
+
+    // ۱. فعال‌سازی لینک اول با استفاده از هدیه ثبت‌نام (۰ تومان)
+    const giftResult = await paymentService.initiateTournamentPayment({
+      tournamentId: t1.id,
+      userId: user.id,
+      useFreeGift: true,
+    });
+    assertEqual(giftResult.success, true, "فعال‌سازی لینک اول باید موفق باشد.");
+    assertEqual(giftResult.isFreeGift, true, "باید هدیه رایگان باشد.");
+    assertEqual(giftResult.paymentInfo.amount, 0, "مبلغ هدیه باید ۰ تومان باشد.");
+
+    const t1Paid = await paymentService.isTournamentPaid(t1.id);
+    assertEqual(t1Paid, true, "لینک مسابقه اول باید فعال شده باشد.");
+
+    // ۲. بررسی سهمیه پس از استفاده از هدیه: freeLinkAvailable باید false باشد
+    const quotaAfter = await db.getUserQuota(user.id);
+    assertEqual(quotaAfter.freeLinkAvailable, false, "هدیه لینک اول مصرف شده است.");
+
+    // ۳. فعال‌سازی لینک مسابقه دوم: باید ۲۰۰,۰۰۰ تومان پرداخت شود
+    const secondResult = await paymentService.initiateTournamentPayment({
+      tournamentId: t2.id,
+      userId: user.id,
+      useFreeGift: true, // حتی اگر درخواست دهد، چون هدیه تمام شده، پرداخت عادی اعمال می‌شود
+    });
+    assertEqual(secondResult.success, true, "پرداخت لینک دوم باید با موفقیت ثبت شود.");
+    assertEqual(secondResult.paymentInfo.amount, 200000, "لینک دوم باید ۲۰۰,۰۰۰ تومان باشد.");
+  });
+
+  await test("اشتراک کاربر ویژه VIP: برنامه‌ریزی نامحدود و ایجاد نامحدود لینک‌های رایگان", async () => {
+    const vipUser = await db.createUser({
+      name: "کاربر ویژه طلایی",
+      email: "vipuser@nexsport.ir",
+      mobile: "09129998877",
+      passwordHash: hashPassword("VipPass123"),
+      isVerified: true,
+    });
+
+    // صفر کردن اعتبار کاربر برای آزمایش عملکرد VIP
+    await db.consumePlanningCredit(vipUser.id);
+    await db.consumePlanningCredit(vipUser.id);
+    await db.consumePlanningCredit(vipUser.id);
+    await db.consumePlanningCredit(vipUser.id);
+    await db.consumePlanningCredit(vipUser.id);
+
+    // فعال‌سازی اشتراک ۳ ماهه VIP
+    await db.activateVipSubscription(vipUser.id, 3);
+
+    const vipQuota = await db.getUserQuota(vipUser.id);
+    assertEqual(vipQuota.isVip, true, "کاربر باید دارای وضعیت VIP باشد.");
+
+    // ۱. برنامه‌ریزی نامحدود (حتی اگر اعتبار عادی ۰ بوده است)
+    const consumeRes = await db.consumePlanningCredit(vipUser.id);
+    assertEqual(consumeRes.success, true, "کاربر VIP بدون محدودیت مسابقه ایجاد می‌کند.");
+    assertEqual(consumeRes.isVip, true, "تایید هویت VIP در برنامه‌ریزی.");
+
+    // ۲. ایجاد لینک اختصاصی رایگان برای مسابقه (بدون پرداخت ۲۰۰,۰۰۰ تومان)
+    const vipTournament = await db.saveTournament({
+      userId: vipUser.id,
+      title: "مسابقه بزرگ VIP",
+      format: "double-knockout",
+      teamCount: 8,
+      state: { step: 4 },
+    });
+
+    const vipLinkResult = await paymentService.initiateTournamentPayment({
+      tournamentId: vipTournament.id,
+      userId: vipUser.id,
+    });
+    assertEqual(vipLinkResult.success, true, "لینک برای کاربر ویژه باید فعال شود.");
+    assertEqual(vipLinkResult.isVipFree, true, "فلگ isVipFree باید true باشد.");
+    assertEqual(vipLinkResult.paymentInfo.amount, 0, "مبلغ ایجاد لینک برای کاربر ویژه ۰ تومان است.");
+
+    const isVipPaid = await paymentService.isTournamentPaid(vipTournament.id);
+    assertEqual(isVipPaid, true, "لینک مسابقه کاربر ویژه باید فعال باشد.");
   });
 
   console.log("\n======================================");
