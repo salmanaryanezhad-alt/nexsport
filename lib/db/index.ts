@@ -25,6 +25,18 @@ export interface GuestUsageRecord {
   created_at: Date;
 }
 
+export interface DiscountCodeRecord {
+  id: string;
+  code: string;
+  discount_percent: number;
+  applies_to: "planning" | "link" | "all";
+  expires_at: Date | null;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+  created_by?: string | null;
+}
+
 export interface EmailVerificationRecord {
   id: string;
   user_id: string;
@@ -134,8 +146,22 @@ const memoryStore = {
   passwordResets: new Map<string, PasswordResetRecord>(),
   tournaments: new Map<string, TournamentRecord>(),
   guestUsage: new Map<string, GuestUsageRecord>(),
+  discountCodes: new Map<string, DiscountCodeRecord>(),
   orders: new Map<string, any>(),
 };
+
+function normalizeDiscountRow(row: any): DiscountCodeRecord {
+  return {
+    id: row.id,
+    code: String(row.code || "").trim().toUpperCase(),
+    discount_percent: Number(row.discount_percent),
+    applies_to: row.applies_to || "all",
+    expires_at: row.expires_at ? new Date(row.expires_at) : null,
+    is_active: Boolean(row.is_active),
+    created_at: new Date(row.created_at),
+    updated_at: new Date(row.updated_at),
+  };
+}
 
 function normalizeUserRow(row: any): UserRecord {
   const isSuperAdmin = String(row.email || "").trim().toLowerCase() === "salman.aryanezhad@gmail.com";
@@ -286,6 +312,21 @@ async function initTablesIfRealDb() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`discount_codes\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`code\` VARCHAR(50) NOT NULL,
+          \`discount_percent\` INT NOT NULL,
+          \`applies_to\` VARCHAR(20) DEFAULT 'all',
+          \`expires_at\` TIMESTAMP NULL DEFAULT NULL,
+          \`is_active\` TINYINT(1) DEFAULT 1,
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          UNIQUE KEY \`uniq_discount_code\` (\`code\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       tablesInitialized = true;
     } catch (err) {
       console.warn("[NexSport DB] MySQL table auto-init warning:", err);
@@ -387,6 +428,18 @@ async function initTablesIfRealDb() {
           paid_at TIMESTAMP WITH TIME ZONE
         );
         CREATE INDEX IF NOT EXISTS idx_orders_user ON payment_orders(user_id);
+
+        CREATE TABLE IF NOT EXISTS discount_codes (
+          id VARCHAR(36) PRIMARY KEY,
+          code VARCHAR(50) UNIQUE NOT NULL,
+          discount_percent INT NOT NULL,
+          applies_to VARCHAR(20) DEFAULT 'all',
+          expires_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_discount_code ON discount_codes(code);
       `);
       tablesInitialized = true;
     } catch (err) {
@@ -1691,5 +1744,208 @@ export const db = {
       return res.rows[0] || null;
     }
     return memoryStore.orders.get(orderId) || null;
+  },
+
+  /* --- Discount Codes Operations --- */
+
+  async listDiscountCodes(): Promise<DiscountCodeRecord[]> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `discount_codes` ORDER BY created_at DESC"
+      );
+      return rows.map(normalizeDiscountRow);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query("SELECT * FROM discount_codes ORDER BY created_at DESC");
+      return res.rows.map(normalizeDiscountRow);
+    }
+    return Array.from(memoryStore.discountCodes.values())
+      .map(normalizeDiscountRow)
+      .sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
+  },
+
+  async createDiscountCode(data: {
+    code: string;
+    discountPercent: number;
+    appliesTo: "planning" | "link" | "all";
+    expiresAt?: Date | null;
+    isActive?: boolean;
+    createdBy?: string;
+  }): Promise<DiscountCodeRecord> {
+    const id = crypto.randomUUID();
+    const cleanCode = data.code.trim().toUpperCase();
+    const discountPercent = Math.min(
+      100,
+      Math.max(1, Math.round(Number(data.discountPercent) || 10))
+    );
+    const appliesTo = data.appliesTo || "all";
+    const expiresAt = data.expiresAt || null;
+    const isActive = data.isActive !== undefined ? Boolean(data.isActive) : true;
+    const now = new Date();
+
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute(
+        `INSERT INTO \`discount_codes\` (id, code, discount_percent, applies_to, expires_at, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, cleanCode, discountPercent, appliesTo, expiresAt, isActive ? 1 : 0, now, now]
+      );
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query(
+        `INSERT INTO discount_codes (id, code, discount_percent, applies_to, expires_at, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [id, cleanCode, discountPercent, appliesTo, expiresAt, isActive, now, now]
+      );
+    }
+
+    const record: DiscountCodeRecord = {
+      id,
+      code: cleanCode,
+      discount_percent: discountPercent,
+      applies_to: appliesTo,
+      expires_at: expiresAt,
+      is_active: isActive,
+      created_at: now,
+      updated_at: now,
+    };
+    memoryStore.discountCodes.set(id, record);
+    return record;
+  },
+
+  async toggleDiscountCode(id: string, desiredActive?: boolean): Promise<DiscountCodeRecord | null> {
+    const now = new Date();
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `discount_codes` WHERE id = ? LIMIT 1",
+        [id]
+      );
+      if (!rows[0]) return null;
+      const newActive = desiredActive !== undefined ? (desiredActive ? 1 : 0) : (rows[0].is_active ? 0 : 1);
+      await mysqlPool.execute(
+        "UPDATE `discount_codes` SET is_active = ?, updated_at = ? WHERE id = ?",
+        [newActive, now, id]
+      );
+      const [updated] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `discount_codes` WHERE id = ? LIMIT 1",
+        [id]
+      );
+      return normalizeDiscountRow(updated[0]);
+    }
+
+    if (pgPool) {
+      await initTablesIfRealDb();
+      if (desiredActive !== undefined) {
+        const res = await pgPool.query(
+          "UPDATE discount_codes SET is_active = $1, updated_at = $2 WHERE id = $3 RETURNING *",
+          [desiredActive, now, id]
+        );
+        return res.rows[0] ? normalizeDiscountRow(res.rows[0]) : null;
+      }
+      const res = await pgPool.query(
+        "UPDATE discount_codes SET is_active = NOT is_active, updated_at = $1 WHERE id = $2 RETURNING *",
+        [now, id]
+      );
+      return res.rows[0] ? normalizeDiscountRow(res.rows[0]) : null;
+    }
+
+    const record = memoryStore.discountCodes.get(id);
+    if (!record) return null;
+    record.is_active = desiredActive !== undefined ? Boolean(desiredActive) : !record.is_active;
+    record.updated_at = now;
+    memoryStore.discountCodes.set(id, record);
+    return normalizeDiscountRow(record);
+  },
+
+  async deleteDiscountCode(id: string): Promise<boolean> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [res] = await mysqlPool.execute<ResultSetHeader>(
+        "DELETE FROM `discount_codes` WHERE id = ?",
+        [id]
+      );
+      return (res.affectedRows ?? 0) > 0;
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query("DELETE FROM discount_codes WHERE id = $1", [id]);
+      return (res.rowCount ?? 0) > 0;
+    }
+    return memoryStore.discountCodes.delete(id);
+  },
+
+  async validateDiscountCode(
+    code: string,
+    itemType: "planning" | "link"
+  ): Promise<{
+    valid: boolean;
+    discount?: DiscountCodeRecord;
+    discountPercent?: number;
+    error?: string;
+  }> {
+    const cleanCode = String(code || "").trim().toUpperCase();
+    if (!cleanCode) {
+      return { valid: false, error: "لطفاً کد تخفیف را وارد فرمایید." };
+    }
+
+    let record: DiscountCodeRecord | null = null;
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `discount_codes` WHERE code = ? LIMIT 1",
+        [cleanCode]
+      );
+      if (rows[0]) record = normalizeDiscountRow(rows[0]);
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT * FROM discount_codes WHERE code = $1 LIMIT 1",
+        [cleanCode]
+      );
+      if (res.rows[0]) record = normalizeDiscountRow(res.rows[0]);
+    } else {
+      for (const d of memoryStore.discountCodes.values()) {
+        if (d.code === cleanCode) {
+          record = normalizeDiscountRow(d);
+          break;
+        }
+      }
+    }
+
+    if (!record) {
+      return { valid: false, error: "کد تخفیف وارد شده معتبر نیست." };
+    }
+
+    if (!record.is_active) {
+      return { valid: false, error: "این کد تخفیف در حال حاضر غیرفعال است." };
+    }
+
+    if (record.expires_at && new Date(record.expires_at).getTime() < Date.now()) {
+      return { valid: false, error: "مهلت استفاده از این کد تخفیف به پایان رسیده است." };
+    }
+
+    if (record.applies_to !== "all" && record.applies_to !== itemType) {
+      if (record.applies_to === "planning") {
+        return {
+          valid: false,
+          error: "این کد تخفیف فقط برای بسته‌ها و اشتراک‌های برنامه‌ریزی مسابقات قابل استفاده است.",
+        };
+      }
+      if (record.applies_to === "link") {
+        return {
+          valid: false,
+          error: "این کد تخفیف فقط برای فعال‌سازی لینک اختصاصی تماشاگران قابل استفاده است.",
+        };
+      }
+    }
+
+    return {
+      valid: true,
+      discount: record,
+      discountPercent: record.discount_percent,
+    };
   },
 };

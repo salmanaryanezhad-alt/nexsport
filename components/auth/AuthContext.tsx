@@ -18,6 +18,7 @@ interface AuthContextType {
   isAuthModalOpen: boolean;
   isProfileModalOpen: boolean;
   isUsersModalOpen: boolean;
+  isDiscountsModalOpen: boolean;
   modalTab: "login" | "register" | "verify" | "forgot" | "reset";
   pendingEmail: string | null;
   demoVerificationCode: string | null;
@@ -27,6 +28,8 @@ interface AuthContextType {
   closeProfileModal: () => void;
   openUsersModal: () => void;
   closeUsersModal: () => void;
+  openDiscountsModal: () => void;
+  closeDiscountsModal: () => void;
   setPendingVerification: (email: string) => void;
   login: (
     identifier: string,
@@ -61,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
+  const [isDiscountsModalOpen, setIsDiscountsModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [demoVerificationCode, setDemoVerificationCode] = useState<string | null>(null);
@@ -148,6 +152,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   function closeUsersModal() {
     setIsUsersModalOpen(false);
+  }
+
+  function openDiscountsModal() {
+    setIsDiscountsModalOpen(true);
+  }
+
+  function closeDiscountsModal() {
+    setIsDiscountsModalOpen(false);
   }
 
   function setPendingVerification(email: string) {
@@ -422,6 +434,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthModalOpen,
         isProfileModalOpen,
         isUsersModalOpen,
+        isDiscountsModalOpen,
         modalTab,
         pendingEmail,
         demoVerificationCode,
@@ -431,6 +444,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         closeProfileModal,
         openUsersModal,
         closeUsersModal,
+        openDiscountsModal,
+        closeDiscountsModal,
         setPendingVerification,
         login,
         register,

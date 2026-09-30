@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 
 export function AuthHeaderNav() {
-  const { user, isAdmin, openAuthModal, openProfileModal, openUsersModal, logout } = useAuth();
+  const { user, isAdmin, openAuthModal, openProfileModal, openUsersModal, openDiscountsModal, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -108,15 +108,26 @@ export function AuthHeaderNav() {
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
       {isAdmin && (
-        <button
-          type="button"
-          onClick={openUsersModal}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-pitch/10 hover:bg-pitch/15 border border-pitch/25 text-pitch px-2.5 py-1 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs"
-          title="مشاهده آمار و مدیریت اعضای ثبت‌نام شده"
-        >
-          <span>👥</span>
-          <span className="hidden sm:inline">مدیریت کاربران</span>
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={openUsersModal}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-pitch/10 hover:bg-pitch/15 border border-pitch/25 text-pitch px-2.5 py-1 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs"
+            title="مشاهده آمار و مدیریت اعضای ثبت‌نام شده"
+          >
+            <span>👥</span>
+            <span className="hidden sm:inline">کاربران</span>
+          </button>
+          <button
+            type="button"
+            onClick={openDiscountsModal}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 px-2.5 py-1 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs"
+            title="تعریف و مدیریت کدهای تخفیف"
+          >
+            <span>🏷️</span>
+            <span className="hidden sm:inline">کدهای تخفیف</span>
+          </button>
+        </>
       )}
 
       <div className="relative inline-block text-right" ref={dropdownRef}>
@@ -167,22 +178,40 @@ export function AuthHeaderNav() {
 
             {/* Action links */}
             {isAdmin && (
-              <button
-                type="button"
-                onClick={() => {
-                  setDropdownOpen(false);
-                  openUsersModal();
-                }}
-                className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-bold text-pitch bg-pitch/10 hover:bg-pitch/15 border border-pitch/20 transition-colors flex items-center justify-between cursor-pointer mb-1.5 shadow-2xs"
-              >
-                <span className="flex items-center gap-1.5">
-                  <span>👥</span>
-                  <span>مدیریت کاربران سامانه</span>
-                </span>
-                <span className="text-[10px] bg-pitch text-white px-1.5 py-0.5 rounded-full font-bold">
-                  مدیر
-                </span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    openUsersModal();
+                  }}
+                  className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-bold text-pitch bg-pitch/10 hover:bg-pitch/15 border border-pitch/20 transition-colors flex items-center justify-between cursor-pointer mb-1 shadow-2xs"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>👥</span>
+                    <span>مدیریت کاربران سامانه</span>
+                  </span>
+                  <span className="text-[10px] bg-pitch text-white px-1.5 py-0.5 rounded-full font-bold">
+                    مدیر
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    openDiscountsModal();
+                  }}
+                  className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 transition-colors flex items-center justify-between cursor-pointer mb-2 shadow-2xs"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>🏷️</span>
+                    <span>مدیریت کدهای تخفیف</span>
+                  </span>
+                  <span className="text-[10px] bg-emerald-700 text-white px-1.5 py-0.5 rounded-full font-bold">
+                    تخفیف
+                  </span>
+                </button>
+              </>
             )}
 
             <button

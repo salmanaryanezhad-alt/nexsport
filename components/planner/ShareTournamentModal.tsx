@@ -40,6 +40,17 @@ export function ShareTournamentModal({
     planningCredits?: number;
   } | null>(null);
 
+  // Discount code state
+  const [discountCodeInput, setDiscountCodeInput] = useState("");
+  const [validatingDiscount, setValidatingDiscount] = useState(false);
+  const [discountError, setDiscountError] = useState<string | null>(null);
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    code: string;
+    discountPercent: number;
+    discountAmount: number;
+    finalAmount: number;
+  } | null>(null);
+
   const loadUserQuota = useCallback(async () => {
     try {
       const res = await fetch("/api/tournaments/quota");
@@ -223,6 +234,54 @@ export function ShareTournamentModal({
     window.open(url, "_self");
   }
 
+  async function handleApplyDiscount(codeToValidate?: string) {
+    const rawCode = (codeToValidate ?? discountCodeInput).trim().toUpperCase();
+    if (!rawCode) {
+      setDiscountError("لطفاً کد تخفیف را وارد نمایید.");
+      return;
+    }
+
+    setValidatingDiscount(true);
+    setDiscountError(null);
+
+    try {
+      const res = await fetch("/api/discount/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: rawCode,
+          itemType: "link",
+          baseAmount: DEDICATED_LINK_PRICE_TOMANS,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        setDiscountError(data.error || "کد تخفیف معتبر نمی‌باشد یا منقضی شده است.");
+        setAppliedDiscount(null);
+        return;
+      }
+
+      setAppliedDiscount({
+        code: data.code,
+        discountPercent: data.discountPercent,
+        discountAmount: data.discountAmount,
+        finalAmount: data.finalAmount,
+      });
+      setDiscountError(null);
+    } catch {
+      setDiscountError("خطا در بررسی کد تخفیف.");
+    } finally {
+      setValidatingDiscount(false);
+    }
+  }
+
+  function handleRemoveDiscount() {
+    setAppliedDiscount(null);
+    setDiscountCodeInput("");
+    setDiscountError(null);
+  }
+
   /**
    * Handle Payment & Link Activation
    * Calls /api/payment/create which connects to payment driver.
@@ -242,7 +301,10 @@ export function ShareTournamentModal({
       const res = await fetch("/api/payment/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tournamentId: activeId }),
+        body: JSON.stringify({
+          tournamentId: activeId,
+          discountCode: appliedDiscount ? appliedDiscount.code : undefined,
+        }),
       });
 
       const data = await res.json();
@@ -407,21 +469,110 @@ export function ShareTournamentModal({
                     <span className="font-black text-emerald-800 text-sm">۰ تومان</span>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="font-black text-slate-800 text-xs sm:text-sm">
-                      مبلغ قابل پرداخت:
-                    </span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-black text-lg sm:text-xl text-emerald-700">
-                        {toPersianDigits(
-                          DEDICATED_LINK_PRICE_TOMANS.toLocaleString("en-US")
-                        )}
-                      </span>
-                      <span className="font-bold text-slate-600 text-xs">تومان</span>
-                    </div>
+                  <div className="space-y-2 pt-1">
+                    {appliedDiscount ? (
+                      <>
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <span>قیمت اصلی:</span>
+                          <del className="line-through font-bold">
+                            {toPersianDigits(DEDICATED_LINK_PRICE_TOMANS.toLocaleString("en-US"))} تومان
+                          </del>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-rose-700 font-bold">
+                          <span>تخفیف ({toPersianDigits(appliedDiscount.discountPercent)}٪):</span>
+                          <span>- {toPersianDigits(appliedDiscount.discountAmount.toLocaleString("en-US"))} تومان</span>
+                        </div>
+                        <div className="flex items-center justify-between border-t border-emerald-100 pt-1.5">
+                          <span className="font-black text-slate-800 text-xs sm:text-sm">
+                            مبلغ نهایی قابل پرداخت:
+                          </span>
+                          <div className="flex items-baseline gap-1">
+                            <span className="font-black text-xl sm:text-2xl text-emerald-700">
+                              {toPersianDigits(appliedDiscount.finalAmount.toLocaleString("en-US"))}
+                            </span>
+                            <span className="font-bold text-slate-600 text-xs">تومان</span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <span className="font-black text-slate-800 text-xs sm:text-sm">
+                          مبلغ قابل پرداخت:
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                          <span className="font-black text-lg sm:text-xl text-emerald-700">
+                            {toPersianDigits(
+                              DEDICATED_LINK_PRICE_TOMANS.toLocaleString("en-US")
+                            )}
+                          </span>
+                          <span className="font-bold text-slate-600 text-xs">تومان</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* Discount Code Box (Only when payment is required) */}
+              {!quota?.isVip && !quota?.freeLinkAvailable && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    کد تخفیف دارید؟
+                  </label>
+                  {appliedDiscount ? (
+                    <div className="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-300 p-2.5 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                        <span>✓</span>
+                        <span>
+                          کد تخفیف «{appliedDiscount.code}» اعمال شد ({toPersianDigits(appliedDiscount.discountPercent)}٪ تخفیف)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveDiscount}
+                        className="text-xs text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 transition cursor-pointer"
+                      >
+                        ✕ حذف
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={discountCodeInput}
+                          onChange={(e) => {
+                            setDiscountCodeInput(e.target.value.toUpperCase());
+                            if (discountError) setDiscountError(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleApplyDiscount();
+                            }
+                          }}
+                          placeholder="کد تخفیف را وارد کنید (مثلاً OFF50)"
+                          className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:border-emerald-600 focus:outline-none uppercase placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
+                        />
+                        <button
+                          type="button"
+                          disabled={validatingDiscount || !discountCodeInput.trim()}
+                          onClick={() => handleApplyDiscount()}
+                          className="rounded-xl bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                        >
+                          {validatingDiscount ? "بررسی..." : "اعمال تخفیف"}
+                        </button>
+                      </div>
+                      {discountError && (
+                        <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1 pt-0.5">
+                          <span>⚠️</span>
+                          <span>{discountError}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* What the organizer gets */}
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5 text-slate-700">
@@ -498,12 +649,29 @@ export function ShareTournamentModal({
                       <span>فعال‌سازی رایگان مسابقه (هدیه اولین لینک)</span>
                       <span>←</span>
                     </>
+                  ) : appliedDiscount ? (
+                    appliedDiscount.finalAmount === 0 ? (
+                      <>
+                        <span>🎉</span>
+                        <span>فعال‌سازی ۱۰۰٪ رایگان لینک مسابقه با کد تخفیف</span>
+                        <span>←</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>💳</span>
+                        <span>
+                          پرداخت {toPersianDigits(appliedDiscount.finalAmount.toLocaleString("en-US"))} تومان و فعال‌سازی لینک
+                        </span>
+                        <span>←</span>
+                      </>
+                    )
                   ) : (
                     <>
                       <span>💳</span>
                       <span>
                         پرداخت {toPersianDigits(DEDICATED_LINK_PRICE_TOMANS.toLocaleString("en-US"))} تومان و فعال‌سازی لینک
                       </span>
+                      <span>←</span>
                     </>
                   )}
                 </button>

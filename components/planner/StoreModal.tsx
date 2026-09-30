@@ -51,6 +51,15 @@ export function StoreModal({
   const [successInfo, setSuccessInfo] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Discount code state
+  const [discountCodeInput, setDiscountCodeInput] = useState("");
+  const [validatingDiscount, setValidatingDiscount] = useState(false);
+  const [discountError, setDiscountError] = useState<string | null>(null);
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    code: string;
+    discountPercent: number;
+  } | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialTab);
@@ -83,6 +92,21 @@ export function StoreModal({
   const creditPricing = calculateCreditPrice(activeCount);
   const selectedVip = VIP_PLANS.find((p) => p.id === selectedVipPlan) || VIP_PLANS[3];
 
+  // Dynamic discount amounts
+  const creditDiscountAmount = appliedDiscount
+    ? Math.round((creditPricing.finalPrice * appliedDiscount.discountPercent) / 100)
+    : 0;
+  const creditFinalPay = appliedDiscount
+    ? Math.max(0, creditPricing.finalPrice - creditDiscountAmount)
+    : creditPricing.finalPrice;
+
+  const vipDiscountAmount = appliedDiscount
+    ? Math.round((selectedVip.finalPriceTomans * appliedDiscount.discountPercent) / 100)
+    : 0;
+  const vipFinalPay = appliedDiscount
+    ? Math.max(0, selectedVip.finalPriceTomans - vipDiscountAmount)
+    : selectedVip.finalPriceTomans;
+
   function handleSelectPreset(count: number) {
     setSelectedPreset(count);
     setCustomCount(String(count));
@@ -93,6 +117,53 @@ export function StoreModal({
     const sanitized = val.replace(/[^0-9]/g, "");
     setCustomCount(sanitized);
     setIsCustomMode(true);
+  }
+
+  async function handleApplyDiscount() {
+    const rawCode = discountCodeInput.trim().toUpperCase();
+    if (!rawCode) {
+      setDiscountError("لطفاً کد تخفیف را وارد نمایید.");
+      return;
+    }
+
+    setValidatingDiscount(true);
+    setDiscountError(null);
+
+    try {
+      const baseAmt = activeTab === "credits" ? creditPricing.finalPrice : selectedVip.finalPriceTomans;
+      const res = await fetch("/api/discount/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: rawCode,
+          itemType: "planning",
+          baseAmount: baseAmt,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        setDiscountError(data.error || "کد تخفیف معتبر نمی‌باشد یا منقضی شده است.");
+        setAppliedDiscount(null);
+        return;
+      }
+
+      setAppliedDiscount({
+        code: data.code,
+        discountPercent: data.discountPercent,
+      });
+      setDiscountError(null);
+    } catch {
+      setDiscountError("خطا در بررسی کد تخفیف.");
+    } finally {
+      setValidatingDiscount(false);
+    }
+  }
+
+  function handleRemoveDiscount() {
+    setAppliedDiscount(null);
+    setDiscountCodeInput("");
+    setDiscountError(null);
   }
 
   async function handlePurchaseCredits() {
@@ -112,6 +183,7 @@ export function StoreModal({
         body: JSON.stringify({
           itemType: "planning_credits",
           creditCount: creditPricing.count,
+          discountCode: appliedDiscount ? appliedDiscount.code : undefined,
         }),
       });
 
@@ -126,7 +198,7 @@ export function StoreModal({
         type: "credits",
         count: creditPricing.count,
         totalCredits: data.newTotalCredits || creditPricing.count,
-        amount: creditPricing.finalPrice,
+        amount: creditFinalPay,
         refId: data.refId,
       });
 
@@ -156,6 +228,7 @@ export function StoreModal({
         body: JSON.stringify({
           itemType: "vip_subscription",
           vipPlanId: selectedVip.id,
+          discountCode: appliedDiscount ? appliedDiscount.code : undefined,
         }),
       });
 
@@ -171,7 +244,7 @@ export function StoreModal({
         title: selectedVip.title,
         months: selectedVip.months,
         expiresAt: data.expiresAt,
-        amount: selectedVip.finalPriceTomans,
+        amount: vipFinalPay,
         refId: data.refId,
       });
 
@@ -438,24 +511,104 @@ export function StoreModal({
 
                 {creditPricing.discountPercent > 0 && (
                   <div className="flex items-center justify-between text-xs text-rose-700 font-bold">
-                    <span>تخفیف ({toPersianDigits(creditPricing.discountPercent)}٪):</span>
+                    <span>تخفیف بسته ({toPersianDigits(creditPricing.discountPercent)}٪):</span>
                     <span>- {toPersianDigits(creditPricing.discountTomans.toLocaleString("en-US"))} تومان</span>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-2 border-t border-emerald-100 font-black text-sm sm:text-base text-slate-900">
-                  <span>مبلغ قابل پرداخت:</span>
-                  <div className="text-emerald-700 text-lg">
-                    {toPersianDigits(creditPricing.finalPrice.toLocaleString("en-US"))} تومان
+                {appliedDiscount ? (
+                  <>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>مبلغ بدون کد تخفیف:</span>
+                      <del className="line-through font-bold">
+                        {toPersianDigits(creditPricing.finalPrice.toLocaleString("en-US"))} تومان
+                      </del>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-rose-700 font-bold">
+                      <span>کد تخفیف ({toPersianDigits(appliedDiscount.discountPercent)}٪):</span>
+                      <span>- {toPersianDigits(creditDiscountAmount.toLocaleString("en-US"))} تومان</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-emerald-100 font-black text-sm sm:text-base text-slate-900">
+                      <span>مبلغ نهایی قابل پرداخت:</span>
+                      <div className="text-emerald-700 text-lg sm:text-xl font-black">
+                        {toPersianDigits(creditFinalPay.toLocaleString("en-US"))} تومان
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between pt-2 border-t border-emerald-100 font-black text-sm sm:text-base text-slate-900">
+                    <span>مبلغ قابل پرداخت:</span>
+                    <div className="text-emerald-700 text-lg">
+                      {toPersianDigits(creditPricing.finalPrice.toLocaleString("en-US"))} تومان
+                    </div>
                   </div>
-                </div>
+                )}
+              </div>
+
+              {/* Discount Code Input Box */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  کد تخفیف دارید؟
+                </label>
+                {appliedDiscount ? (
+                  <div className="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-300 p-2.5 text-xs">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                      <span>✓</span>
+                      <span>
+                        کد تخفیف «{appliedDiscount.code}» اعمال شد ({toPersianDigits(appliedDiscount.discountPercent)}٪ تخفیف)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveDiscount}
+                      className="text-xs text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 transition cursor-pointer"
+                    >
+                      ✕ حذف
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={discountCodeInput}
+                        onChange={(e) => {
+                          setDiscountCodeInput(e.target.value.toUpperCase());
+                          if (discountError) setDiscountError(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleApplyDiscount();
+                          }
+                        }}
+                        placeholder="کد تخفیف را وارد کنید (مثلاً OFF50)"
+                        className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:border-emerald-600 focus:outline-none uppercase placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
+                      />
+                      <button
+                        type="button"
+                        disabled={validatingDiscount || !discountCodeInput.trim()}
+                        onClick={handleApplyDiscount}
+                        className="rounded-xl bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                      >
+                        {validatingDiscount ? "بررسی..." : "اعمال تخفیف"}
+                      </button>
+                    </div>
+                    {discountError && (
+                      <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1 pt-0.5">
+                        <span>⚠️</span>
+                        <span>{discountError}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Note on Dedicated Links */}
               <div className="rounded-xl bg-amber-50/70 border border-amber-200/80 p-2.5 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
                 <span>ℹ️</span>
                 <span>
-                  <strong>نکته:</strong> بسته‌های اعتباری مربوط به برنامه‌ریزی و تولید جداول مسابقات است. ایجاد لینک اختصاصی تماشاگران برای هر مسابقه همان ۲۰۰,۰۰۰ تومان جداگانه است (به جز ۱ مسابقه اول که هدیه رایگان ثبت‌نام شماست). در صورتی که مایلید تمام لینک‌ها رایگان باشند، به <strong>اشتراک ویژه VIP</strong> ارتقا دهید.
+                  <strong>نکته:</strong> بسته‌های اعتباری مربوط به برنامه‌ریزی و تولید جداول مسابقات است. ایجاد لینک اختصاصی تماشاگران برای هر مسابقه همان ۱۵۰,۰۰۰ تومان جداگانه است (به جز ۱ مسابقه اول که هدیه رایگان ثبت‌نام شماست). در صورتی که مایلید تمام لینک‌ها رایگان باشند، به <strong>اشتراک ویژه VIP</strong> ارتقا دهید.
                 </span>
               </div>
 
@@ -471,7 +624,7 @@ export function StoreModal({
                 ) : (
                   <>
                     <span>خرید اعتبار و فعال‌سازی فوری</span>
-                    <span>({toPersianDigits(creditPricing.finalPrice.toLocaleString("en-US"))} تومان)</span>
+                    <span>({toPersianDigits(creditFinalPay.toLocaleString("en-US"))} تومان)</span>
                     <span>←</span>
                   </>
                 )}
@@ -489,7 +642,7 @@ export function StoreModal({
                 </div>
                 <div className="text-[11px] text-amber-900 leading-relaxed space-y-1">
                   <div>✓ <strong>برنامه‌ریزی نامحدود مسابقات:</strong> ایجاد هر تعداد مسابقه در تمام فرمت‌ها بدون کسر اعتبار.</div>
-                  <div>✓ <strong>ایجاد نامحدود لینک‌های اختصاصی کاملاً رایگان:</strong> دیگر نیازی به پرداخت هزینه ۲۰۰,۰۰۰ تومانی برای هیچ مسابقه‌ای ندارید!</div>
+                  <div>✓ <strong>ایجاد نامحدود لینک‌های اختصاصی کاملاً رایگان:</strong> دیگر نیازی به پرداخت هزینه ۱۵۰,۰۰۰ تومانی برای هیچ مسابقه‌ای ندارید!</div>
                 </div>
               </div>
 
@@ -552,6 +705,103 @@ export function StoreModal({
                 })}
               </div>
 
+              {/* VIP Selected Plan Summary & Discount */}
+              <div className="rounded-2xl border border-amber-300 bg-amber-50/40 p-4 space-y-2.5">
+                <div className="flex items-center justify-between text-xs text-slate-800">
+                  <span className="font-bold">پلن انتخابی:</span>
+                  <strong className="font-black text-amber-950">
+                    {selectedVip.title} ({selectedVip.durationLabel})
+                  </strong>
+                </div>
+
+                {appliedDiscount ? (
+                  <>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>مبلغ پلن:</span>
+                      <del className="line-through font-bold">
+                        {toPersianDigits(selectedVip.finalPriceTomans.toLocaleString("en-US"))} تومان
+                      </del>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-rose-700 font-bold">
+                      <span>کد تخفیف ({toPersianDigits(appliedDiscount.discountPercent)}٪):</span>
+                      <span>- {toPersianDigits(vipDiscountAmount.toLocaleString("en-US"))} تومان</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-amber-200 font-black text-sm sm:text-base text-slate-900">
+                      <span>مبلغ نهایی قابل پرداخت:</span>
+                      <div className="text-amber-900 text-lg sm:text-xl font-black">
+                        {toPersianDigits(vipFinalPay.toLocaleString("en-US"))} تومان
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between pt-2 border-t border-amber-200 font-black text-sm sm:text-base text-slate-900">
+                    <span>مبلغ قابل پرداخت:</span>
+                    <div className="text-amber-900 text-lg">
+                      {toPersianDigits(selectedVip.finalPriceTomans.toLocaleString("en-US"))} تومان
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Discount Code Input Box */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  کد تخفیف دارید؟
+                </label>
+                {appliedDiscount ? (
+                  <div className="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-300 p-2.5 text-xs">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                      <span>✓</span>
+                      <span>
+                        کد تخفیف «{appliedDiscount.code}» اعمال شد ({toPersianDigits(appliedDiscount.discountPercent)}٪ تخفیف)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveDiscount}
+                      className="text-xs text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 transition cursor-pointer"
+                    >
+                      ✕ حذف
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={discountCodeInput}
+                        onChange={(e) => {
+                          setDiscountCodeInput(e.target.value.toUpperCase());
+                          if (discountError) setDiscountError(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleApplyDiscount();
+                          }
+                        }}
+                        placeholder="کد تخفیف را وارد کنید (مثلاً VIP30)"
+                        className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:border-amber-500 focus:outline-none uppercase placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
+                      />
+                      <button
+                        type="button"
+                        disabled={validatingDiscount || !discountCodeInput.trim()}
+                        onClick={handleApplyDiscount}
+                        className="rounded-xl bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                      >
+                        {validatingDiscount ? "بررسی..." : "اعمال تخفیف"}
+                      </button>
+                    </div>
+                    {discountError && (
+                      <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1 pt-0.5">
+                        <span>⚠️</span>
+                        <span>{discountError}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Purchase Action Button */}
               <button
                 type="button"
@@ -564,7 +814,7 @@ export function StoreModal({
                 ) : (
                   <>
                     <span>ارتقا به کاربر ویژه {selectedVip.title}</span>
-                    <span>({toPersianDigits(selectedVip.finalPriceTomans.toLocaleString("en-US"))} تومان)</span>
+                    <span>({toPersianDigits(vipFinalPay.toLocaleString("en-US"))} تومان)</span>
                     <span>←</span>
                   </>
                 )}

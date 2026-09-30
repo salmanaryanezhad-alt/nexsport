@@ -73,7 +73,7 @@ class PaymentService {
    * Start payment for dedicated tournament link
    * - VIP Users: 100% FREE!
    * - Registered Normal Users (1st link): 100% FREE gift!
-   * - Subsequent Links: Standard 200,000 Tomans.
+   * - Subsequent Links: Standard 150,000 Tomans (or discounted if coupon applied).
    */
   async initiateTournamentPayment(params: {
     tournamentId: string;
@@ -82,8 +82,9 @@ class PaymentService {
     userMobile?: string;
     origin?: string;
     useFreeGift?: boolean;
+    discountCode?: string;
   }) {
-    const { tournamentId, userId, userEmail, userMobile, origin, useFreeGift } = params;
+    const { tournamentId, userId, userEmail, userMobile, origin, useFreeGift, discountCode } = params;
 
     const tournament = await db.getTournament(tournamentId, userId);
     if (!tournament) {
@@ -188,26 +189,85 @@ class PaymentService {
       };
     }
 
-    // 3. Otherwise: standard 200,000 Tomans
+    // 3. Otherwise: standard 150,000 Tomans (with discount code if provided)
+    let finalAmount = DEDICATED_LINK_PRICE_TOMANS;
+    let appliedCode: string | undefined = undefined;
+    let discountPercentApplied = 0;
+
+    if (discountCode) {
+      const val = await db.validateDiscountCode(discountCode, "link");
+      if (!val.valid) {
+        return {
+          success: false,
+          error: val.error || "کد تخفیف وارد شده معتبر نمی‌باشد.",
+        };
+      }
+      appliedCode = val.discount?.code;
+      discountPercentApplied = val.discountPercent || 0;
+      const discountTomans = Math.round((finalAmount * discountPercentApplied) / 100);
+      finalAmount = Math.max(0, finalAmount - discountTomans);
+    }
+
+    if (finalAmount === 0) {
+      const paymentInfo = {
+        isPaid: true,
+        amount: 0,
+        currency: "TOMAN",
+        gateway: "discount_100",
+        orderId: `dsc_${Date.now()}`,
+        refId: `TRX-DSC-${Math.floor(10000000 + Math.random() * 90000000)}`,
+        paidAt: new Date().toISOString(),
+        note: `فعال‌سازی با کد تخفیف ۱۰۰٪ (${appliedCode})`,
+      };
+
+      const updatedState = {
+        ...tournament.state,
+        payment: paymentInfo,
+      };
+
+      await db.saveTournament({
+        id: tournament.id,
+        userId: tournament.user_id,
+        title: tournament.title,
+        format: tournament.format,
+        sport: tournament.sport || undefined,
+        teamCount: tournament.team_count,
+        state: updatedState,
+      });
+
+      return {
+        success: true,
+        isDirectSuccess: true,
+        isPaid: true,
+        orderId: paymentInfo.orderId,
+        refId: paymentInfo.refId,
+        paymentInfo,
+        tournamentId,
+      };
+    }
+
     const orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const baseUrl = origin || (process.env.NEXT_PUBLIC_BASE_URL || "https://nexsport.ir");
     const callbackUrl = `${baseUrl}/api/payment/callback?orderId=${orderId}`;
+    const desc = appliedCode
+      ? `فعال‌سازی لینک اختصاصی مسابقه «${tournament.title}» در NexSport (کد تخفیف: ${appliedCode} - ${discountPercentApplied}٪)`
+      : `فعال‌سازی لینک اختصاصی مسابقه «${tournament.title}» در NexSport`;
 
     await db.savePaymentOrder({
       id: orderId,
       itemType: "tournament_link",
       userId,
       tournamentId,
-      amountTomans: DEDICATED_LINK_PRICE_TOMANS,
+      amountTomans: finalAmount,
       gateway: this.activeDriver.gatewayName,
       status: "pending",
-      description: `فعال‌سازی لینک اختصاصی مسابقه «${tournament.title}» در NexSport`,
+      description: desc,
     });
 
     const initResult = await this.activeDriver.initiatePayment({
       orderId,
-      amountTomans: DEDICATED_LINK_PRICE_TOMANS,
-      description: `فعال‌سازی لینک اختصاصی مسابقه «${tournament.title}» در NexSport`,
+      amountTomans: finalAmount,
+      description: desc,
       callbackUrl,
       email: userEmail,
       mobile: userMobile,
@@ -224,7 +284,7 @@ class PaymentService {
     if (initResult.isDirectSuccess) {
       const paymentInfo = {
         isPaid: true,
-        amount: DEDICATED_LINK_PRICE_TOMANS,
+        amount: finalAmount,
         currency: "TOMAN",
         gateway: this.activeDriver.gatewayName,
         orderId,
@@ -252,7 +312,7 @@ class PaymentService {
         itemType: "tournament_link",
         userId,
         tournamentId,
-        amountTomans: DEDICATED_LINK_PRICE_TOMANS,
+        amountTomans: finalAmount,
         gateway: this.activeDriver.gatewayName,
         status: "paid",
         refId: paymentInfo.refId,
@@ -290,30 +350,78 @@ class PaymentService {
     userEmail?: string;
     userMobile?: string;
     origin?: string;
+    discountCode?: string;
   }) {
-    const { userId, creditCount, userEmail, userMobile, origin } = params;
+    const { userId, creditCount, userEmail, userMobile, origin, discountCode } = params;
     const { count, baseTotal, discountPercent, discountTomans, finalPrice } =
       calculateCreditPrice(creditCount);
+
+    let finalPayPrice = finalPrice;
+    let appliedCode: string | undefined = undefined;
+    let codeDiscountPercent = 0;
+
+    if (discountCode) {
+      const val = await db.validateDiscountCode(discountCode, "planning");
+      if (!val.valid) {
+        return { success: false, error: val.error || "کد تخفیف وارد شده معتبر نمی‌باشد." };
+      }
+      appliedCode = val.discount?.code;
+      codeDiscountPercent = val.discountPercent || 0;
+      const extraDiscount = Math.round((finalPayPrice * codeDiscountPercent) / 100);
+      finalPayPrice = Math.max(0, finalPayPrice - extraDiscount);
+    }
+
+    if (finalPayPrice === 0) {
+      const newCredits = await db.addPlanningCredits(userId, count);
+      const refId = `TRX-DSC-${Math.floor(10000000 + Math.random() * 90000000)}`;
+      const orderId = `ord_c_dsc_${Date.now()}`;
+      await db.savePaymentOrder({
+        id: orderId,
+        itemType: "planning_credits",
+        userId,
+        itemQuantity: count,
+        amountTomans: 0,
+        gateway: "discount_100",
+        status: "paid",
+        refId,
+        paidAt: new Date().toISOString(),
+        description: `بسته ${count} برنامه‌ریزی با کد تخفیف ۱۰۰٪ (${appliedCode})`,
+      });
+
+      return {
+        success: true,
+        isDirectSuccess: true,
+        orderId,
+        refId,
+        itemType: "planning_credits",
+        addedCredits: count,
+        newTotalCredits: newCredits,
+        amountTomans: 0,
+      };
+    }
 
     const orderId = `ord_c_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const baseUrl = origin || (process.env.NEXT_PUBLIC_BASE_URL || "https://nexsport.ir");
     const callbackUrl = `${baseUrl}/api/payment/callback?orderId=${orderId}`;
+    const desc = appliedCode
+      ? `خرید بسته ${count} برنامه‌ریزی مسابقه NexSport (کد تخفیف: ${appliedCode} - ${codeDiscountPercent}٪)`
+      : `خرید بسته ${count} برنامه‌ریزی مسابقه NexSport`;
 
     await db.savePaymentOrder({
       id: orderId,
       itemType: "planning_credits",
       userId,
       itemQuantity: count,
-      amountTomans: finalPrice,
+      amountTomans: finalPayPrice,
       gateway: this.activeDriver.gatewayName,
       status: "pending",
-      description: `خرید بسته ${count} برنامه‌ریزی مسابقه NexSport`,
+      description: desc,
     });
 
     const initResult = await this.activeDriver.initiatePayment({
       orderId,
-      amountTomans: finalPrice,
-      description: `خرید بسته ${count} برنامه‌ریزی مسابقه NexSport`,
+      amountTomans: finalPayPrice,
+      description: desc,
       callbackUrl,
       email: userEmail,
       mobile: userMobile,
@@ -332,7 +440,7 @@ class PaymentService {
         itemType: "planning_credits",
         userId,
         itemQuantity: count,
-        amountTomans: finalPrice,
+        amountTomans: finalPayPrice,
         gateway: this.activeDriver.gatewayName,
         status: "paid",
         refId,
@@ -347,7 +455,7 @@ class PaymentService {
         itemType: "planning_credits",
         addedCredits: count,
         newTotalCredits: newCredits,
-        amountTomans: finalPrice,
+        amountTomans: finalPayPrice,
       };
     }
 
@@ -369,29 +477,78 @@ class PaymentService {
     userEmail?: string;
     userMobile?: string;
     origin?: string;
+    discountCode?: string;
   }) {
-    const { userId, vipPlanId, userEmail, userMobile, origin } = params;
+    const { userId, vipPlanId, userEmail, userMobile, origin, discountCode } = params;
     const plan = VIP_PLANS.find((p) => p.id === vipPlanId) || VIP_PLANS[0];
+
+    let finalVipPrice = plan.finalPriceTomans;
+    let appliedCode: string | undefined = undefined;
+    let codeDiscountPercent = 0;
+
+    if (discountCode) {
+      const val = await db.validateDiscountCode(discountCode, "planning");
+      if (!val.valid) {
+        return { success: false, error: val.error || "کد تخفیف وارد شده معتبر نمی‌باشد." };
+      }
+      appliedCode = val.discount?.code;
+      codeDiscountPercent = val.discountPercent || 0;
+      const extraDiscount = Math.round((finalVipPrice * codeDiscountPercent) / 100);
+      finalVipPrice = Math.max(0, finalVipPrice - extraDiscount);
+    }
+
+    if (finalVipPrice === 0) {
+      const expiresAt = await db.activateVipSubscription(userId, plan.months);
+      const refId = `TRX-DSC-${Math.floor(10000000 + Math.random() * 90000000)}`;
+      const orderId = `ord_vip_dsc_${Date.now()}`;
+      await db.savePaymentOrder({
+        id: orderId,
+        itemType: "vip_subscription",
+        userId,
+        itemDurationMonths: plan.months,
+        amountTomans: 0,
+        gateway: "discount_100",
+        status: "paid",
+        refId,
+        paidAt: new Date().toISOString(),
+        description: `اشتراک ${plan.title} با کد تخفیف ۱۰۰٪ (${appliedCode})`,
+      });
+
+      return {
+        success: true,
+        isDirectSuccess: true,
+        orderId,
+        refId,
+        itemType: "vip_subscription",
+        planTitle: plan.title,
+        months: plan.months,
+        expiresAt: expiresAt.toISOString(),
+        amountTomans: 0,
+      };
+    }
 
     const orderId = `ord_v_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const baseUrl = origin || (process.env.NEXT_PUBLIC_BASE_URL || "https://nexsport.ir");
     const callbackUrl = `${baseUrl}/api/payment/callback?orderId=${orderId}`;
+    const desc = appliedCode
+      ? `خرید اشتراک ${plan.title} NexSport (کد تخفیف: ${appliedCode} - ${codeDiscountPercent}٪)`
+      : `خرید اشتراک ${plan.title} NexSport`;
 
     await db.savePaymentOrder({
       id: orderId,
       itemType: "vip_subscription",
       userId,
       itemDurationMonths: plan.months,
-      amountTomans: plan.finalPriceTomans,
+      amountTomans: finalVipPrice,
       gateway: this.activeDriver.gatewayName,
       status: "pending",
-      description: `خرید اشتراک ${plan.title} NexSport`,
+      description: desc,
     });
 
     const initResult = await this.activeDriver.initiatePayment({
       orderId,
-      amountTomans: plan.finalPriceTomans,
-      description: `خرید اشتراک ${plan.title} NexSport`,
+      amountTomans: finalVipPrice,
+      description: desc,
       callbackUrl,
       email: userEmail,
       mobile: userMobile,
@@ -410,7 +567,7 @@ class PaymentService {
         itemType: "vip_subscription",
         userId,
         itemDurationMonths: plan.months,
-        amountTomans: plan.finalPriceTomans,
+        amountTomans: finalVipPrice,
         gateway: this.activeDriver.gatewayName,
         status: "paid",
         refId,
@@ -426,7 +583,7 @@ class PaymentService {
         planTitle: plan.title,
         months: plan.months,
         expiresAt: expiresAt.toISOString(),
-        amountTomans: plan.finalPriceTomans,
+        amountTomans: finalVipPrice,
       };
     }
 

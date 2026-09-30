@@ -511,11 +511,11 @@ async function run() {
     assert(prevented, "کاربران رسمی تاییدشده نباید قابل حذف باشند.");
   });
 
-  await test("سیستم پرداخت و فعال‌سازی لینک اختصاصی (۲۰۰,۰۰۰ تومان و درایور شبیه‌ساز)", async () => {
+  await test("سیستم پرداخت و فعال‌سازی لینک اختصاصی (۱۵۰,۰۰۰ تومان و درایور شبیه‌ساز)", async () => {
     const { paymentService, DEDICATED_LINK_PRICE_TOMANS } = await import("@/lib/payment");
 
-    // ۱. بررسی مبلغ مصوب تعرفه فاز ۳: ۲۰۰,۰۰۰ تومان
-    assertEqual(DEDICATED_LINK_PRICE_TOMANS, 200000, "هزینه فعال‌سازی لینک اختصاصی باید ۲۰۰,۰۰۰ تومان باشد.");
+    // ۱. بررسی مبلغ مصوب تعرفه فاز ۳: ۱۵۰,۰۰۰ تومان
+    assertEqual(DEDICATED_LINK_PRICE_TOMANS, 150000, "هزینه فعال‌سازی لینک اختصاصی باید ۱۵۰,۰۰۰ تومان باشد.");
 
     // ۲. ایجاد کاربر و مسابقه تستی
     const organizer = await db.createUser({
@@ -539,7 +539,7 @@ async function run() {
     const initialPaidStatus = await paymentService.isTournamentPaid(tournament.id);
     assertEqual(initialPaidStatus, false, "پیش از پرداخت، لینک مسابقه نباید فعال باشد.");
 
-    // ۴. ثبت و شبیه‌سازی پرداخت ۲۰۰,۰۰۰ تومانی بدون خروج از برنامه
+    // ۴. ثبت و شبیه‌سازی پرداخت ۱۵۰,۰۰۰ تومانی بدون خروج از برنامه
     const payResult = await paymentService.initiateTournamentPayment({
       tournamentId: tournament.id,
       userId: organizer.id,
@@ -559,7 +559,7 @@ async function run() {
     assertEqual(afterPaidStatus, true, "پس از پرداخت، لینک مسابقه باید فعال باشد.");
 
     const paymentInfo = await paymentService.getTournamentPaymentInfo(tournament.id);
-    assertEqual(paymentInfo?.amount, 200000, "مبلغ ثبت شده در تراکنش باید ۲۰۰,۰۰۰ تومان باشد.");
+    assertEqual(paymentInfo?.amount, 150000, "مبلغ ثبت شده در تراکنش باید ۱۵۰,۰۰۰ تومان باشد.");
     assertEqual(paymentInfo?.isPaid, true, "فلگ isPaid در دیتابیس مسابقه باید true باشد.");
 
     // ۶. محافظت از وضعیت پرداخت در زمان ویرایش و ذخیره مجدد نتایج مسابقه
@@ -717,14 +717,14 @@ async function run() {
     const quotaAfter = await db.getUserQuota(user.id);
     assertEqual(quotaAfter.freeLinkAvailable, false, "هدیه لینک اول مصرف شده است.");
 
-    // ۳. فعال‌سازی لینک مسابقه دوم: باید ۲۰۰,۰۰۰ تومان پرداخت شود
+    // ۳. فعال‌سازی لینک مسابقه دوم: باید ۱۵۰,۰۰۰ تومان پرداخت شود
     const secondResult = await paymentService.initiateTournamentPayment({
       tournamentId: t2.id,
       userId: user.id,
       useFreeGift: true, // حتی اگر درخواست دهد، چون هدیه تمام شده، پرداخت عادی اعمال می‌شود
     });
     assertEqual(secondResult.success, true, "پرداخت لینک دوم باید با موفقیت ثبت شود.");
-    assertEqual(secondResult.paymentInfo.amount, 200000, "لینک دوم باید ۲۰۰,۰۰۰ تومان باشد.");
+    assertEqual(secondResult.paymentInfo.amount, 150000, "لینک دوم باید ۱۵۰,۰۰۰ تومان باشد.");
   });
 
   await test("اشتراک کاربر ویژه VIP: برنامه‌ریزی نامحدود و ایجاد نامحدود لینک‌های رایگان", async () => {
@@ -773,6 +773,104 @@ async function run() {
 
     const isVipPaid = await paymentService.isTournamentPaid(vipTournament.id);
     assertEqual(isVipPaid, true, "لینک مسابقه کاربر ویژه باید فعال باشد.");
+  });
+
+  await test("مدیریت و اعمال کدهای تخفیف (ایجاد، وضعیت فعال/غیرفعال، اعتبارسنجی و اعمال روی خرید)", async () => {
+    const { paymentService } = await import("@/lib/payment");
+
+    // ۱. ایجاد کد تخفیف جدید برای هر دو بخش (۵۰٪)
+    const codeAll = await db.createDiscountCode({
+      code: "NOWRUZ50",
+      discountPercent: 50,
+      appliesTo: "all",
+      isActive: true,
+      createdBy: "salman.aryanezhad@gmail.com",
+    });
+    assertEqual(codeAll.code, "NOWRUZ50", "متن کد تخفیف باید حروف بزرگ باشد.");
+    assertEqual(codeAll.discount_percent, 50, "درصد تخفیف ۵۰ است.");
+    assertEqual(codeAll.is_active, true, "کد تخفیف باید فعال باشد.");
+
+    // ۲. ایجاد کد تخفیف منحصراً برای ایجاد لینک (۲۰٪)
+    const codeLink = await db.createDiscountCode({
+      code: "LINK20",
+      discountPercent: 20,
+      appliesTo: "link",
+      isActive: true,
+    });
+    assertEqual(codeLink.applies_to, "link", "محدوده کد تخفیف باید link باشد.");
+
+    // ۳. ایجاد کد تخفیف منقضی شده تستی
+    const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const expiredCode = await db.createDiscountCode({
+      code: "EXPIRED10",
+      discountPercent: 10,
+      appliesTo: "all",
+      expiresAt: pastDate,
+      isActive: true,
+    });
+
+    // ۴. اعتبارسنجی کد تخفیف ۵۰٪ روی هر دو بخش
+    const valAllForLink = await db.validateDiscountCode("NOWRUZ50", "link");
+    assertEqual(valAllForLink.valid, true, "کد تخفیف NOWRUZ50 برای لینک معتبر است.");
+    assertEqual(valAllForLink.discountPercent, 50, "درصد ۵۰٪.");
+
+    const valAllForPlanning = await db.validateDiscountCode("nowruz50", "planning");
+    assertEqual(valAllForPlanning.valid, true, "کد تخفیف بدون حساسیت به حروف کوچک/بزرگ باید معتبر باشد.");
+
+    // ۵. اعتبارسنجی کد تخفیف اختصاصی لینک روی بخش برنامه‌ریزی (باید نامعتبر باشد)
+    const valLinkOnPlanning = await db.validateDiscountCode("LINK20", "planning");
+    assertEqual(valLinkOnPlanning.valid, false, "کد LINK20 نباید برای بخش برنامه‌ریزی اعمال شود.");
+
+    // ۶. اعتبارسنجی کد منقضی شده (باید رد شود)
+    const valExpired = await db.validateDiscountCode("EXPIRED10", "link");
+    assertEqual(valExpired.valid, false, "کد منقضی شده نباید معتبر شناخته شود.");
+
+    // ۷. تغییر وضعیت فعال/غیرفعال (Toggle)
+    const toggledOff = await db.toggleDiscountCode(codeAll.id, false);
+    assertEqual(toggledOff?.is_active, false, "کد تخفیف باید غیرفعال شده باشد.");
+
+    const valToggledOff = await db.validateDiscountCode("NOWRUZ50", "link");
+    assertEqual(valToggledOff.valid, false, "کد غیرفعال نباید معتبر شناخته شود.");
+
+    // فعال‌سازی مجدد
+    const toggledOn = await db.toggleDiscountCode(codeAll.id, true);
+    assertEqual(toggledOn?.is_active, true, "کد تخفیف مجدداً باید فعال شده باشد.");
+
+    // ۸. اعمال کد تخفیف روی خرید لینک مسابقه (۱۵۰,۰۰۰ تومان با ۵۰٪ تخفیف = ۷۵,۰۰۰ تومان)
+    const buyer = await db.createUser({
+      name: "خریدار با تخفیف",
+      email: "buyer_dsc@nexsport.ir",
+      mobile: "09121112233",
+      passwordHash: hashPassword("BuyerSecret1"),
+      isVerified: true,
+    });
+
+    // سوزاندن هدیه لینک رایگان تا پرداخت واقعی نیاز شود
+    await db.useFreeLink(buyer.id);
+
+    const buyerTournament = await db.saveTournament({
+      userId: buyer.id,
+      title: "لیگ تابستانه با تخفیف",
+      format: "league",
+      teamCount: 6,
+      state: { step: 4 },
+    });
+
+    const discountedLinkRes = await paymentService.initiateTournamentPayment({
+      tournamentId: buyerTournament.id,
+      userId: buyer.id,
+      discountCode: "NOWRUZ50",
+    });
+
+    assertEqual(discountedLinkRes.success, true, "پرداخت لینک با کد تخفیف باید موفق باشد.");
+    assertEqual(discountedLinkRes.paymentInfo.amount, 75000, "مبلغ لینک ۱۵۰,۰۰۰ با ۵۰٪ تخفیف باید ۷۵,۰۰۰ تومان باشد.");
+
+    // ۹. حذف کد تخفیف
+    const deleted = await db.deleteDiscountCode(codeLink.id);
+    assertEqual(deleted, true, "کد تخفیف باید با موفقیت حذف شود.");
+
+    const valDeleted = await db.validateDiscountCode("LINK20", "link");
+    assertEqual(valDeleted.valid, false, "کد حذف‌شده نباید یافت شود.");
   });
 
   console.log("\n======================================");

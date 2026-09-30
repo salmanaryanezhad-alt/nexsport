@@ -11,7 +11,7 @@
  *    VIP members get UNLIMITED plannings + 100% FREE dedicated tournament links.
  */
 
-export const DEDICATED_LINK_PRICE_TOMANS = 200_000;
+export const DEDICATED_LINK_PRICE_TOMANS = 150_000;
 export const BASE_PLANNING_PRICE_TOMANS = 50_000;
 export const GUEST_MAX_TOURNAMENTS = 2;
 export const USER_FREE_PLANNINGS = 5;
@@ -51,10 +51,10 @@ export const VIP_PLANS: VipPlan[] = [
     months: 1,
     title: "کاربر ویژه ۱ ماهه",
     durationLabel: "۱ ماه (۳۰ روز)",
-    basePriceTomans: 290_000,
+    basePriceTomans: 350_000,
     discountPercent: 0,
-    finalPriceTomans: 290_000,
-    monthlyEquivalentTomans: 290_000,
+    finalPriceTomans: 350_000,
+    monthlyEquivalentTomans: 350_000,
     tag: "شروع آسان",
     features: [
       "برنامه‌ریزی نامحدود مسابقات (تمام فرمت‌ها)",
@@ -68,15 +68,15 @@ export const VIP_PLANS: VipPlan[] = [
     months: 3,
     title: "کاربر ویژه ۳ ماهه",
     durationLabel: "۳ ماه (۹۰ روز)",
-    basePriceTomans: 870_000,
+    basePriceTomans: 1_050_000,
     discountPercent: 20,
-    finalPriceTomans: 690_000,
-    monthlyEquivalentTomans: 230_000,
+    finalPriceTomans: 840_000,
+    monthlyEquivalentTomans: 280_000,
     tag: "۲۰٪ تخفیف فصلی",
     features: [
       "برنامه‌ریزی نامحدود مسابقات (تمام فرمت‌ها)",
       "ایجاد نامحدود و رایگان لینک‌های اختصاصی تماشاگران",
-      "۱۸۰,۰۰۰ تومان صرفه‌جویی نسبت به اشتراک ماهانه",
+      "۲۱۰,۰۰۰ تومان صرفه‌جویی نسبت به اشتراک ماهانه",
       "مناسب دوره‌های مسابقاتی و جام‌های ورزشی فصلی",
     ],
   },
@@ -85,15 +85,15 @@ export const VIP_PLANS: VipPlan[] = [
     months: 6,
     title: "کاربر ویژه ۶ ماهه",
     durationLabel: "۶ ماه (۱۸۰ روز)",
-    basePriceTomans: 1_740_000,
-    discountPercent: 31,
-    finalPriceTomans: 1_190_000,
-    monthlyEquivalentTomans: 198_000,
-    tag: "۳۱٪ تخفیف نیم‌سال",
+    basePriceTomans: 2_100_000,
+    discountPercent: 30,
+    finalPriceTomans: 1_470_000,
+    monthlyEquivalentTomans: 245_000,
+    tag: "۳۰٪ تخفیف نیم‌سال",
     features: [
       "برنامه‌ریزی نامحدود مسابقات (تمام فرمت‌ها)",
       "ایجاد نامحدود و رایگان لینک‌های اختصاصی تماشاگران",
-      "۵۵۰,۰۰۰ تومان صرفه‌جویی ویژه",
+      "۶۳۰,۰۰۰ تومان صرفه‌جویی ویژه",
       "مناسب ترم‌های آموزشی، مدارس فوتبال و باشگاه‌ها",
     ],
   },
@@ -102,16 +102,16 @@ export const VIP_PLANS: VipPlan[] = [
     months: 12,
     title: "کاربر ویژه ۱ ساله (طلایی)",
     durationLabel: "۱ سال (۳۶۵ روز)",
-    basePriceTomans: 3_480_000,
-    discountPercent: 43,
-    finalPriceTomans: 1_990_000,
-    monthlyEquivalentTomans: 165_000,
-    tag: "۴۳٪ تخفیف - اقتصادی‌ترین",
+    basePriceTomans: 4_200_000,
+    discountPercent: 40,
+    finalPriceTomans: 2_520_000,
+    monthlyEquivalentTomans: 210_000,
+    tag: "۴۰٪ تخفیف - اقتصادی‌ترین",
     isPopular: true,
     features: [
       "برنامه‌ریزی نامحدود مسابقات برای کل طول سال",
       "ایجاد نامحدود و رایگان لینک‌های اختصاصی تماشاگران (بدون هیچ هزینه جداگانه)",
-      "۱,۴۹۰,۰۰۰ تومان تخفیف ویژه سالانه",
+      "۱,۶۸۰,۰۰۰ تومان تخفیف ویژه سالانه",
       "دسترسی زودهنگام به تمام امکانات و فرمت‌های جدید",
       "خط پشتیبانی VIP اختصاصی",
     ],

@@ -5,7 +5,16 @@ import { useAuth } from "./AuthContext";
 import { hasPersianLetters } from "@/lib/auth/utils";
 
 export function ProfileModal() {
-  const { user, isAdmin, isProfileModalOpen, closeProfileModal, openUsersModal, updateProfile, changePassword } = useAuth();
+  const {
+    user,
+    isAdmin,
+    isProfileModalOpen,
+    closeProfileModal,
+    openUsersModal,
+    openDiscountsModal,
+    updateProfile,
+    changePassword,
+  } = useAuth();
 
   const [activeTab, setActiveTab] = useState<"info" | "password">("info");
   const [name, setName] = useState(user?.name || "");
@@ -119,21 +128,33 @@ export function ProfileModal() {
         {/* Body */}
         <div className="p-6">
           {isAdmin && (
-            <div className="mb-4 rounded-xl border border-pitch/20 bg-pitch/5 p-3 text-xs flex items-center justify-between shadow-2xs">
+            <div className="mb-4 rounded-xl border border-pitch/20 bg-pitch/5 p-3 text-xs flex flex-wrap items-center justify-between gap-2 shadow-2xs">
               <div className="flex items-center gap-2 text-pitch font-bold">
                 <span>👑</span>
                 <span>دسترسی مدیر کل سامانه NexSport</span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  closeProfileModal();
-                  openUsersModal();
-                }}
-                className="bg-pitch text-white px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-pitch-light transition cursor-pointer"
-              >
-                مدیریت کاربران
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeProfileModal();
+                    openUsersModal();
+                  }}
+                  className="bg-pitch text-white px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-pitch-light transition cursor-pointer"
+                >
+                  مدیریت کاربران
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeProfileModal();
+                    openDiscountsModal();
+                  }}
+                  className="bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-emerald-800 transition cursor-pointer"
+                >
+                  کدهای تخفیف
+                </button>
+              </div>
             </div>
           )}
 

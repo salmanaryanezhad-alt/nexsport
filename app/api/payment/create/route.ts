@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { itemType, tournamentId, creditCount, vipPlanId } = body || {};
+    const { itemType, tournamentId, creditCount, vipPlanId, discountCode } = body || {};
     const origin = req.nextUrl.origin;
 
     // 1. Credit Package Purchase (بسته تعداد برنامه‌ریزی)
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
         userEmail: user.email,
         userMobile: user.mobile || undefined,
         origin,
+        discountCode: discountCode ? String(discountCode).trim() : undefined,
       });
 
       if (!result.success) {
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
         userEmail: user.email,
         userMobile: user.mobile || undefined,
         origin,
+        discountCode: discountCode ? String(discountCode).trim() : undefined,
       });
 
       if (!result.success) {
@@ -83,6 +85,7 @@ export async function POST(req: NextRequest) {
         userEmail: user.email,
         userMobile: user.mobile || undefined,
         origin,
+        discountCode: discountCode ? String(discountCode).trim() : undefined,
       });
 
       if (!result.success) {

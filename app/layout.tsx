@@ -94,6 +94,7 @@ import { AuthProvider } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { ProfileModal } from "@/components/auth/ProfileModal";
 import { UsersModal } from "@/components/admin/UsersModal";
+import { AdminDiscountsModal } from "@/components/admin/AdminDiscountsModal";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -119,6 +120,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthModal />
           <ProfileModal />
           <UsersModal />
+          <AdminDiscountsModal />
         </AuthProvider>
       </body>
     </html>
