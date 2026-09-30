@@ -31,6 +31,7 @@ import {
 import { ShareTournamentModal } from "@/components/planner/ShareTournamentModal";
 import { DrawCeremonyModal } from "@/components/planner/DrawCeremonyModal";
 import { toPersianDigits, toEnglishDigits } from "@/lib/digits";
+import { encodeTournamentPayload } from "@/lib/tournamentCodec";
 
 const STORAGE_KEY = "nexsport_wizard_state_v4";
 
@@ -1012,6 +1013,13 @@ function PlannerWizard() {
         const data = await res.json();
         if (data.tournament?.id) {
           setCurrentSavedId(data.tournament.id);
+          try {
+            const token = encodeTournamentPayload(data.tournament);
+            if (token) {
+              document.cookie = `nexsport_t_${data.tournament.id}=${token}; path=/; max-age=2592000; SameSite=Lax`;
+            }
+            localStorage.setItem(`nexsport_t_${data.tournament.id}`, JSON.stringify(data.tournament));
+          } catch {}
           return data.tournament.id;
         }
       }
@@ -3287,6 +3295,44 @@ function PlannerWizard() {
           "مسابقه ورزشی"
         }
         onEnsureSaved={handleEnsureSavedForShare}
+        tournamentData={{
+          id: shareModalTournamentId || currentSavedId,
+          title:
+            shareModalTournamentTitle ||
+            metadata.title ||
+            FORMAT_OPTIONS.find((f) => f.key === format)?.title ||
+            "مسابقه ورزشی",
+          format,
+          sport: pointsRule?.sport,
+          teamCount,
+          state: {
+            step: 4,
+            format,
+            teamCount,
+            teamNames,
+            numGroups,
+            qualifiersPerGroup,
+            seededTeams,
+            pot2Teams,
+            pot3Teams,
+            pot4Teams,
+            avoidPairs,
+            hasThirdPlace,
+            hasResetFinal,
+            independentSecondLeg,
+            advanceBestThirds,
+            pointsRule,
+            metadata,
+            result,
+            scores,
+            matchDetails,
+            payment: {
+              isPaid: true,
+              amount: 200000,
+              paidAt: new Date().toISOString(),
+            },
+          },
+        }}
       />
 
       {/* Live Draw Ceremony Modal */}

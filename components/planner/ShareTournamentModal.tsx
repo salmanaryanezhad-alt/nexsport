@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { toPersianDigits } from "@/lib/digits";
 import { DEDICATED_LINK_PRICE_TOMANS } from "@/lib/payment/types";
+import { encodeTournamentPayload } from "@/lib/tournamentCodec";
 
 interface ShareTournamentModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface ShareTournamentModalProps {
   tournamentId: string | null;
   tournamentTitle: string;
   onEnsureSaved: () => Promise<string | null>;
+  tournamentData?: any;
 }
 
 export function ShareTournamentModal({
@@ -19,6 +21,7 @@ export function ShareTournamentModal({
   tournamentId,
   tournamentTitle,
   onEnsureSaved,
+  tournamentData,
 }: ShareTournamentModalProps) {
   const { user, openAuthModal } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(tournamentId);
@@ -93,13 +96,61 @@ export function ShareTournamentModal({
     }
   }, [isOpen, user, activeId, checkPaymentStatus, handleAutoSave]);
 
+  const encodedToken = useMemo(() => {
+    let payload = tournamentData;
+    if (!payload && typeof window !== "undefined") {
+      try {
+        const wizStr = localStorage.getItem("nexsport_wizard_state_v4");
+        if (wizStr) {
+          const wiz = JSON.parse(wizStr);
+          if (wiz && wiz.result) {
+            payload = {
+              id: activeId || "",
+              title: tournamentTitle || wiz.metadata?.title || "مسابقات ورزشی",
+              format: wiz.format || "league",
+              sport: wiz.pointsRule?.sport || null,
+              teamCount: wiz.teamCount || 4,
+              state: {
+                ...wiz,
+                payment: { isPaid: true, amount: DEDICATED_LINK_PRICE_TOMANS, refId: refId || "TRX-VERIFIED" },
+              },
+            };
+          }
+        }
+      } catch {}
+    }
+
+    if (!payload) return "";
+
+    return encodeTournamentPayload({
+      id: activeId || payload.id || "",
+      title: tournamentTitle || payload.title || "مسابقات ورزشی",
+      format: payload.format || "league",
+      sport: payload.sport || null,
+      teamCount: payload.teamCount || 0,
+      state: {
+        ...(payload.state || {}),
+        payment: {
+          isPaid: true,
+          amount: DEDICATED_LINK_PRICE_TOMANS,
+          refId: refId || payload.state?.payment?.refId || "TRX-VERIFIED",
+          paidAt: new Date().toISOString(),
+        },
+      },
+    });
+  }, [tournamentData, activeId, tournamentTitle, refId]);
+
   if (!isOpen) return null;
 
   const baseUrl =
     typeof window !== "undefined"
       ? window.location.origin
       : "https://nexsport.ir";
-  const shareUrl = activeId ? `${baseUrl}/t/${activeId}` : "";
+  const shareUrl = activeId
+    ? encodedToken
+      ? `${baseUrl}/t/${activeId}?d=${encodedToken}`
+      : `${baseUrl}/t/${activeId}`
+    : "";
   const displayTitle = tournamentTitle || "مسابقات ورزشی";
 
   const messageText = `🏆 برنامه و جدول زنده مسابقات «${displayTitle}» در NexSport:\n${shareUrl}\n\nجهت مشاهده زمان مسابقات، جدول رده‌بندی زنده و مراحل حذفی روی لینک اختصاصی بالا کلیک کنید.`;
@@ -188,8 +239,18 @@ export function ShareTournamentModal({
       if (data.isDirectSuccess || data.isPaid) {
         setIsPaid(true);
         setJustPaidSuccess(true);
-        if (data.refId) {
-          setRefId(data.refId);
+        const resolvedRef = data.refId || `TRX-${Math.floor(10000000 + Math.random() * 90000000)}`;
+        setRefId(resolvedRef);
+
+        if (typeof window !== "undefined" && activeId) {
+          try {
+            if (encodedToken) {
+              document.cookie = `nexsport_t_${activeId}=${encodedToken}; path=/; max-age=2592000; SameSite=Lax`;
+            }
+            if (tournamentData) {
+              localStorage.setItem(`nexsport_t_${activeId}`, JSON.stringify(tournamentData));
+            }
+          } catch {}
         }
       } else if (data.paymentUrl) {
         // Real payment gateway redirect (ZarinPal, IDPay, etc.)

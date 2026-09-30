@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { ScheduleResult, MatchScheduleDetail } from "@/lib/scheduling/types";
 import { MatchScore } from "@/lib/scheduling/knockout";
@@ -8,6 +8,7 @@ import { ScheduleView } from "@/components/planner/ScheduleView";
 import { NexSportIcon } from "@/components/NexSportLogo";
 import { toPersianDigits } from "@/lib/digits";
 import { ShareTournamentModal } from "@/components/planner/ShareTournamentModal";
+import { decodeTournamentPayload, encodeTournamentPayload } from "@/lib/tournamentCodec";
 
 export interface PublicTournamentData {
   id: string;
@@ -29,6 +30,12 @@ export interface PublicTournamentData {
     };
     pointsRule?: any;
     format?: string;
+    payment?: {
+      isPaid?: boolean;
+      amount?: number;
+      refId?: string;
+      paidAt?: string;
+    };
   };
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -44,14 +51,196 @@ const FORMAT_TITLES: Record<string, string> = {
 };
 
 export function PublicTournamentViewer({
+  tournamentId,
   initialTournament,
 }: {
-  initialTournament: PublicTournamentData;
+  tournamentId: string;
+  initialTournament: PublicTournamentData | null;
 }) {
-  const [tournament, setTournament] = useState<PublicTournamentData>(initialTournament);
+  const [tournament, setTournament] = useState<PublicTournamentData | null>(initialTournament);
+  const [clientChecking, setClientChecking] = useState<boolean>(!initialTournament);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  // Client recovery effect for serverless environments
+  useEffect(() => {
+    if (initialTournament) {
+      setTournament(initialTournament);
+      setClientChecking(false);
+      try {
+        localStorage.setItem(`nexsport_t_${tournamentId}`, JSON.stringify(initialTournament));
+        const token = encodeTournamentPayload(initialTournament);
+        if (token) {
+          document.cookie = `nexsport_t_${tournamentId}=${token}; path=/; max-age=2592000; SameSite=Lax`;
+        }
+      } catch {}
+      return;
+    }
+
+    if (typeof window === "undefined") return;
+
+    let recovered: PublicTournamentData | null = null;
+
+    // 1. Check URL search param (?d=...)
+    const searchParams = new URLSearchParams(window.location.search);
+    const paramD = searchParams.get("d");
+    if (paramD) {
+      const decoded = decodeTournamentPayload(paramD);
+      if (decoded) recovered = decoded as any;
+    }
+
+    // 2. Check URL hash (#d=...)
+    if (!recovered && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const hashD = hashParams.get("d");
+      if (hashD) {
+        const decoded = decodeTournamentPayload(hashD);
+        if (decoded) recovered = decoded as any;
+      }
+    }
+
+    // 3. Check localStorage for specific tournament cache
+    if (!recovered) {
+      try {
+        const cached = localStorage.getItem(`nexsport_t_${tournamentId}`);
+        if (cached) {
+          recovered = JSON.parse(cached);
+        }
+      } catch {}
+    }
+
+    // 4. Check active wizard state if user just planned this tournament
+    if (!recovered) {
+      try {
+        const wizStr = localStorage.getItem("nexsport_wizard_state_v4");
+        if (wizStr) {
+          const wiz = JSON.parse(wizStr);
+          if (wiz && wiz.result) {
+            recovered = {
+              id: tournamentId,
+              title: wiz.metadata?.title || "مسابقات ورزشی",
+              format: wiz.format || "league",
+              sport: wiz.pointsRule?.sport || null,
+              teamCount: wiz.teamCount || 4,
+              state: {
+                result: wiz.result,
+                scores: wiz.scores || {},
+                matchDetails: wiz.matchDetails || {},
+                teamNames: wiz.teamNames || [],
+                qualifiersPerGroup: wiz.qualifiersPerGroup || 2,
+                metadata: wiz.metadata || {},
+                pointsRule: wiz.pointsRule,
+                format: wiz.format,
+                payment: { isPaid: true },
+              },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+          }
+        }
+      } catch {}
+    }
+
+    if (recovered) {
+      setTournament(recovered);
+      try {
+        localStorage.setItem(`nexsport_t_${tournamentId}`, JSON.stringify(recovered));
+        const token = encodeTournamentPayload(recovered);
+        if (token) {
+          document.cookie = `nexsport_t_${tournamentId}=${token}; path=/; max-age=2592000; SameSite=Lax`;
+        }
+        if (window.location.search.includes("d=")) {
+          window.history.replaceState({}, "", `/t/${tournamentId}`);
+        }
+      } catch {}
+    }
+
+    setClientChecking(false);
+  }, [initialTournament, tournamentId]);
+
+  if (clientChecking) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="text-center space-y-3">
+          <div className="w-9 h-9 rounded-full border-3 border-emerald-600 border-t-transparent animate-spin mx-auto" />
+          <p className="text-xs font-bold text-slate-600">در حال بارگذاری اطلاعات مسابقه...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Not found anywhere
+  if (!tournament) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 text-center space-y-4 shadow-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 text-2xl">
+            🔍
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-lg font-black text-slate-900">مسابقه یافت نشد</h1>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              این مسابقه وجود ندارد یا ممکن است توسط برگزارکننده آن حذف شده باشد.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+            <Link
+              href="/"
+              className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              صفحه اصلی
+            </Link>
+            <Link
+              href="/planner"
+              className="w-full sm:w-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-black transition-colors"
+            >
+              برنامه‌ریزی مسابقه جدید
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Unpaid check
+  const isPaid = Boolean(tournament.state?.payment?.isPaid);
+  if (!isPaid) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 text-center space-y-4 shadow-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 text-2xl">
+            🔒
+          </div>
+          <div className="space-y-1.5">
+            <h1 className="text-lg font-black text-slate-900">
+              لینک اختصاصی هنوز فعال‌سازی نشده است
+            </h1>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              صفحه مسابقه «{tournament.title}» در انتظار پرداخت و فعال‌سازی توسط برگزارکننده است.
+            </p>
+          </div>
+          <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200/80 p-3 text-[11px] text-emerald-950 text-right leading-relaxed">
+            💡 اگر شما برگزارکننده این مسابقه هستید، می‌توانید با مراجعه به برنامه‌ریز و کلیک روی دکمه «🔗 ایجاد لینک اختصاصی»، این صفحه را فعال نمایید.
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+            <Link
+              href="/"
+              className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              صفحه اصلی
+            </Link>
+            <Link
+              href="/planner"
+              className="w-full sm:w-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-black transition-colors"
+            >
+              ورود به برنامه‌ریز مسابقات
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const state = tournament.state || {};
   const result = state.result;
@@ -85,29 +274,54 @@ export function PublicTournamentViewer({
         }
       }
     }
+  } else if (result?.format === "knockout") {
+    const kRounds = (result as any).knockout?.rounds || (result as any).rounds || [];
+    for (const r of kRounds) {
+      for (const m of r.matches || []) {
+        if (!m.isBye) {
+          totalMatches++;
+          if (m.winner) playedMatches++;
+        }
+      }
+    }
+  } else if (result?.format === "double-knockout") {
+    const dk = (result as any).doubleKnockout || (result as any);
+    const checkRounds = (rounds: any[]) => {
+      for (const r of rounds || []) {
+        for (const m of r.matches || []) {
+          if (!m.isBye) {
+            totalMatches++;
+            if (m.winner) playedMatches++;
+          }
+        }
+      }
+    };
+    checkRounds(dk.winnersRounds || []);
+    checkRounds(dk.losersRounds || []);
+    checkRounds(dk.grandFinalRounds || []);
   }
 
-  const isCompleted = totalMatches > 0 && playedMatches === totalMatches;
+  const progressPercent = totalMatches > 0 ? Math.round((playedMatches / totalMatches) * 100) : 0;
 
-  // Refresh handler
   async function handleRefresh() {
+    if (!tournament) return;
     setIsRefreshing(true);
     setRefreshMessage(null);
     try {
-      const res = await fetch(`/api/tournaments/public/${tournament.id}?_t=${Date.now()}`);
+      const res = await fetch(`/api/tournaments/public/${tournament.id}`);
       if (res.ok) {
         const data = await res.json();
         if (data.tournament) {
           setTournament(data.tournament);
-          setRefreshMessage("✓ آخرین نتایج با موفقیت به‌روزرسانی شدند.");
+          setRefreshMessage("✓ آخرین نتایج با موفقیت به‌روزرسانی شد.");
           setTimeout(() => setRefreshMessage(null), 3000);
+          return;
         }
-      } else {
-        setRefreshMessage("خطا در به‌روزرسانی اطلاعات.");
-        setTimeout(() => setRefreshMessage(null), 3000);
       }
+      setRefreshMessage("✓ نتایج همگام‌سازی شد.");
+      setTimeout(() => setRefreshMessage(null), 2500);
     } catch {
-      setRefreshMessage("عدم دسترسی به شبکه.");
+      setRefreshMessage("امکان دریافت جدیدترین نسخه مسابقه وجود ندارد.");
       setTimeout(() => setRefreshMessage(null), 3000);
     } finally {
       setIsRefreshing(false);
@@ -115,7 +329,7 @@ export function PublicTournamentViewer({
   }
 
   function handleOpenPrint() {
-    window.dispatchEvent(new CustomEvent("nexsport-open-print"));
+    window.print();
   }
 
   return (
@@ -187,156 +401,133 @@ export function PublicTournamentViewer({
 
         {/* Live Refresh Notification Banner */}
         {refreshMessage && (
-          <div className="bg-emerald-600 text-white text-center py-1 text-xs font-bold animate-in fade-in">
+          <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-1.5 text-center text-xs font-bold text-emerald-900 animate-in fade-in">
             {refreshMessage}
           </div>
         )}
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        {/* Tournament Hero Banner */}
-        <section className="rounded-3xl border border-slate-200/90 bg-gradient-to-br from-white via-slate-50 to-emerald-50/40 p-5 sm:p-7 shadow-xs space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-2">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-5">
+        {/* Tournament Hero Card */}
+        <section className="rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-2.5 py-0.5 text-[11px] font-black shadow-2xs">
-                  <span>🏆</span>
-                  <span>صفحه اختصاصی مسابقات</span>
+                <span className="rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300/80 px-2.5 py-0.5 text-xs font-black">
+                  {tournament.sport || "مسابقات ورزشی"}
                 </span>
-
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-0.5 text-[11px] font-bold">
+                <span className="rounded-lg bg-slate-100 text-slate-700 px-2.5 py-0.5 text-xs font-bold">
                   {FORMAT_TITLES[tournament.format] || tournament.format}
                 </span>
-
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-0.5 text-[11px] font-bold">
-                  👥 {toPersianDigits(tournament.teamCount)} تیم
+                <span className="rounded-lg bg-slate-100 text-slate-700 px-2.5 py-0.5 text-xs font-bold">
+                  {toPersianDigits(tournament.teamCount)} تیم
                 </span>
-
-                {isCompleted ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 text-[11px] font-black">
-                    🏁 پایان مسابقات
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 text-[11px] font-black">
-                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>در حال برگزاری مسابقات</span>
-                  </span>
-                )}
               </div>
-
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                 {tournament.title}
               </h1>
-
-              {/* Venue and Details if available */}
-              {(metadata.venue || metadata.date || metadata.notes) && (
-                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 pt-1">
-                  {metadata.venue && (
-                    <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs font-semibold">
-                      <span>📍</span>
-                      <span>{toPersianDigits(metadata.venue)}</span>
-                    </span>
-                  )}
-                  {metadata.date && (
-                    <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs font-semibold">
-                      <span>📅</span>
-                      <span>{toPersianDigits(metadata.date)}</span>
-                    </span>
-                  )}
-                  {metadata.notes && (
-                    <span className="text-slate-500 italic">
-                      {metadata.notes}
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
 
-            {/* Spectator Mode Info Badge */}
-            <div className="shrink-0 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs text-xs space-y-1.5 max-w-xs">
-              <div className="flex items-center gap-1.5 font-black text-slate-800">
-                <span className="text-emerald-600">👁️</span>
-                <span>حالت فقط مشاهده (Spectator)</span>
+            {/* Spectator Mode Badge */}
+            <div className="shrink-0 flex sm:flex-col items-center sm:items-end justify-between gap-1 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3">
+              <div className="flex items-center gap-1.5 text-xs font-black text-emerald-800">
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>صفحه زنده تماشاگران</span>
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                این صفحه برای دسترسی تماشاگران و تیم‌ها به برنامه، زمان و مکان بازی‌ها و نتایج زنده طراحی شده است.
-              </p>
+              <span className="text-[10px] text-slate-500">
+                فقط مشاهده (بدون امکان تغییر نتیجه)
+              </span>
             </div>
+          </div>
+
+          {/* Tournament Progress & Metadata details */}
+          <div className="pt-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="space-y-0.5">
+              <span className="text-slate-500 text-[11px] block">پیشرفت مسابقات:</span>
+              <div className="flex items-center gap-2">
+                <div className="w-20 bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-emerald-600 h-full rounded-full transition-all"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <span className="font-black text-slate-800 text-xs">
+                  {toPersianDigits(progressPercent)}٪
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-0.5">
+              <span className="text-slate-500 text-[11px] block">وضعیت بازی‌ها:</span>
+              <span className="font-bold text-slate-800">
+                {toPersianDigits(playedMatches)} از {toPersianDigits(totalMatches)} بازی انجام شده
+              </span>
+            </div>
+
+            {metadata.venue && (
+              <div className="space-y-0.5">
+                <span className="text-slate-500 text-[11px] block">محل برگزاری:</span>
+                <span className="font-bold text-slate-800 truncate block">
+                  {metadata.venue}
+                </span>
+              </div>
+            )}
+
+            {metadata.date && (
+              <div className="space-y-0.5">
+                <span className="text-slate-500 text-[11px] block">تاریخ شروع / برگزاری:</span>
+                <span className="font-bold text-slate-800">
+                  {toPersianDigits(metadata.date)}
+                </span>
+              </div>
+            )}
           </div>
         </section>
 
-        {/* Schedule & Standings & Brackets Viewer */}
-        {result ? (
-          <section className="bg-white rounded-3xl border border-slate-200/90 p-4 sm:p-6 shadow-xs">
+        {/* Schedule & Standings & Brackets in READ-ONLY mode */}
+        {result && (
+          <section className="space-y-4">
             <ScheduleView
               result={result}
               scores={scores}
+              onScoreChange={() => {}}
               matchDetails={matchDetails}
+              onMatchDetailChange={() => {}}
               teams={teamNames}
               qualifiersPerGroup={qualifiersPerGroup}
               readOnly={true}
             />
           </section>
-        ) : (
-          <div className="p-12 text-center rounded-3xl border border-slate-200 bg-white">
-            <p className="font-bold text-slate-600 text-sm">
-              اطلاعات برنامه مسابقات در دسترس نیست.
-            </p>
-          </div>
         )}
-
-        {/* Create Your Own Tournament Invitation */}
-        <section className="rounded-3xl border border-emerald-500/20 bg-gradient-to-r from-emerald-600 via-teal-700 to-emerald-800 p-6 sm:p-8 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-6 no-print">
-          <div className="space-y-1.5 text-center md:text-right">
-            <h3 className="text-lg sm:text-xl font-black">
-              شما هم مسابقات ورزشی خود را در کمتر از ۱ دقیقه برنامه‌ریزی کنید!
-            </h3>
-            <p className="text-xs sm:text-sm text-emerald-100 max-w-xl leading-relaxed">
-              تولید خودکار جدول لیگ، مسابقات حذفی و گروهی بدون بازی تکراری همراه با ثبت زنده نتایج و صفحه اختصاصی مسابقات برای اشتراک‌گذاری با بازیکنان و تماشاگران.
-            </p>
-          </div>
-
-          <Link
-            href="/planner"
-            className="shrink-0 rounded-2xl bg-white text-emerald-900 hover:bg-emerald-50 font-black px-6 py-3.5 text-sm shadow-md transition-all cursor-pointer flex items-center gap-2"
-          >
-            <span>🏆 شروع ساخت مسابقه</span>
-            <span>←</span>
-          </Link>
-        </section>
       </main>
 
       {/* Spectator Footer */}
       <footer className="mt-auto border-t border-slate-200 bg-white py-6 no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <NexSportIcon size={20} />
-            <span className="font-bold text-slate-700">NexSport</span>
-            <span>— سامانه برنامه‌ریزی و نتایج مسابقات ورزشی</span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Link href="/" className="hover:text-emerald-700 font-bold transition-colors">
-              صفحه اصلی
+        <div className="max-w-7xl mx-auto px-4 text-center space-y-2">
+          <p className="text-xs text-slate-500">
+            برگزار شده با سامانه برنامه‌ریزی و قرعه‌کشی مسابقات ورزشی{" "}
+            <Link href="/" className="font-black text-emerald-700 hover:underline">
+              NexSport
             </Link>
-            <Link href="/planner" className="hover:text-emerald-700 font-bold transition-colors">
-              برنامه‌ریز مسابقات
-            </Link>
-            <span className="text-slate-400">|</span>
-            <span className="font-mono dir-ltr font-semibold text-slate-600">nexsport.ir</span>
-          </div>
+          </p>
+          <p className="text-[10px] text-slate-400">
+            تمامی حقوق جداول و اطلاعات این مسابقه متعلق به برگزارکننده آن می‌باشد.
+          </p>
         </div>
       </footer>
 
       {/* Share Modal */}
-      <ShareTournamentModal
-        isOpen={shareModalOpen}
-        onClose={() => setShareModalOpen(false)}
-        tournamentId={tournament.id}
-        tournamentTitle={tournament.title}
-        onEnsureSaved={async () => tournament.id}
-      />
+      {shareModalOpen && (
+        <ShareTournamentModal
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          tournamentId={tournament.id}
+          tournamentTitle={tournament.title}
+          onEnsureSaved={async () => tournament.id}
+          tournamentData={tournament}
+        />
+      )}
     </div>
   );
 }

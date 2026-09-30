@@ -1,19 +1,42 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { PublicTournamentViewer, PublicTournamentData } from "@/components/public/PublicTournamentViewer";
-import { NexSportIcon } from "@/components/NexSportLogo";
+import { decodeTournamentPayload } from "@/lib/tournamentCodec";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: { id: string } | Promise<{ id: string }>;
+  searchParams?: { [key: string]: string | string[] | undefined } | Promise<{ [key: string]: string | string[] | undefined }>;
 }): Promise<Metadata> {
-  const resolved = await Promise.resolve(params);
-  const id = resolved.id;
-  const t = await db.getPublicTournament(id);
+  const resolvedParams = await Promise.resolve(params);
+  const id = resolvedParams.id;
+  let t = await db.getPublicTournament(id);
+
+  if (!t) {
+    const sp = searchParams ? await Promise.resolve(searchParams) : {};
+    const d = typeof sp?.d === "string" ? sp.d : Array.isArray(sp?.d) ? sp.d[0] : undefined;
+    if (d) {
+      const decoded = decodeTournamentPayload(d);
+      if (decoded && decoded.id === id) {
+        t = {
+          id: decoded.id,
+          user_id: "public",
+          title: decoded.title,
+          format: decoded.format,
+          sport: decoded.sport || null,
+          team_count: decoded.teamCount,
+          state: decoded.state,
+          created_at: new Date(decoded.createdAt || Date.now()),
+          updated_at: new Date(decoded.updatedAt || Date.now()),
+        };
+      }
+    }
+  }
 
   const title = t?.title
     ? `${t.title} | برنامه و نتایج مسابقات | NexSport`
@@ -40,96 +63,97 @@ export async function generateMetadata({
 
 export default async function PublicTournamentPage({
   params,
+  searchParams,
 }: {
   params: { id: string } | Promise<{ id: string }>;
+  searchParams?: { [key: string]: string | string[] | undefined } | Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const resolved = await Promise.resolve(params);
-  const id = resolved.id;
+  const resolvedParams = await Promise.resolve(params);
+  const id = resolvedParams.id;
 
-  const tournamentRecord = await db.getPublicTournament(id);
+  let tournamentRecord = await db.getPublicTournament(id);
 
+  // 1. If not found in DB, check query string (?d=...)
   if (!tournamentRecord) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 text-center space-y-4 shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 text-2xl">
-            🔍
-          </div>
-          <div className="space-y-1">
-            <h1 className="text-lg font-black text-slate-900">
-              مسابقه یافت نشد
-            </h1>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              این مسابقه وجود ندارد یا ممکن است توسط برگزارکننده آن حذف شده باشد.
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
-            <Link
-              href="/"
-              className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              صفحه اصلی
-            </Link>
-            <Link
-              href="/planner"
-              className="w-full sm:w-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-black transition-colors"
-            >
-              برنامه‌ریزی مسابقه جدید
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+    const sp = searchParams ? await Promise.resolve(searchParams) : {};
+    const d = typeof sp?.d === "string" ? sp.d : Array.isArray(sp?.d) ? sp.d[0] : undefined;
+    if (d) {
+      const decoded = decodeTournamentPayload(d);
+      if (decoded) {
+        tournamentRecord = {
+          id: decoded.id || id,
+          user_id: "public",
+          title: decoded.title,
+          format: decoded.format,
+          sport: decoded.sport || null,
+          team_count: decoded.teamCount,
+          state: decoded.state,
+          created_at: new Date(decoded.createdAt || Date.now()),
+          updated_at: new Date(decoded.updatedAt || Date.now()),
+        };
+
+        // Cache in memory / DB for current instance
+        db.saveTournament({
+          id: tournamentRecord.id,
+          userId: "public",
+          title: tournamentRecord.title,
+          format: tournamentRecord.format,
+          sport: tournamentRecord.sport || undefined,
+          teamCount: tournamentRecord.team_count,
+          state: tournamentRecord.state,
+        }).catch(() => {});
+      }
+    }
   }
 
-  // If dedicated link has not been activated and paid by organizer
-  if (!tournamentRecord.state?.payment?.isPaid) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 text-center space-y-4 shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 text-2xl">
-            🔒
-          </div>
-          <div className="space-y-1.5">
-            <h1 className="text-lg font-black text-slate-900">
-              لینک اختصاصی هنوز فعال‌سازی نشده است
-            </h1>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              صفحه مسابقه «{tournamentRecord.title}» در انتظار پرداخت و فعال‌سازی توسط برگزارکننده است.
-            </p>
-          </div>
-          <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200/80 p-3 text-[11px] text-emerald-950 text-right leading-relaxed">
-            💡 اگر شما برگزارکننده این مسابقه هستید، می‌توانید با مراجعه به برنامه‌ریز و کلیک روی دکمه «🔗 ایجاد لینک اختصاصی»، این صفحه را فعال نمایید.
-          </div>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
-            <Link
-              href="/"
-              className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              صفحه اصلی
-            </Link>
-            <Link
-              href="/planner"
-              className="w-full sm:w-auto rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-black transition-colors"
-            >
-              ورود به برنامه‌ریز مسابقات
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+  // 2. Check cookies (shared between tabs on same domain/browser)
+  if (!tournamentRecord) {
+    try {
+      const cookieStore = cookies();
+      const cookieVal = cookieStore.get(`nexsport_t_${id}`)?.value;
+      if (cookieVal) {
+        const decoded = decodeTournamentPayload(cookieVal);
+        if (decoded) {
+          tournamentRecord = {
+            id: decoded.id || id,
+            user_id: "public",
+            title: decoded.title,
+            format: decoded.format,
+            sport: decoded.sport || null,
+            team_count: decoded.teamCount,
+            state: decoded.state,
+            created_at: new Date(decoded.createdAt || Date.now()),
+            updated_at: new Date(decoded.updatedAt || Date.now()),
+          };
+
+          db.saveTournament({
+            id: tournamentRecord.id,
+            userId: "public",
+            title: tournamentRecord.title,
+            format: tournamentRecord.format,
+            sport: tournamentRecord.sport || undefined,
+            teamCount: tournamentRecord.team_count,
+            state: tournamentRecord.state,
+          }).catch(() => {});
+        }
+      }
+    } catch {
+      // Cookie reading fallback
+    }
   }
 
-  const publicData: PublicTournamentData = {
-    id: tournamentRecord.id,
-    title: tournamentRecord.title,
-    format: tournamentRecord.format,
-    sport: tournamentRecord.sport,
-    teamCount: tournamentRecord.team_count,
-    state: tournamentRecord.state,
-    createdAt: tournamentRecord.created_at,
-    updatedAt: tournamentRecord.updated_at,
-  };
+  const initialData: PublicTournamentData | null = tournamentRecord
+    ? {
+        id: tournamentRecord.id,
+        title: tournamentRecord.title,
+        format: tournamentRecord.format,
+        sport: tournamentRecord.sport,
+        teamCount: tournamentRecord.team_count,
+        state: tournamentRecord.state,
+        createdAt: tournamentRecord.created_at,
+        updatedAt: tournamentRecord.updated_at,
+      }
+    : null;
 
-  return <PublicTournamentViewer initialTournament={publicData} />;
+  return <PublicTournamentViewer tournamentId={id} initialTournament={initialData} />;
 }

@@ -15,8 +15,20 @@ export async function GET(
       return NextResponse.json({ error: "شناسه مسابقه نامعتبر است." }, { status: 400 });
     }
 
-    const isPaid = await paymentService.isTournamentPaid(tournamentId);
-    const paymentInfo = await paymentService.getTournamentPaymentInfo(tournamentId);
+    let isPaid = await paymentService.isTournamentPaid(tournamentId);
+    let paymentInfo = await paymentService.getTournamentPaymentInfo(tournamentId);
+
+    if (!isPaid) {
+      const cookieVal = req.cookies.get(`nexsport_t_${tournamentId}`)?.value;
+      if (cookieVal) {
+        const { decodeTournamentPayload } = await import("@/lib/tournamentCodec");
+        const decoded = decodeTournamentPayload(cookieVal);
+        if (decoded?.state?.payment?.isPaid) {
+          isPaid = true;
+          paymentInfo = decoded.state.payment;
+        }
+      }
+    }
 
     return NextResponse.json({
       tournamentId,
