@@ -1337,7 +1337,11 @@ function PlannerWizard() {
   return (
     <main
       className={`mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 transition-all ${
-        step === 4 ? "max-w-[1700px] w-full" : "max-w-5xl"
+        step === 4
+          ? "max-w-[1700px] w-full"
+          : step === 0
+          ? "max-w-[1580px] w-full"
+          : "max-w-5xl"
       }`}
     >
       {/* Top Bar */}
@@ -1395,13 +1399,13 @@ function PlannerWizard() {
         </div>
       </div>
 
-      <div className="no-print mb-8">
+      <div className="no-print mb-8 max-w-4xl mx-auto">
         <Stepper labels={STEP_LABELS} current={step} />
       </div>
 
       {/* Info notification */}
       {infoMessage && (
-        <div className="no-print mb-6 rounded-xl border border-pitch/30 bg-pitch/10 px-4 py-3 text-xs sm:text-sm font-semibold text-pitch animate-fade-in flex items-center gap-2 shadow-xs">
+        <div className="no-print mb-6 max-w-4xl mx-auto rounded-xl border border-pitch/30 bg-pitch/10 px-4 py-3 text-xs sm:text-sm font-semibold text-pitch animate-fade-in flex items-center gap-2 shadow-xs">
           <span>ℹ️</span>
           <span>{infoMessage}</span>
         </div>
@@ -1411,12 +1415,12 @@ function PlannerWizard() {
       {step === 0 && (
         <section className="animate-fade-in space-y-8">
           {/* Section Hero */}
-          <div className="text-center max-w-2xl mx-auto space-y-2.5 pt-2">
+          <div className="text-center max-w-3xl mx-auto space-y-2.5 pt-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-pitch/10 px-3.5 py-1 text-xs font-bold text-pitch border border-pitch/20">
               <span className="h-2 w-2 rounded-full bg-pitch animate-pulse" />
               <span>گام اول از ۵: تعیین شیوه رقابت</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-ink tracking-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-ink tracking-tight">
               فرمت برگزاری مسابقات خود را انتخاب کنید
             </h1>
             <p className="text-xs sm:text-sm text-ink/70 leading-relaxed">
@@ -1482,7 +1486,7 @@ function PlannerWizard() {
           </div>
 
           {/* Cards Grid */}
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {displayedFormats.map((opt) => {
               const isSelected = format === opt.key;
               const accentGradient =
@@ -1506,7 +1510,8 @@ function PlannerWizard() {
                     setStep(1);
                   }}
                   className={
-                    "group relative flex flex-col justify-between rounded-2xl border bg-white p-6 pt-7 transition-all duration-300 cursor-pointer text-right hover:-translate-y-1.5 hover:shadow-card-hover overflow-hidden " +
+                    "group relative flex flex-col justify-between rounded-2xl border bg-white p-6 transition-all duration-300 cursor-pointer text-right hover:-translate-y-1.5 hover:shadow-card-hover overflow-hidden " +
+                    (opt.recommended ? "pt-9 " : "pt-7 ") +
                     (isSelected
                       ? "border-emerald-600 ring-2 ring-emerald-500/30 bg-emerald-50/15 shadow-md"
                       : opt.recommended
@@ -1518,21 +1523,21 @@ function PlannerWizard() {
                   <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${accentGradient}`} />
 
                   {opt.recommended && (
-                    <div className="absolute top-3 right-6 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-0.5 text-[11px] font-black text-slate-950 shadow-xs flex items-center gap-1">
+                    <div className="absolute top-2.5 right-6 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-0.5 text-[11px] font-black text-slate-950 shadow-xs flex items-center gap-1">
                       <span>⭐</span>
                       <span>فرمت پیشنهادی تورنمنت‌ها</span>
                     </div>
                   )}
 
-                  <div>
+                  <div className="flex-1 flex flex-col">
                     {/* Header Row */}
                     <div className="flex items-start justify-between gap-3 mb-3.5">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-2xl group-hover:scale-105 transition-transform shrink-0 shadow-2xs border border-slate-200/80">
                           {opt.icon}
                         </div>
-                        <div>
-                          <h3 className="text-lg font-black text-slate-900 group-hover:text-pitch transition-colors">
+                        <div className="min-w-0">
+                          <h3 className="text-lg font-black text-slate-900 group-hover:text-pitch transition-colors leading-snug">
                             {opt.title}
                           </h3>
                           <p className="text-[11px] font-mono text-slate-400 mt-0.5">
@@ -1542,7 +1547,7 @@ function PlannerWizard() {
                       </div>
 
                       <span
-                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full border shrink-0 ${opt.badgeBg} ${opt.badgeBorder} ${opt.badgeText}`}
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full border shrink-0 whitespace-nowrap ${opt.badgeBg} ${opt.badgeBorder} ${opt.badgeText}`}
                       >
                         {opt.tag}
                       </span>
@@ -1566,17 +1571,17 @@ function PlannerWizard() {
                       {opt.features.map((feat, idx) => (
                         <li key={idx} className="flex items-center gap-2 text-xs text-slate-700">
                           <span className="text-emerald-700 font-bold text-xs shrink-0">✓</span>
-                          <span className="text-[11px] sm:text-xs">{feat}</span>
+                          <span className="text-[11px] sm:text-xs leading-5">{feat}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
                   {/* Action Button */}
-                  <div className="pt-2 border-t border-slate-100">
+                  <div className="pt-2 border-t border-slate-100 mt-auto">
                     <div className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-xs font-bold text-slate-800 group-hover:bg-pitch group-hover:text-white group-hover:border-pitch transition-all shadow-2xs">
                       <span>انتخاب این فرمت و ادامه</span>
-                      <span className="text-amber-500 group-hover:text-amber-300 group-hover:translate-x-1 transition-transform">←</span>
+                      <span className="text-amber-500 group-hover:text-amber-300 group-hover:-translate-x-1 transition-transform">←</span>
                     </div>
                   </div>
                 </div>
