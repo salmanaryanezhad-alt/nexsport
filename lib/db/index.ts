@@ -2,6 +2,7 @@ import { Pool as PgPool } from "pg";
 import mysql, { Pool as MySqlPool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import crypto from "crypto";
 import { generateShortId } from "../shortId";
+import { hasUnlimitedPlanning, isSuperAdminEmail } from "../auth/utils";
 import {
   createSignedSessionToken,
   parseSessionToken,
@@ -218,7 +219,7 @@ function normalizeDiscountRow(row: any): DiscountCodeRecord {
 }
 
 function normalizeUserRow(row: any): UserRecord {
-  const isSuperAdmin = String(row.email || "").trim().toLowerCase() === "salman.aryanezhad@gmail.com";
+  const isSuperAdmin = isSuperAdminEmail(row.email);
   return {
     id: row.id,
     name: row.name,
@@ -758,7 +759,7 @@ export const db = {
     const now = new Date();
     const cleanEmail = data.email.trim().toLowerCase();
     const cleanMobile = data.mobile.trim();
-    const isSuperAdmin = cleanEmail === "salman.aryanezhad@gmail.com";
+    const isSuperAdmin = isSuperAdminEmail(cleanEmail);
     const role = isSuperAdmin ? "admin" : (data.role ?? "user");
     const isVerified = Boolean(data.is_verified ?? data.isVerified);
     const passwordHash = data.password_hash || data.passwordHash || "";
@@ -1777,6 +1778,7 @@ export const db = {
     vipExpiresAt: Date | null;
     planningCredits: number;
     freeLinkAvailable: boolean;
+    unlimitedPlanning: boolean;
     role: string;
   }> {
     const user = await this.findUserById(userId);
@@ -1786,21 +1788,24 @@ export const db = {
         vipExpiresAt: null,
         planningCredits: 0,
         freeLinkAvailable: false,
+        unlimitedPlanning: false,
         role: "guest",
       };
     }
     const isVip = Boolean(
       user.vip_expires_at && new Date(user.vip_expires_at).getTime() > Date.now()
     );
+    const unlimitedPlanning = isVip || hasUnlimitedPlanning(user);
     return {
       isVip,
       vipExpiresAt: user.vip_expires_at || null,
-      planningCredits: isVip
+      planningCredits: unlimitedPlanning
         ? 999999
         : user.planning_credits !== undefined
         ? Number(user.planning_credits)
         : 5,
       freeLinkAvailable: !user.free_link_used,
+      unlimitedPlanning,
       role: user.role,
     };
   },
@@ -1809,6 +1814,7 @@ export const db = {
     success: boolean;
     isVip: boolean;
     remainingCredits: number;
+    unlimitedPlanning?: boolean;
     error?: string;
   }> {
     const user = await this.findUserById(userId);
@@ -1818,8 +1824,8 @@ export const db = {
     const isVip = Boolean(
       user.vip_expires_at && new Date(user.vip_expires_at).getTime() > Date.now()
     );
-    if (isVip) {
-      return { success: true, isVip: true, remainingCredits: 999999 };
+    if (isVip || hasUnlimitedPlanning(user)) {
+      return { success: true, isVip, remainingCredits: 999999, unlimitedPlanning: true };
     }
     const currentCredits = user.planning_credits !== undefined ? Number(user.planning_credits) : 5;
     if (currentCredits <= 0) {

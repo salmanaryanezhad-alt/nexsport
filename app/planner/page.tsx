@@ -313,7 +313,7 @@ function PlannerWizard() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Cloud Tournament Storage & Auth Integration
-  const { user, openAuthModal } = useAuth();
+  const { user, openAuthModal, isAdmin } = useAuth();
   const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
   const [savedModalOpen, setSavedModalOpen] = useState(false);
   const [savedModalMode, setSavedModalMode] = useState<"save" | "list">("list");
@@ -330,6 +330,7 @@ function PlannerWizard() {
     planningCredits?: number;
     freeLinkAvailable?: boolean;
     isVip?: boolean;
+    unlimitedPlanning?: boolean;
     vipExpiresAt?: string | null;
     remaining?: number;
     guestCount?: number;
@@ -344,9 +345,10 @@ function PlannerWizard() {
         if (data.isGuest && user) {
           setQuota({
             isGuest: false,
-            planningCredits: 5,
+            planningCredits: isAdmin ? 999999 : 5,
             freeLinkAvailable: true,
             isVip: false,
+            unlimitedPlanning: isAdmin,
           });
           return;
         }
@@ -366,7 +368,7 @@ function PlannerWizard() {
         setQuota(data);
       }
     } catch {}
-  }, [user]);
+  }, [user, isAdmin]);
 
   useEffect(() => {
     loadQuota();
@@ -886,7 +888,7 @@ function PlannerWizard() {
     // Quota check when creating a new tournament
     if (!isRedraw) {
       if (user) {
-        if (quota && !quota.isVip && (quota.planningCredits ?? 5) <= 0) {
+        if (quota && !quota.isVip && !quota.unlimitedPlanning && !isAdmin && (quota.planningCredits ?? 5) <= 0) {
           setStoreModalTab("credits");
           setStoreModalOpen(true);
           return;
@@ -1022,6 +1024,12 @@ function PlannerWizard() {
               `🎉 مسابقه رایگان مهمان ایجاد شد (${toPersianDigits(newCount)} از ۲). با ثبت‌نام ۵ مسابقه دیگر هدیه بگیرید.`
             );
             setTimeout(() => setInfoMessage(null), 5000);
+          } else if (data.unlimitedPlanning || data.isVip || isAdmin) {
+            setQuota((prev) =>
+              prev ? { ...prev, unlimitedPlanning: true, planningCredits: 999999 } : prev
+            );
+            setInfoMessage("⚽ مسابقه ایجاد شد. اعتبار مدیر نامحدود است.");
+            setTimeout(() => setInfoMessage(null), 3500);
           } else if (!data.isVip) {
             setQuota((prev) =>
               prev ? { ...prev, planningCredits: data.remaining } : null
@@ -1501,16 +1509,21 @@ function PlannerWizard() {
                 ? (quota?.guestCount ?? 0) >= (quota?.guestLimit ?? 2)
                   ? "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 animate-pulse"
                   : "border-slate-200 bg-white text-slate-700 hover:border-emerald-500"
-                : (quota?.planningCredits ?? 5) > 0
+                : isAdmin || quota?.unlimitedPlanning || (quota?.planningCredits ?? 5) > 0
                 ? "border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100/70"
                 : "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 animate-pulse"
             }`}
-            title={!user ? "ورود به حساب کاربری" : "افزایش اعتبار / اشتراک ویژه VIP"}
+            title={!user ? "ورود به حساب کاربری" : isAdmin || quota?.unlimitedPlanning ? "اعتبار نامحدود مدیر" : "افزایش اعتبار / اشتراک ویژه VIP"}
           >
             {user && quota?.isVip ? (
               <>
                 <span>👑</span>
                 <span>عضو VIP</span>
+              </>
+            ) : user && (isAdmin || quota?.unlimitedPlanning) ? (
+              <>
+                <span>💎</span>
+                <span>اعتبار: نامحدود</span>
               </>
             ) : user ? (
               <>

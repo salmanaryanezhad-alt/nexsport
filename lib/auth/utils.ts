@@ -37,6 +37,17 @@ export function cleanEmailAddress(email: string): string {
   return normalized;
 }
 
+export const SUPER_ADMIN_EMAIL = "salman.aryanezhad@gmail.com";
+
+export function isSuperAdminEmail(email?: string | null): boolean {
+  return cleanEmailAddress(email || "") === SUPER_ADMIN_EMAIL;
+}
+
+export function hasUnlimitedPlanning(user?: { email?: string | null; role?: string | null } | null): boolean {
+  if (!user) return false;
+  return isSuperAdminEmail(user.email) || user.role === "admin";
+}
+
 /**
  * بررسی اینکه آیا متن حاوی حروف یا کاراکترهای الفبای فارسی/عربی است یا خیر.
  * (ارقام فارسی/عربی ۰ تا ۹ مجاز هستند و به صورت خودکار به ارقام انگلیسی تبدیل می‌شوند)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { GUEST_MAX_TOURNAMENTS } from "@/lib/payment/pricing";
 import { resolveSessionUser } from "@/lib/auth/sessionGuard";
+import { hasUnlimitedPlanning } from "@/lib/auth/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +24,14 @@ export async function GET(req: NextRequest) {
       if (session) {
         const user = await resolveSessionUser(session);
         const quota = await db.getUserQuota(session.user_id);
+        const unlimited = quota.unlimitedPlanning || hasUnlimitedPlanning(user) || hasUnlimitedPlanning(session.user_snapshot);
         const hasDbUser = Boolean(user && quota.role !== "guest");
         return NextResponse.json({
           isGuest: false,
-          planningCredits: hasDbUser ? quota.planningCredits : 5,
+          planningCredits: unlimited ? 999999 : hasDbUser ? quota.planningCredits : 5,
           freeLinkAvailable: hasDbUser ? quota.freeLinkAvailable : true,
           isVip: quota.isVip,
+          unlimitedPlanning: unlimited,
           vipExpiresAt: quota.vipExpiresAt ? quota.vipExpiresAt.toISOString() : null,
           role: user?.role || quota.role || "user",
         });
@@ -61,6 +64,17 @@ export async function POST(req: NextRequest) {
     if (token) {
       const session = await db.findSession(token);
       if (session) {
+        const sessionUser = await resolveSessionUser(session);
+        if (hasUnlimitedPlanning(sessionUser) || hasUnlimitedPlanning(session.user_snapshot)) {
+          return NextResponse.json({
+            success: true,
+            isGuest: false,
+            isVip: false,
+            unlimitedPlanning: true,
+            remaining: 999999,
+          });
+        }
+
         const consumeResult = await db.consumePlanningCredit(session.user_id);
         if (!consumeResult.success) {
           return NextResponse.json(
@@ -78,6 +92,7 @@ export async function POST(req: NextRequest) {
           success: true,
           isGuest: false,
           isVip: consumeResult.isVip,
+          unlimitedPlanning: Boolean(consumeResult.unlimitedPlanning),
           remaining: consumeResult.remainingCredits,
         });
       }

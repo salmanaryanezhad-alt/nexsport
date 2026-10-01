@@ -25,7 +25,7 @@ export function StoreModal({
   initialTab = "credits",
   onSuccess,
 }: StoreModalProps) {
-  const { user, openAuthModal } = useAuth();
+  const { user, openAuthModal, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<"credits" | "vip">(initialTab);
 
   // Credit Tab State
@@ -42,6 +42,7 @@ export function StoreModal({
     planningCredits?: number;
     freeLinkAvailable?: boolean;
     isVip?: boolean;
+    unlimitedPlanning?: boolean;
     vipExpiresAt?: string | null;
     remaining?: number;
     guestCount?: number;
@@ -97,9 +98,10 @@ export function StoreModal({
         if (data.isGuest && user) {
           setQuota({
             isGuest: false,
-            planningCredits: 5,
+            planningCredits: isAdmin ? 999999 : 5,
             freeLinkAvailable: true,
             isVip: false,
+            unlimitedPlanning: isAdmin,
           });
         } else {
           setQuota(data);
@@ -368,7 +370,9 @@ export function StoreModal({
                 <span>
                   موجودی برنامه‌ریزی:{" "}
                   <strong className="text-emerald-700 font-black">
-                    {toPersianDigits(quota?.planningCredits ?? 5)} مسابقه
+                    {isAdmin || quota?.unlimitedPlanning
+                      ? "نامحدود"
+                      : `${toPersianDigits(quota?.planningCredits ?? 5)} مسابقه`}
                   </strong>
                 </span>
               </span>

@@ -485,6 +485,24 @@ async function run() {
     assert(!("password_hash" in (allUsers[0] as any)), "هش رمز عبور نباید در خروجی لیست کاربران به فرانت‌اند بازگردانده شود.");
   });
 
+  await test("اعتبار نامحدود مدیر کل: ساخت مکرر مسابقه تستی بدون شارژ", async () => {
+    const admin = await db.findUserByEmail("salman.aryanezhad@gmail.com");
+    assert(Boolean(admin), "حساب مدیر باید موجود باشد.");
+
+    const before = await db.getUserQuota(admin!.id);
+    assertEqual(before.unlimitedPlanning, true, "سهمیه مدیر باید نامحدود باشد.");
+    assert(before.planningCredits >= 999999, "موجودی نمایشی مدیر باید نامحدود باشد.");
+
+    for (let i = 0; i < 12; i++) {
+      const res = await db.consumePlanningCredit(admin!.id);
+      assertEqual(res.success, true, `مصرف اعتبار مدیر در دور ${i + 1} باید موفق باشد.`);
+      assertEqual(res.unlimitedPlanning, true, "مصرف اعتبار مدیر نباید موجودی را کم کند.");
+    }
+
+    const after = await db.getUserQuota(admin!.id);
+    assertEqual(after.unlimitedPlanning, true, "پس از ساخت چند مسابقه، اعتبار مدیر همچنان نامحدود است.");
+  });
+
   await test("مدیریت کاربران: تایید دستی کاربر در انتظار (دکمه سبز) و ورود بدون نیاز به کد تایید", async () => {
     const unverifiedEmail = "pending_approve@nexsport.ir";
     const user = await db.createUser({
