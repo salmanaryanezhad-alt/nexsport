@@ -83,4 +83,29 @@ CREATE TABLE IF NOT EXISTS `tournaments` (
     CONSTRAINT `fk_tournaments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `tickets` (
+    `id` VARCHAR(36) NOT NULL,
+    `user_id` VARCHAR(36) NOT NULL,
+    `subject` VARCHAR(200) NOT NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'unanswered',
+    `user_has_unread` TINYINT(1) DEFAULT 0,
+    `last_preview` VARCHAR(180) DEFAULT '',
+    `last_message_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_tickets_user` (`user_id`),
+    KEY `idx_tickets_status` (`status`, `last_message_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `ticket_messages` (
+    `id` VARCHAR(36) NOT NULL,
+    `ticket_id` VARCHAR(36) NOT NULL,
+    `sender` VARCHAR(10) NOT NULL,
+    `body` TEXT NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_ticket_messages_ticket` (`ticket_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;

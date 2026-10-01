@@ -73,6 +73,32 @@ export interface PasswordResetRecord {
   created_at: Date;
 }
 
+export type TicketStatus = "unanswered" | "answered";
+export type TicketSender = "user" | "admin";
+
+export interface TicketRecord {
+  id: string;
+  user_id: string;
+  subject: string;
+  status: TicketStatus;
+  user_has_unread: boolean;
+  last_preview: string;
+  last_message_at: Date;
+  created_at: Date;
+  updated_at: Date;
+  user_name?: string;
+  user_email?: string;
+  user_mobile?: string;
+}
+
+export interface TicketMessageRecord {
+  id: string;
+  ticket_id: string;
+  sender: TicketSender;
+  body: string;
+  created_at: Date;
+}
+
 export interface TournamentRecord {
   id: string;
   user_id: string;
@@ -158,6 +184,8 @@ const memoryStore = {
   discountCodes: new Map<string, DiscountCodeRecord>(),
   orders: new Map<string, any>(),
   settings: new Map<string, string>(),
+  tickets: new Map<string, TicketRecord>(),
+  ticketMessages: new Map<string, TicketMessageRecord>(),
 };
 
 function normalizeDiscountRow(row: any): DiscountCodeRecord {
@@ -192,6 +220,39 @@ function normalizeUserRow(row: any): UserRecord {
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
   };
+}
+
+function normalizeTicketRow(row: any): TicketRecord {
+  const status: TicketStatus = row.status === "answered" ? "answered" : "unanswered";
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    subject: String(row.subject || "").trim(),
+    status,
+    user_has_unread: Boolean(row.user_has_unread),
+    last_preview: String(row.last_preview || "").trim(),
+    last_message_at: new Date(row.last_message_at || row.created_at),
+    created_at: new Date(row.created_at),
+    updated_at: new Date(row.updated_at || row.created_at),
+    user_name: row.user_name || undefined,
+    user_email: row.user_email || undefined,
+    user_mobile: row.user_mobile || undefined,
+  };
+}
+
+function normalizeTicketMessageRow(row: any): TicketMessageRecord {
+  return {
+    id: row.id,
+    ticket_id: row.ticket_id,
+    sender: row.sender === "admin" ? "admin" : "user",
+    body: String(row.body || ""),
+    created_at: new Date(row.created_at),
+  };
+}
+
+function previewTicketBody(body: string): string {
+  const clean = String(body || "").replace(/\s+/g, " ").trim();
+  return clean.length > 140 ? `${clean.slice(0, 140)}…` : clean;
 }
 
 async function initTablesIfRealDb() {
@@ -346,6 +407,35 @@ async function initTablesIfRealDb() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`tickets\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`user_id\` VARCHAR(36) NOT NULL,
+          \`subject\` VARCHAR(200) NOT NULL,
+          \`status\` VARCHAR(20) NOT NULL DEFAULT 'unanswered',
+          \`user_has_unread\` TINYINT(1) DEFAULT 0,
+          \`last_preview\` VARCHAR(180) DEFAULT '',
+          \`last_message_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_tickets_user\` (\`user_id\`),
+          KEY \`idx_tickets_status\` (\`status\`, \`last_message_at\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`ticket_messages\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`ticket_id\` VARCHAR(36) NOT NULL,
+          \`sender\` VARCHAR(10) NOT NULL,
+          \`body\` TEXT NOT NULL,
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_ticket_messages_ticket\` (\`ticket_id\`, \`created_at\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       tablesInitialized = true;
     } catch (err) {
       console.warn("[NexSport DB] MySQL table auto-init warning:", err);
@@ -465,6 +555,29 @@ async function initTablesIfRealDb() {
           setting_value TEXT NOT NULL,
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS tickets (
+          id VARCHAR(36) PRIMARY KEY,
+          user_id VARCHAR(36) NOT NULL,
+          subject VARCHAR(200) NOT NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'unanswered',
+          user_has_unread BOOLEAN DEFAULT FALSE,
+          last_preview VARCHAR(180) DEFAULT '',
+          last_message_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_tickets_user ON tickets(user_id);
+        CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status, last_message_at);
+
+        CREATE TABLE IF NOT EXISTS ticket_messages (
+          id VARCHAR(36) PRIMARY KEY,
+          ticket_id VARCHAR(36) NOT NULL,
+          sender VARCHAR(10) NOT NULL,
+          body TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket ON ticket_messages(ticket_id, created_at);
       `);
       tablesInitialized = true;
     } catch (err) {
@@ -2021,5 +2134,308 @@ export const db = {
 
     memoryStore.settings.set("pricing", payload);
     return settings;
+  },
+
+  async createTicket(data: {
+    userId: string;
+    subject: string;
+    body: string;
+  }): Promise<{ ticket: TicketRecord; message: TicketMessageRecord }> {
+    const now = new Date();
+    const ticketId = crypto.randomUUID();
+    const messageId = crypto.randomUUID();
+    const subject = String(data.subject || "").trim().slice(0, 200);
+    const body = String(data.body || "").trim().slice(0, 4000);
+    const preview = previewTicketBody(body);
+
+    const ticket: TicketRecord = {
+      id: ticketId,
+      user_id: data.userId,
+      subject,
+      status: "unanswered",
+      user_has_unread: false,
+      last_preview: preview,
+      last_message_at: now,
+      created_at: now,
+      updated_at: now,
+    };
+    const message: TicketMessageRecord = {
+      id: messageId,
+      ticket_id: ticketId,
+      sender: "user",
+      body,
+      created_at: now,
+    };
+
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute(
+        `INSERT INTO \`tickets\` (id, user_id, subject, status, user_has_unread, last_preview, last_message_at, created_at, updated_at)
+         VALUES (?, ?, ?, 'unanswered', 0, ?, ?, ?, ?)`,
+        [ticketId, data.userId, subject, preview, now, now, now]
+      );
+      await mysqlPool.execute(
+        `INSERT INTO \`ticket_messages\` (id, ticket_id, sender, body, created_at) VALUES (?, ?, 'user', ?, ?)`,
+        [messageId, ticketId, body, now]
+      );
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query(
+        `INSERT INTO tickets (id, user_id, subject, status, user_has_unread, last_preview, last_message_at, created_at, updated_at)
+         VALUES ($1, $2, $3, 'unanswered', FALSE, $4, $5, $6, $7)`,
+        [ticketId, data.userId, subject, preview, now, now, now]
+      );
+      await pgPool.query(
+        `INSERT INTO ticket_messages (id, ticket_id, sender, body, created_at) VALUES ($1, $2, 'user', $3, $4)`,
+        [messageId, ticketId, body, now]
+      );
+    }
+
+    memoryStore.tickets.set(ticketId, ticket);
+    memoryStore.ticketMessages.set(messageId, message);
+    return { ticket, message };
+  },
+
+  async listUserTickets(userId: string): Promise<TicketRecord[]> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `tickets` WHERE user_id = ? ORDER BY last_message_at DESC",
+        [userId]
+      );
+      return rows.map(normalizeTicketRow);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT * FROM tickets WHERE user_id = $1 ORDER BY last_message_at DESC",
+        [userId]
+      );
+      return res.rows.map(normalizeTicketRow);
+    }
+    return Array.from(memoryStore.tickets.values())
+      .filter((t) => t.user_id === userId)
+      .map(normalizeTicketRow)
+      .sort((a, b) => b.last_message_at.getTime() - a.last_message_at.getTime());
+  },
+
+  async listAdminTickets(): Promise<TicketRecord[]> {
+    const attachUser = async (tickets: TicketRecord[]) => {
+      return Promise.all(
+        tickets.map(async (t) => {
+          if (t.user_name) return t;
+          const user = await db.findUserById(t.user_id);
+          return {
+            ...t,
+            user_name: user?.name,
+            user_email: user?.email,
+            user_mobile: user?.mobile,
+          };
+        })
+      );
+    };
+
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT t.*, u.name AS user_name, u.email AS user_email, u.mobile AS user_mobile
+         FROM \`tickets\` t
+         LEFT JOIN \`users\` u ON u.id = t.user_id
+         ORDER BY CASE WHEN t.status = 'unanswered' THEN 0 ELSE 1 END, t.last_message_at DESC`
+      );
+      return rows.map(normalizeTicketRow);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        `SELECT t.*, u.name AS user_name, u.email AS user_email, u.mobile AS user_mobile
+         FROM tickets t
+         LEFT JOIN users u ON u.id = t.user_id
+         ORDER BY CASE WHEN t.status = 'unanswered' THEN 0 ELSE 1 END, t.last_message_at DESC`
+      );
+      return res.rows.map(normalizeTicketRow);
+    }
+    const list = Array.from(memoryStore.tickets.values())
+      .map(normalizeTicketRow)
+      .sort((a, b) => {
+        if (a.status !== b.status) return a.status === "unanswered" ? -1 : 1;
+        return b.last_message_at.getTime() - a.last_message_at.getTime();
+      });
+    return attachUser(list);
+  },
+
+  async getTicket(id: string): Promise<TicketRecord | null> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT t.*, u.name AS user_name, u.email AS user_email, u.mobile AS user_mobile
+         FROM \`tickets\` t LEFT JOIN \`users\` u ON u.id = t.user_id WHERE t.id = ? LIMIT 1`,
+        [id]
+      );
+      return rows[0] ? normalizeTicketRow(rows[0]) : null;
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        `SELECT t.*, u.name AS user_name, u.email AS user_email, u.mobile AS user_mobile
+         FROM tickets t LEFT JOIN users u ON u.id = t.user_id WHERE t.id = $1 LIMIT 1`,
+        [id]
+      );
+      return res.rows[0] ? normalizeTicketRow(res.rows[0]) : null;
+    }
+    const ticket = memoryStore.tickets.get(id);
+    if (!ticket) return null;
+    const user = memoryStore.users.get(ticket.user_id);
+    return {
+      ...normalizeTicketRow(ticket),
+      user_name: user?.name,
+      user_email: user?.email,
+      user_mobile: user?.mobile,
+    };
+  },
+
+  async listTicketMessages(ticketId: string): Promise<TicketMessageRecord[]> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `ticket_messages` WHERE ticket_id = ? ORDER BY created_at ASC",
+        [ticketId]
+      );
+      return rows.map(normalizeTicketMessageRow);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT * FROM ticket_messages WHERE ticket_id = $1 ORDER BY created_at ASC",
+        [ticketId]
+      );
+      return res.rows.map(normalizeTicketMessageRow);
+    }
+    return Array.from(memoryStore.ticketMessages.values())
+      .filter((m) => m.ticket_id === ticketId)
+      .map(normalizeTicketMessageRow)
+      .sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+  },
+
+  async addTicketMessage(data: {
+    ticketId: string;
+    sender: TicketSender;
+    body: string;
+  }): Promise<TicketMessageRecord | null> {
+    const ticket = await db.getTicket(data.ticketId);
+    if (!ticket) return null;
+
+    const now = new Date();
+    const messageId = crypto.randomUUID();
+    const body = String(data.body || "").trim().slice(0, 4000);
+    const preview = previewTicketBody(body);
+    const nextStatus: TicketStatus = data.sender === "admin" ? "answered" : "unanswered";
+    const userHasUnread = data.sender === "admin";
+
+    const message: TicketMessageRecord = {
+      id: messageId,
+      ticket_id: data.ticketId,
+      sender: data.sender,
+      body,
+      created_at: now,
+    };
+
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute(
+        `INSERT INTO \`ticket_messages\` (id, ticket_id, sender, body, created_at) VALUES (?, ?, ?, ?, ?)`,
+        [messageId, data.ticketId, data.sender, body, now]
+      );
+      await mysqlPool.execute(
+        `UPDATE \`tickets\` SET status = ?, user_has_unread = ?, last_preview = ?, last_message_at = ?, updated_at = ? WHERE id = ?`,
+        [nextStatus, userHasUnread ? 1 : 0, preview, now, now, data.ticketId]
+      );
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query(
+        `INSERT INTO ticket_messages (id, ticket_id, sender, body, created_at) VALUES ($1, $2, $3, $4, $5)`,
+        [messageId, data.ticketId, data.sender, body, now]
+      );
+      await pgPool.query(
+        `UPDATE tickets SET status = $1, user_has_unread = $2, last_preview = $3, last_message_at = $4, updated_at = $5 WHERE id = $6`,
+        [nextStatus, userHasUnread, preview, now, now, data.ticketId]
+      );
+    }
+
+    const stored = memoryStore.tickets.get(data.ticketId) || ticket;
+    memoryStore.tickets.set(data.ticketId, {
+      ...stored,
+      status: nextStatus,
+      user_has_unread: userHasUnread,
+      last_preview: preview,
+      last_message_at: now,
+      updated_at: now,
+    });
+    memoryStore.ticketMessages.set(messageId, message);
+    return message;
+  },
+
+  async markTicketReadByUser(ticketId: string, userId: string): Promise<TicketRecord | null> {
+    const ticket = await db.getTicket(ticketId);
+    if (!ticket || ticket.user_id !== userId) return null;
+    if (!ticket.user_has_unread) return ticket;
+
+    const now = new Date();
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute(
+        "UPDATE `tickets` SET user_has_unread = 0, updated_at = ? WHERE id = ? AND user_id = ?",
+        [now, ticketId, userId]
+      );
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query(
+        "UPDATE tickets SET user_has_unread = FALSE, updated_at = $1 WHERE id = $2 AND user_id = $3",
+        [now, ticketId, userId]
+      );
+    }
+
+    const stored = memoryStore.tickets.get(ticketId) || ticket;
+    const updated = { ...stored, user_has_unread: false, updated_at: now };
+    memoryStore.tickets.set(ticketId, updated);
+    return { ...ticket, user_has_unread: false, updated_at: now };
+  },
+
+  async countUnansweredTickets(): Promise<number> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT COUNT(*) AS c FROM `tickets` WHERE status = 'unanswered'"
+      );
+      return Number(rows[0]?.c || 0);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query("SELECT COUNT(*)::int AS c FROM tickets WHERE status = 'unanswered'");
+      return Number(res.rows[0]?.c || 0);
+    }
+    return Array.from(memoryStore.tickets.values()).filter((t) => t.status === "unanswered").length;
+  },
+
+  async countUserUnreadTickets(userId: string): Promise<number> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT COUNT(*) AS c FROM `tickets` WHERE user_id = ? AND user_has_unread = 1",
+        [userId]
+      );
+      return Number(rows[0]?.c || 0);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT COUNT(*)::int AS c FROM tickets WHERE user_id = $1 AND user_has_unread = TRUE",
+        [userId]
+      );
+      return Number(res.rows[0]?.c || 0);
+    }
+    return Array.from(memoryStore.tickets.values()).filter(
+      (t) => t.user_id === userId && t.user_has_unread
+    ).length;
   },
 };

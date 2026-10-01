@@ -97,6 +97,8 @@ import { UsersModal } from "@/components/admin/UsersModal";
 import { AdminDiscountsModal } from "@/components/admin/AdminDiscountsModal";
 import { AdminPricingModal } from "@/components/admin/AdminPricingModal";
 import { AdminPasswordGate } from "@/components/admin/AdminPasswordGate";
+import { AdminTicketsModal } from "@/components/admin/AdminTicketsModal";
+import { TicketsModal } from "@/components/support/TicketsModal";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -125,6 +127,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AdminDiscountsModal />
           <AdminPricingModal />
           <AdminPasswordGate />
+          <AdminTicketsModal />
+          <TicketsModal />
         </AuthProvider>
       </body>
     </html>

@@ -969,6 +969,76 @@ async function run() {
     });
   });
 
+  await test("سیستم تیکت پشتیبانی: ثبت، ترتیب پیام‌ها، پاسخ‌نداده/پاسخ‌داده و نوتیف کاربر", async () => {
+    const member = await db.createUser({
+      name: "کاربر تیکت",
+      email: "ticket.user@nexsport.ir",
+      mobile: "09123334400",
+      passwordHash: hashPassword("TicketPass1"),
+      isVerified: true,
+    });
+
+    const created = await db.createTicket({
+      userId: member.id,
+      subject: "مشکل در فعال‌سازی لینک",
+      body: "لینک اختصاصی بعد از پرداخت باز نمی‌شود.",
+    });
+    assertEqual(created.ticket.status, "unanswered", "تیکت تازه باید پاسخ‌نداده باشد.");
+    assertEqual(created.ticket.user_has_unread, false, "کاربر برای تیکت خودش نوتیف نمی‌گیرد.");
+    assertEqual(created.message.sender, "user", "اولین پیام از کاربر است.");
+
+    const unanswered = await db.countUnansweredTickets();
+    assert(unanswered >= 1, "حداقل یک تیکت پاسخ‌نداده باید وجود داشته باشد.");
+
+    const listed = await db.listUserTickets(member.id);
+    assertEqual(listed.length, 1, "کاربر باید تیکت خودش را ببیند.");
+    assertEqual(listed[0].subject, "مشکل در فعال‌سازی لینک", "موضوع باید ذخیره شده باشد.");
+
+    const adminReply = await db.addTicketMessage({
+      ticketId: created.ticket.id,
+      sender: "admin",
+      body: "پرداخت شما تایید شد؛ لینک را یک‌بار تازه‌سازی کنید.",
+    });
+    assert(Boolean(adminReply), "پاسخ مدیر باید ثبت شود.");
+
+    const afterReply = await db.getTicket(created.ticket.id);
+    assertEqual(afterReply?.status, "answered", "پس از پاسخ مدیر وضعیت باید پاسخ‌داده شود.");
+    assertEqual(afterReply?.user_has_unread, true, "کاربر باید نوتیف پاسخ جدید بگیرد.");
+
+    const unread = await db.countUserUnreadTickets(member.id);
+    assertEqual(unread, 1, "یک تیکت خوانده‌نشده برای کاربر.");
+
+    const marked = await db.markTicketReadByUser(created.ticket.id, member.id);
+    assertEqual(marked?.user_has_unread, false, "با باز کردن تیکت، نوتیف کاربر پاک شود.");
+
+    const userFollowUp = await db.addTicketMessage({
+      ticketId: created.ticket.id,
+      sender: "user",
+      body: "انجام شد، الان باز می‌شود. سپاس.",
+    });
+    assert(Boolean(userFollowUp), "پیام بعدی کاربر باید ثبت شود.");
+
+    const afterUser = await db.getTicket(created.ticket.id);
+    assertEqual(afterUser?.status, "unanswered", "پیام جدید کاربر دوباره تیکت را پاسخ‌نداده می‌کند.");
+    assertEqual(afterUser?.user_has_unread, false, "پیام خود کاربر نوتیف برای خودش نمی‌سازد.");
+
+    const thread = await db.listTicketMessages(created.ticket.id);
+    assertEqual(thread.length, 3, "گفتگو باید سه پیام به‌ترتیب داشته باشد.");
+    assertEqual(thread[0].sender, "user", "پیام اول کاربر.");
+    assertEqual(thread[1].sender, "admin", "پیام دوم مدیر.");
+    assertEqual(thread[2].sender, "user", "پیام سوم کاربر.");
+    assert(
+      thread[0].created_at.getTime() <= thread[1].created_at.getTime() &&
+        thread[1].created_at.getTime() <= thread[2].created_at.getTime(),
+      "پیام‌ها باید به‌ترتیب زمان باشند."
+    );
+
+    const adminList = await db.listAdminTickets();
+    const found = adminList.find((t) => t.id === created.ticket.id);
+    assert(Boolean(found), "تیکت باید در پنل مدیر دیده شود.");
+    assertEqual(found?.user_name, "کاربر تیکت", "نام کاربر در فهرست مدیر مشخص باشد.");
+  });
+
   console.log("\n======================================");
   console.log(`تست‌های موفق: ${passed}`);
   console.log(`تست‌های ناموفق: ${failed}`);

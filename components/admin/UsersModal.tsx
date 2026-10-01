@@ -15,7 +15,7 @@ interface AdminUserItem {
 }
 
 export function UsersModal() {
-  const { isUsersModalOpen, closeUsersModal, isAdmin, requestOpenPricingModal, requestOpenDiscountsModal } = useAuth();
+  const { isUsersModalOpen, closeUsersModal, isAdmin, requestOpenPricingModal, requestOpenDiscountsModal, openAdminTicketsModal } = useAuth();
   const [users, setUsers] = useState<AdminUserItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -190,6 +190,15 @@ export function UsersModal() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openAdminTicketsModal}
+              className="inline-flex items-center gap-1 rounded-lg bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 px-2.5 py-1 text-[11px] font-bold cursor-pointer"
+              title="تیکت‌های پشتیبانی کاربران"
+            >
+              <span>🎫</span>
+              <span className="hidden sm:inline">تیکت‌ها</span>
+            </button>
             <button
               type="button"
               onClick={requestOpenPricingModal}

@@ -13,6 +13,9 @@ export function ProfileModal() {
     openUsersModal,
     requestOpenDiscountsModal,
     requestOpenPricingModal,
+    openTicketsModal,
+    openAdminTicketsModal,
+    ticketUnreadCount,
     updateProfile,
     changePassword,
   } = useAuth();
@@ -128,6 +131,23 @@ export function ProfileModal() {
 
         {/* Body */}
         <div className="p-6">
+          <button
+            type="button"
+            onClick={() => {
+              closeProfileModal();
+              if (isAdmin) openAdminTicketsModal();
+              else openTicketsModal();
+            }}
+            className="mb-4 w-full rounded-xl border border-pitch/20 bg-pitch/5 px-3 py-2.5 text-xs font-bold text-pitch hover:bg-pitch/10 cursor-pointer flex items-center justify-between"
+          >
+            <span className="flex items-center gap-1.5">
+              <span>🎫</span>
+              <span>{isAdmin ? "پنل تیکت‌های پشتیبانی" : "پشتیبانی و ارسال تیکت"}</span>
+            </span>
+            {!isAdmin && ticketUnreadCount > 0 && (
+              <span className="text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded-full">پاسخ جدید</span>
+            )}
+          </button>
           {isAdmin && (
             <div className="mb-4 rounded-xl border border-pitch/20 bg-pitch/5 p-3 text-xs flex flex-wrap items-center justify-between gap-2 shadow-2xs">
               <div className="flex items-center gap-2 text-pitch font-bold">

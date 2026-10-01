@@ -61,3 +61,26 @@ CREATE TABLE IF NOT EXISTS tournaments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tournaments_user_id ON tournaments(user_id);
+
+CREATE TABLE IF NOT EXISTS tickets (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    subject VARCHAR(200) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'unanswered',
+    user_has_unread BOOLEAN DEFAULT FALSE,
+    last_preview VARCHAR(180) DEFAULT '',
+    last_message_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_tickets_user ON tickets(user_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status, last_message_at);
+
+CREATE TABLE IF NOT EXISTS ticket_messages (
+    id VARCHAR(36) PRIMARY KEY,
+    ticket_id VARCHAR(36) NOT NULL,
+    sender VARCHAR(10) NOT NULL,
+    body TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket ON ticket_messages(ticket_id, created_at);

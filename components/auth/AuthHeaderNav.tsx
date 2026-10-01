@@ -4,7 +4,20 @@ import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 
 export function AuthHeaderNav() {
-  const { user, isAdmin, openAuthModal, openProfileModal, openUsersModal, requestOpenDiscountsModal, requestOpenPricingModal, logout } = useAuth();
+  const {
+    user,
+    isAdmin,
+    openAuthModal,
+    openProfileModal,
+    openUsersModal,
+    requestOpenDiscountsModal,
+    requestOpenPricingModal,
+    openTicketsModal,
+    openAdminTicketsModal,
+    ticketUnreadCount,
+    ticketUnansweredCount,
+    logout,
+  } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -149,8 +162,14 @@ export function AuthHeaderNav() {
           aria-expanded={dropdownOpen}
           aria-label="منوی حساب کاربری"
         >
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-pitch text-white text-[11px] font-bold shrink-0">
+          <span className="relative flex h-6 w-6 items-center justify-center rounded-full bg-pitch text-white text-[11px] font-bold shrink-0">
             {user.name.trim().charAt(0) || "👤"}
+            {isAdmin && ticketUnansweredCount > 0 && (
+              <span className="absolute -top-0.5 -left-0.5 h-2.5 w-2.5 rounded-full bg-rose-600 ring-2 ring-white" title="تیکت پاسخ‌نداده" />
+            )}
+            {!isAdmin && ticketUnreadCount > 0 && (
+              <span className="absolute -top-0.5 -left-0.5 h-2.5 w-2.5 rounded-full bg-rose-600 ring-2 ring-white animate-pulse" title="پاسخ جدید پشتیبانی" />
+            )}
           </span>
           <span className="max-w-[70px] sm:max-w-[120px] truncate text-ink">{user.name}</span>
           <span className="text-[10px] text-ink/40">▼</span>
@@ -186,6 +205,44 @@ export function AuthHeaderNav() {
             </div>
 
             {/* Action links */}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDropdownOpen(false);
+                  openAdminTicketsModal();
+                }}
+                className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-bold text-slate-800 bg-white hover:bg-slate-50 border border-slate-200 transition-colors flex items-center justify-between cursor-pointer mb-1"
+              >
+                <span className="flex items-center gap-1.5">
+                  <span>🎫</span>
+                  <span>تیکت‌های پشتیبانی</span>
+                </span>
+                {ticketUnansweredCount > 0 && (
+                  <span className="h-2 w-2 rounded-full bg-rose-600" />
+                )}
+              </button>
+            )}
+            {!isAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDropdownOpen(false);
+                  openTicketsModal();
+                }}
+                className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-bold text-pitch bg-pitch/5 hover:bg-pitch/10 border border-pitch/20 transition-colors flex items-center justify-between cursor-pointer mb-1"
+              >
+                <span className="flex items-center gap-1.5">
+                  <span>🎫</span>
+                  <span>پشتیبانی و تیکت</span>
+                </span>
+                {ticketUnreadCount > 0 && (
+                  <span className="text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded-full font-bold">
+                    پاسخ جدید
+                  </span>
+                )}
+              </button>
+            )}
             {isAdmin && (
               <>
                 <button

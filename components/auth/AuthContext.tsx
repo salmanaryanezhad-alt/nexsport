@@ -20,6 +20,10 @@ interface AuthContextType {
   isUsersModalOpen: boolean;
   isDiscountsModalOpen: boolean;
   isPricingModalOpen: boolean;
+  isTicketsModalOpen: boolean;
+  isAdminTicketsModalOpen: boolean;
+  ticketUnreadCount: number;
+  ticketUnansweredCount: number;
   sensitiveUnlockTarget: "discounts" | "pricing" | null;
   modalTab: "login" | "register" | "verify" | "forgot" | "reset";
   pendingEmail: string | null;
@@ -38,6 +42,11 @@ interface AuthContextType {
   requestOpenPricingModal: () => void;
   closeSensitiveUnlock: () => void;
   unlockSensitiveAdmin: () => void;
+  openTicketsModal: () => void;
+  closeTicketsModal: () => void;
+  openAdminTicketsModal: () => void;
+  closeAdminTicketsModal: () => void;
+  refreshTicketBadge: () => Promise<void>;
   setPendingVerification: (email: string) => void;
   login: (
     identifier: string,
@@ -74,6 +83,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [isDiscountsModalOpen, setIsDiscountsModalOpen] = useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [isTicketsModalOpen, setIsTicketsModalOpen] = useState(false);
+  const [isAdminTicketsModalOpen, setIsAdminTicketsModalOpen] = useState(false);
+  const [ticketUnreadCount, setTicketUnreadCount] = useState(0);
+  const [ticketUnansweredCount, setTicketUnansweredCount] = useState(0);
   const [sensitiveUnlockTarget, setSensitiveUnlockTarget] = useState<"discounts" | "pricing" | null>(null);
   const [modalTab, setModalTab] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
@@ -138,6 +151,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     checkMe();
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setTicketUnreadCount(0);
+      setTicketUnansweredCount(0);
+      return;
+    }
+    refreshTicketBadge();
+    const timer = setInterval(() => {
+      refreshTicketBadge();
+    }, 45000);
+    return () => clearInterval(timer);
+  }, [user?.id]);
 
   function openAuthModal(tab: "login" | "register" | "forgot" = "login") {
     setModalTab(tab);
@@ -206,6 +232,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else if (target === "pricing") {
       setIsPricingModalOpen(true);
     }
+  }
+
+  function openTicketsModal() {
+    setIsAdminTicketsModalOpen(false);
+    setIsTicketsModalOpen(true);
+  }
+
+  function closeTicketsModal() {
+    setIsTicketsModalOpen(false);
+  }
+
+  function openAdminTicketsModal() {
+    setIsTicketsModalOpen(false);
+    setIsUsersModalOpen(false);
+    setIsAdminTicketsModalOpen(true);
+  }
+
+  function closeAdminTicketsModal() {
+    setIsAdminTicketsModalOpen(false);
+  }
+
+  async function refreshTicketBadge() {
+    try {
+      const res = await fetch("/api/tickets/badge");
+      if (!res.ok) return;
+      const data = await res.json();
+      setTicketUnreadCount(Number(data.unreadCount || 0));
+      setTicketUnansweredCount(Number(data.unansweredCount || 0));
+    } catch {}
   }
 
   function setPendingVerification(email: string) {
@@ -468,6 +523,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
       syncUser(null);
+      setTicketUnreadCount(0);
+      setTicketUnansweredCount(0);
+      setIsTicketsModalOpen(false);
+      setIsAdminTicketsModalOpen(false);
     }
   }
 
@@ -482,6 +541,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isUsersModalOpen,
         isDiscountsModalOpen,
         isPricingModalOpen,
+        isTicketsModalOpen,
+        isAdminTicketsModalOpen,
+        ticketUnreadCount,
+        ticketUnansweredCount,
         sensitiveUnlockTarget,
         modalTab,
         pendingEmail,
@@ -500,6 +563,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         requestOpenPricingModal,
         closeSensitiveUnlock,
         unlockSensitiveAdmin,
+        openTicketsModal,
+        closeTicketsModal,
+        openAdminTicketsModal,
+        closeAdminTicketsModal,
+        refreshTicketBadge,
         setPendingVerification,
         login,
         register,
