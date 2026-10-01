@@ -80,7 +80,7 @@ export function StoreModal({
 
   async function loadPricing() {
     try {
-      const res = await fetch("/api/pricing");
+      const res = await fetch("/api/pricing/", { credentials: "same-origin" });
       if (res.ok) {
         const data = await res.json();
         if (data.settings) setPricingSettings(data.settings);
@@ -499,12 +499,6 @@ export function StoreModal({
                           : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-2xs"
                       }`}
                     >
-                      {preset.isPopular && (
-                        <span className="absolute -top-2.5 right-3 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full shadow-2xs">
-                          {preset.tag}
-                        </span>
-                      )}
-
                       <div>
                         <div className="font-black text-sm text-slate-900 mb-0.5">
                           {preset.label}
@@ -716,9 +710,9 @@ export function StoreModal({
                           : "border-slate-200 bg-white hover:border-slate-300"
                       }`}
                     >
-                      {plan.tag && (
+                      {plan.discountPercent > 0 && (
                         <span className="absolute -top-2.5 left-3 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full shadow-2xs">
-                          {plan.tag}
+                          {toPersianDigits(plan.discountPercent)}٪ تخفیف
                         </span>
                       )}
 

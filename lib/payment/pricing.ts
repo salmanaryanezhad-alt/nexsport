@@ -115,10 +115,10 @@ export interface CreditPackagePreset {
 }
 
 export const CREDIT_PRESETS: CreditPackagePreset[] = [
-  { count: 1, label: "۱ مسابقه", tag: "شروع سریع" },
-  { count: 10, label: "۱۰ مسابقه", tag: "اقتصادی" },
-  { count: 50, label: "۵۰ مسابقه", tag: "پرفروش‌ترین", isPopular: true },
-  { count: 100, label: "۱۰۰ مسابقه", tag: "ویژه باشگاه‌ها و مدارس" },
+  { count: 1, label: "۱ مسابقه" },
+  { count: 10, label: "۱۰ مسابقه" },
+  { count: 50, label: "۵۰ مسابقه" },
+  { count: 100, label: "۱۰۰ مسابقه" },
 ];
 
 export interface VipPlan {
@@ -160,7 +160,7 @@ export function buildVipPlans(settings?: Partial<PricingSettings> | null): VipPl
   const make = (
     months: number,
     discountPercent: number,
-    extra: { id: string; title: string; durationLabel: string; tag: string; isPopular?: boolean; extraFeatures: string[] }
+    extra: { id: string; title: string; durationLabel: string; extraFeatures: string[] }
   ): VipPlan => {
     const basePriceTomans = monthly * months;
     const finalPriceTomans = Math.round(basePriceTomans * (1 - discountPercent / 100));
@@ -186,8 +186,7 @@ export function buildVipPlans(settings?: Partial<PricingSettings> | null): VipPl
       discountPercent,
       finalPriceTomans,
       monthlyEquivalentTomans,
-      tag: extra.tag,
-      isPopular: extra.isPopular,
+      tag: discountPercent > 0 ? `${discountPercent}٪ تخفیف` : undefined,
       features,
     };
   };
@@ -197,29 +196,24 @@ export function buildVipPlans(settings?: Partial<PricingSettings> | null): VipPl
       id: "vip-1m",
       title: "کاربر ویژه ۱ ماهه",
       durationLabel: "۱ ماه (۳۰ روز)",
-      tag: "شروع آسان",
       extraFeatures: ["نشان اختصاصی کاربر ویژه VIP", "پشتیبانی آنلاین و اولویت‌دار"],
     }),
     make(3, s.vipDiscount3mPercent, {
       id: "vip-3m",
       title: "کاربر ویژه ۳ ماهه",
       durationLabel: "۳ ماه (۹۰ روز)",
-      tag: `${s.vipDiscount3mPercent}٪ تخفیف فصلی`,
       extraFeatures: ["{saved} صرفه‌جویی نسبت به اشتراک ماهانه", "مناسب دوره‌های مسابقاتی و جام‌های ورزشی فصلی"],
     }),
     make(6, s.vipDiscount6mPercent, {
       id: "vip-6m",
       title: "کاربر ویژه ۶ ماهه",
       durationLabel: "۶ ماه (۱۸۰ روز)",
-      tag: `${s.vipDiscount6mPercent}٪ تخفیف نیم‌سال`,
       extraFeatures: ["{saved} صرفه‌جویی ویژه", "مناسب ترم‌های آموزشی، مدارس فوتبال و باشگاه‌ها"],
     }),
     make(12, s.vipDiscount12mPercent, {
       id: "vip-12m",
       title: "کاربر ویژه ۱ ساله (طلایی)",
       durationLabel: "۱ سال (۳۶۵ روز)",
-      tag: `${s.vipDiscount12mPercent}٪ تخفیف - اقتصادی‌ترین`,
-      isPopular: true,
       extraFeatures: [
         "{saved} تخفیف ویژه سالانه",
         "دسترسی زودهنگام به تمام امکانات و فرمت‌های جدید",

@@ -1084,6 +1084,11 @@ async function run() {
     const y = plans.find((p) => p.id === "vip-12m");
     assertEqual(y?.basePriceTomans, 4800000, "قیمت پایه سالانه باید ۴٫۸ میلیون باشد.");
     assertEqual(y?.finalPriceTomans, 3120000, "قیمت نهایی سالانه با ۳۵٪ تخفیف ۳٫۱۲۰ میلیون است.");
+    assertEqual(y?.discountPercent, 35, "لیبل سالانه باید همان درصد ذخیره‌شده مدیر باشد.");
+    assertEqual(y?.tag, "35٪ تخفیف", "برچسب پلن باید فقط درصد تخفیف تنظیم‌شده باشد.");
+    assert(!String(y?.tag || "").includes("اقتصادی"), "برچسب اقتصادی نباید روی پلن باشد.");
+    const month = plans.find((p) => p.id === "vip-1m");
+    assertEqual(month?.tag, undefined, "پلن بدون تخفیف نباید لیبل تبلیغاتی داشته باشد.");
 
     // بازگردانی پیش‌فرض برای ایزوله ماندن تست‌های بعدی
     await db.savePricingSettings({

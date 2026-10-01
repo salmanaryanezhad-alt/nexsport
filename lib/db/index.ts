@@ -2248,22 +2248,26 @@ export const db = {
     const payload = JSON.stringify(settings);
     const now = new Date();
 
-    if (mysqlPool) {
-      await initTablesIfRealDb();
-      await mysqlPool.execute(
-        `INSERT INTO \`site_settings\` (\`setting_key\`, \`setting_value\`, \`updated_at\`)
-         VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE \`setting_value\` = VALUES(\`setting_value\`), \`updated_at\` = VALUES(\`updated_at\`)`,
-        ["pricing", payload, now]
-      );
-    } else if (pgPool) {
-      await initTablesIfRealDb();
-      await pgPool.query(
-        `INSERT INTO site_settings (setting_key, setting_value, updated_at)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = EXCLUDED.updated_at`,
-        ["pricing", payload, now]
-      );
+    try {
+      if (mysqlPool) {
+        await initTablesIfRealDb();
+        await mysqlPool.execute(
+          `INSERT INTO \`site_settings\` (\`setting_key\`, \`setting_value\`, \`updated_at\`)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE \`setting_value\` = VALUES(\`setting_value\`), \`updated_at\` = VALUES(\`updated_at\`)`,
+          ["pricing", payload, now]
+        );
+      } else if (pgPool) {
+        await initTablesIfRealDb();
+        await pgPool.query(
+          `INSERT INTO site_settings (setting_key, setting_value, updated_at)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = EXCLUDED.updated_at`,
+          ["pricing", payload, now]
+        );
+      }
+    } catch (err) {
+      console.warn("[NexSport DB] savePricingSettings persist failed:", err);
     }
 
     memoryStore.settings.set("pricing", payload);

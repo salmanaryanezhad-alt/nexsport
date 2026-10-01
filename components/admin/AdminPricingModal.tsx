@@ -26,7 +26,7 @@ export function AdminPricingModal() {
     if (!isPricingModalOpen || !isAdmin) return;
     setMessage(null);
     setLoading(true);
-    fetch("/api/admin/pricing")
+    fetch("/api/admin/pricing/", { credentials: "same-origin" })
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "خطا در دریافت تنظیمات");
@@ -52,8 +52,9 @@ export function AdminPricingModal() {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/admin/pricing", {
+      const res = await fetch("/api/admin/pricing/", {
         method: "PUT",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });

@@ -115,7 +115,7 @@ export function ShareTournamentModal({
       setJustPaidSuccess(false);
       setError(null);
 
-      fetch("/api/pricing")
+      fetch("/api/pricing/", { credentials: "same-origin" })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data?.settings?.linkPriceTomans != null) {
