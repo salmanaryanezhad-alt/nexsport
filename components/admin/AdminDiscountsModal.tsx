@@ -4,6 +4,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { NexSportIcon } from "@/components/NexSportLogo";
 import { toPersianDigits } from "@/lib/digits";
+import { ShamsiDatePicker } from "@/components/ui/ShamsiDatePicker";
+import { dateToJalali, jalaliEndOfDayIso, parseGregorianYmd, formatDateJalali } from "@/lib/jalali";
 
 interface DiscountCodeItem {
   id: string;
@@ -181,7 +183,13 @@ export function AdminDiscountsModal() {
           code: cleanCode,
           discountPercent: percent,
           appliesTo: newAppliesTo,
-          expiresAt: hasExpiry && newExpiryDate ? new Date(newExpiryDate).toISOString() : null,
+          expiresAt:
+            hasExpiry && newExpiryDate
+              ? (() => {
+                  const g = parseGregorianYmd(newExpiryDate);
+                  return g ? jalaliEndOfDayIso(dateToJalali(g)) : null;
+                })()
+              : null,
           isActive: true,
         }),
       });
@@ -483,14 +491,15 @@ export function AdminDiscountsModal() {
 
               {hasExpiry && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-600 font-semibold">تاریخ پایان اعتبار:</span>
-                  <input
-                    type="date"
-                    required={hasExpiry}
-                    value={newExpiryDate}
-                    onChange={(e) => setNewExpiryDate(e.target.value)}
-                    className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
-                  />
+                  <span className="text-xs text-slate-600 font-semibold">تاریخ پایان اعتبار (شمسی):</span>
+                  <div className="w-48">
+                    <ShamsiDatePicker
+                      required={hasExpiry}
+                      value={newExpiryDate}
+                      onChange={(ymd) => setNewExpiryDate(ymd)}
+                      placeholder="انتخاب روز در تقویم شمسی"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -607,7 +616,7 @@ export function AdminDiscountsModal() {
                           تاریخ انقضا:{" "}
                           <strong className={isItemExpired ? "text-rose-700" : "text-slate-800"}>
                             {item.expires_at
-                              ? new Date(item.expires_at).toLocaleDateString("fa-IR")
+                              ? formatDateJalali(new Date(item.expires_at))
                               : "نامحدود (بدون انقضا)"}
                           </strong>
                         </span>
@@ -616,7 +625,7 @@ export function AdminDiscountsModal() {
 
                         <span>
                           تاریخ ایجاد:{" "}
-                          {new Date(item.created_at).toLocaleDateString("fa-IR")}
+                          {formatDateJalali(new Date(item.created_at))}
                         </span>
                       </div>
                     </div>

@@ -120,38 +120,6 @@ export function AuthHeaderNav() {
 
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
-      {isAdmin && (
-        <>
-          <button
-            type="button"
-            onClick={openUsersModal}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-pitch/10 hover:bg-pitch/15 border border-pitch/25 text-pitch px-2.5 py-1 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs"
-            title="مشاهده آمار و مدیریت اعضای ثبت‌نام شده"
-          >
-            <span>👥</span>
-            <span className="hidden sm:inline">کاربران</span>
-          </button>
-          <button
-            type="button"
-            onClick={requestOpenPricingModal}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 px-2.5 py-1 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs"
-            title="تعیین تعرفه‌ها و پلن‌های مالی"
-          >
-            <span>💰</span>
-            <span className="hidden sm:inline">پلن‌های مالی</span>
-          </button>
-          <button
-            type="button"
-            onClick={requestOpenDiscountsModal}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 px-2.5 py-1 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs"
-            title="تعریف و مدیریت کدهای تخفیف"
-          >
-            <span>🏷️</span>
-            <span className="hidden sm:inline">کدهای تخفیف</span>
-          </button>
-        </>
-      )}
-
       <div className="relative inline-block text-right" ref={dropdownRef}>
         {/* Trigger Button */}
         <button

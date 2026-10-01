@@ -21,6 +21,8 @@ import {
 import { NexSportIcon } from "@/components/NexSportLogo";
 import { PrintModal, PrintSettings } from "./PrintModal";
 import { toPersianDigits } from "@/lib/digits";
+import { ShamsiDatePicker } from "@/components/ui/ShamsiDatePicker";
+import { jalaliToDate, parseJalaliInput, toGregorianYmd } from "@/lib/jalali";
 
 interface ScheduleViewProps {
   result: ScheduleResult;
@@ -640,14 +642,23 @@ export function ScheduleView({
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-ink/80 mb-1">
-                  📅 تاریخ مسابقه (مثلاً ۱۴۰۳/۰۶/۲۵ یا شنبه):
+                  📅 تاریخ مسابقه (تقویم شمسی):
                 </label>
+                <ShamsiDatePicker
+                  value={(() => {
+                    const j = parseJalaliInput(formDate);
+                    if (!j) return "";
+                    return toGregorianYmd(jalaliToDate(j.y, j.m, j.d));
+                  })()}
+                  onChange={(_ymd, jalaliLabel) => setFormDate(jalaliLabel)}
+                  placeholder="انتخاب روز از تقویم شمسی"
+                />
                 <input
                   type="text"
                   value={formDate}
                   onChange={(e) => setFormDate(e.target.value)}
-                  placeholder="مثال: ۱۴۰۳/۰۷/۱۰ یا دوشنبه"
-                  className="w-full rounded-lg border border-line px-3 py-2 text-xs text-ink focus:border-pitch focus:outline-none"
+                  placeholder="یا دستی بنویسید؛ مثلاً شنبه"
+                  className="mt-1.5 w-full rounded-lg border border-line px-3 py-2 text-xs text-ink focus:border-pitch focus:outline-none"
                 />
               </div>
 

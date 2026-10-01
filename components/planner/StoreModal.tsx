@@ -538,7 +538,7 @@ export function StoreModal({
                 </div>
 
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  💡 <strong>قانون تخفیف پلکانی:</strong> به ازای هر {toPersianDigits(pricingSettings.creditDiscountEvery)} مسابقه {toPersianDigits(pricingSettings.creditDiscountPercent)}٪ تخفیف اعمال می‌شود.
+                  💡 <strong>قانون تخفیف پلکانی:</strong> به ازای هر {toPersianDigits(pricingSettings.creditDiscountEvery)} مسابقه {toPersianDigits(pricingSettings.creditDiscountPercent)}٪ تخفیف اعمال می‌شود (سقف تخفیف {toPersianDigits(pricingSettings.creditDiscountMaxPercent)}٪).
                 </p>
               </div>
 

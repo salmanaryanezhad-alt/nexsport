@@ -680,6 +680,11 @@ async function run() {
     assertEqual(p25.count, 25, "تعداد ۲۵");
     assertEqual(p25.discountPercent, 5, "تخفیف ۲۵ عدد ۵٪ است.");
     assertEqual(p25.finalPrice, 1187500, "مبلغ نهایی ۲۵ عدد ۱,۱۸۷,۵۰۰ تومان است.");
+
+    // سقف پیش‌فرض ۲۰٪: ۵۰۰ مسابقه نباید ۹۰٪ تخفیف بگیرد
+    const p500 = calculateCreditPrice(500);
+    assertEqual(p500.discountPercent, 20, "سقف تخفیف پیش‌فرض بسته‌های اعتباری ۲۰٪ است.");
+    assertEqual(p500.finalPrice, 20000000, "مبلغ ۵۰۰ مسابقه با سقف ۲۰٪ باید ۲۰ میلیون تومان باشد.");
   });
 
   await test("هدیه اولین ایجاد لینک اختصاصی رایگان و پرداخت برای لینک‌های دوم به بعد", async () => {
@@ -928,6 +933,7 @@ async function run() {
     assertEqual(defaults.creditPriceTomans, 50000, "مبلغ پیش‌فرض هر مسابقه ۵۰ هزار تومان است.");
     assertEqual(defaults.creditDiscountEvery, 5, "پله تخفیف پیش‌فرض هر ۵ مسابقه است.");
     assertEqual(defaults.creditDiscountPercent, 1, "درصد پیش‌فرض هر پله ۱٪ است.");
+    assertEqual(defaults.creditDiscountMaxPercent, 20, "سقف تخفیف پیش‌فرض ۲۰٪ است.");
     assertEqual(defaults.vipMonthlyTomans, 350000, "مبلغ ماهانه VIP پیش‌فرض ۳۵۰ هزار تومان است.");
     assertEqual(defaults.linkPriceTomans, 150000, "تعرفه لینک پیش‌فرض ۱۵۰ هزار تومان است.");
 
@@ -935,6 +941,7 @@ async function run() {
       creditPriceTomans: 40000,
       creditDiscountEvery: 10,
       creditDiscountPercent: 2,
+      creditDiscountMaxPercent: 15,
       vipMonthlyTomans: 400000,
       vipDiscount3mPercent: 10,
       vipDiscount6mPercent: 25,
@@ -948,8 +955,8 @@ async function run() {
     assertEqual(loaded.vipDiscount12mPercent, 35, "تخفیف سالانه باید ۳۵٪ خوانده شود.");
 
     const p100 = calculateCreditPrice(100, loaded);
-    assertEqual(p100.discountPercent, 20, "۱۰۰ مسابقه با هر ۱۰ تا ۲٪ باید ۲۰٪ تخفیف داشته باشد.");
-    assertEqual(p100.finalPrice, 3200000, "مبلغ نهایی ۱۰۰ مسابقه با تعرفه ۴۰هزار و ۲۰٪ تخفیف ۳٫۲ میلیون است.");
+    assertEqual(p100.discountPercent, 15, "۱۰۰ مسابقه با هر ۱۰ تا ۲٪ به سقف ۱۵٪ می‌رسد.");
+    assertEqual(p100.finalPrice, 3400000, "مبلغ نهایی ۱۰۰ مسابقه با تعرفه ۴۰هزار و سقف ۱۵٪ ۳٫۴ میلیون است.");
 
     const plans = buildVipPlans(loaded);
     const y = plans.find((p) => p.id === "vip-12m");
@@ -961,6 +968,7 @@ async function run() {
       creditPriceTomans: 50000,
       creditDiscountEvery: 5,
       creditDiscountPercent: 1,
+      creditDiscountMaxPercent: 20,
       vipMonthlyTomans: 350000,
       vipDiscount3mPercent: 20,
       vipDiscount6mPercent: 30,
@@ -1037,6 +1045,25 @@ async function run() {
     const found = adminList.find((t) => t.id === created.ticket.id);
     assert(Boolean(found), "تیکت باید در پنل مدیر دیده شود.");
     assertEqual(found?.user_name, "کاربر تیکت", "نام کاربر در فهرست مدیر مشخص باشد.");
+  });
+
+  await test("تبدیل تقویم شمسی و میلادی", async () => {
+    const { gregorianToJalali, jalaliToGregorian, parseJalaliInput } = await import("../jalali");
+    const j = gregorianToJalali(2026, 3, 21);
+    assertEqual(j.y, 1405, "۲۱ مارس ۲۰۲۶ باید ۱ فروردین ۱۴۰۵ باشد (سال).");
+    assertEqual(j.m, 1, "۲۱ مارس ۲۰۲۶ باید فروردین باشد.");
+    assertEqual(j.d, 1, "۲۱ مارس ۲۰۲۶ باید روز اول باشد.");
+
+    const g = jalaliToGregorian(1403, 6, 25);
+    assertEqual(g.gy, 2024, "۲۵ شهریور ۱۴۰۳ سال میلادی.");
+    assertEqual(g.gm, 9, "۲۵ شهریور ۱۴۰۳ ماه سپتامبر.");
+    assertEqual(g.gd, 15, "۲۵ شهریور ۱۴۰۳ روز ۱۵.");
+
+    const parsed = parseJalaliInput("۱۴۰۴/۰۷/۱۰");
+    assert(Boolean(parsed), "تاریخ شمسی با ارقام فارسی باید خوانده شود.");
+    assertEqual(parsed?.y, 1404, "سال ۱۴۰۴");
+    assertEqual(parsed?.m, 7, "مهر");
+    assertEqual(parsed?.d, 10, "روز ۱۰");
   });
 
   console.log("\n======================================");

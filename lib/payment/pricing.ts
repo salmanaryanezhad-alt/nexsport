@@ -61,6 +61,7 @@ export interface PricingSettings {
   creditPriceTomans: number;
   creditDiscountEvery: number;
   creditDiscountPercent: number;
+  creditDiscountMaxPercent: number;
   vipMonthlyTomans: number;
   vipDiscount3mPercent: number;
   vipDiscount6mPercent: number;
@@ -72,6 +73,7 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   creditPriceTomans: 50_000,
   creditDiscountEvery: 5,
   creditDiscountPercent: 1,
+  creditDiscountMaxPercent: 20,
   vipMonthlyTomans: 350_000,
   vipDiscount3mPercent: 20,
   vipDiscount6mPercent: 30,
@@ -91,6 +93,12 @@ export function sanitizePricingSettings(input: Partial<PricingSettings> | null |
     creditPriceTomans: clampInt(src.creditPriceTomans, DEFAULT_PRICING_SETTINGS.creditPriceTomans, 1_000, 10_000_000),
     creditDiscountEvery: clampInt(src.creditDiscountEvery, DEFAULT_PRICING_SETTINGS.creditDiscountEvery, 1, 1000),
     creditDiscountPercent: clampInt(src.creditDiscountPercent, DEFAULT_PRICING_SETTINGS.creditDiscountPercent, 0, 100),
+    creditDiscountMaxPercent: clampInt(
+      src.creditDiscountMaxPercent,
+      DEFAULT_PRICING_SETTINGS.creditDiscountMaxPercent,
+      0,
+      90
+    ),
     vipMonthlyTomans: clampInt(src.vipMonthlyTomans, DEFAULT_PRICING_SETTINGS.vipMonthlyTomans, 1_000, 50_000_000),
     vipDiscount3mPercent: clampInt(src.vipDiscount3mPercent, DEFAULT_PRICING_SETTINGS.vipDiscount3mPercent, 0, 90),
     vipDiscount6mPercent: clampInt(src.vipDiscount6mPercent, DEFAULT_PRICING_SETTINGS.vipDiscount6mPercent, 0, 90),
@@ -235,7 +243,8 @@ export function calculateCreditPrice(count: number, settings?: Partial<PricingSe
   const perStep = Math.max(0, s.creditDiscountPercent);
   const baseTotal = safeCount * unit;
 
-  const discountPercent = Math.min(90, Math.floor(safeCount / everyN) * perStep);
+  const cap = Math.max(0, Math.min(90, s.creditDiscountMaxPercent));
+  const discountPercent = Math.min(cap, Math.floor(safeCount / everyN) * perStep);
   const discountTomans = Math.round((baseTotal * discountPercent) / 100);
   const finalPrice = Math.max(0, baseTotal - discountTomans);
 
