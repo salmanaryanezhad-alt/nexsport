@@ -5,6 +5,41 @@ import { useAuth } from "./AuthContext";
 import { NexSportIcon } from "@/components/NexSportLogo";
 import { hasPersianLetters } from "@/lib/auth/utils";
 
+function NotARobotCheck({
+  checked,
+  onToggle,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={onToggle}
+      className={
+        "flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-right transition-colors cursor-pointer " +
+        (checked
+          ? "border-pitch/40 bg-pitch/5"
+          : "border-line bg-chalk/50 hover:bg-chalk")
+      }
+    >
+      <span
+        className={
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 text-sm font-black transition-colors " +
+          (checked
+            ? "border-pitch bg-pitch text-white"
+            : "border-slate-300 bg-white text-transparent")
+        }
+      >
+        ✓
+      </span>
+      <span className="text-sm font-bold text-ink">من ربات نیستم</span>
+    </button>
+  );
+}
+
 export function AuthModal() {
   const {
     isAuthModalOpen,
@@ -49,11 +84,13 @@ export function AuthModal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [notARobot, setNotARobot] = useState(false);
 
   useEffect(() => {
     setError(null);
     setSuccessMsg(null);
     setDeviceConflict(null);
+    setNotARobot(false);
   }, [modalTab, isAuthModalOpen]);
 
   useEffect(() => {
@@ -79,6 +116,10 @@ export function AuthModal() {
   async function handleLoginSubmit(e?: React.FormEvent, forceKick = false) {
     if (e) e.preventDefault();
     setError(null);
+    if (!forceKick && !notARobot) {
+      setError("لطفاً گزینه «من ربات نیستم» را تیک بزنید.");
+      return;
+    }
     if (hasPersianLetters(loginPassword)) {
       setError("صفحه کلید را به انگلیسی تغییر دهید");
       return;
@@ -107,6 +148,10 @@ export function AuthModal() {
   async function handleRegisterSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!notARobot) {
+      setError("لطفاً گزینه «من ربات نیستم» را تیک بزنید.");
+      return;
+    }
     if (hasPersianLetters(regPassword)) {
       setError("صفحه کلید را به انگلیسی تغییر دهید");
       return;
@@ -199,6 +244,16 @@ export function AuthModal() {
   }
 
   const isTabsVisible = (modalTab === "login" || modalTab === "register") && !deviceConflict;
+
+  const robotCheck = (
+    <NotARobotCheck
+      checked={notARobot}
+      onToggle={() => {
+        setNotARobot((v) => !v);
+        if (error) setError(null);
+      }}
+    />
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/50 backdrop-blur-xs animate-in fade-in duration-200">
@@ -362,9 +417,11 @@ export function AuthModal() {
                 )}
               </div>
 
+              {robotCheck}
+
               <button
                 type="submit"
-                disabled={loading || hasPersianLetters(loginPassword)}
+                disabled={loading || !notARobot || hasPersianLetters(loginPassword)}
                 className="w-full rounded-lg bg-pitch py-2.5 text-sm font-bold text-white shadow-sm hover:bg-pitch-light transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {loading ? "در حال بررسی..." : "ورود به حساب کاربری"}
@@ -471,9 +528,11 @@ export function AuthModal() {
                 )}
               </div>
 
+              {robotCheck}
+
               <button
                 type="submit"
-                disabled={loading || hasPersianLetters(regPassword)}
+                disabled={loading || !notARobot || hasPersianLetters(regPassword)}
                 className="w-full rounded-lg bg-pitch py-2.5 text-sm font-bold text-white shadow-sm hover:bg-pitch-light transition-colors disabled:opacity-50 cursor-pointer mt-1"
               >
                 {loading ? "در حال ثبت‌نام..." : "ثبت‌نام و ارسال کد تایید"}
