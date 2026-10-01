@@ -746,7 +746,7 @@ export function StoreModal({
                           </span>
                         </div>
                         <span className="text-[10px] text-slate-500 font-mono">
-                          ماهی {toPersianDigits(plan.monthlyEquivalentTomans.toLocaleString("en-US"))}
+                          ماهیانه {toPersianDigits(plan.monthlyEquivalentTomans.toLocaleString("en-US"))}
                         </span>
                       </div>
                     </div>
