@@ -539,7 +539,37 @@ if (preg_match('#^tournaments/public/([^/]+)$#', $path, $matches) && $method ===
     if (!$tournament) {
         json_response(['error' => 'مسابقه یافت نشد یا ممکن است توسط برگزارکننده حذف شده باشد.'], 404);
     }
-    json_response(['tournament' => $tournament]);
+
+    $state = $tournament['state'] ?? [];
+    $isPaid = !empty($state['payment']['isPaid']);
+    if (!$isPaid) {
+        $isAdmin = false;
+        $isOwner = false;
+        $token = get_auth_token();
+        if ($token) {
+            $session = db_find_session($pdo, $token);
+            if ($session) {
+                $viewer = db_find_user_by_id($pdo, $session['user_id']);
+                if ($viewer) {
+                    $isAdmin = is_admin_email($viewer['email'] ?? '') || (($viewer['role'] ?? '') === 'admin');
+                    $isOwner = (($viewer['id'] ?? '') === ($tournament['user_id'] ?? ''));
+                }
+            }
+        }
+        if (!$isAdmin && !$isOwner) {
+            json_response([
+                'error' => 'لینک اختصاصی این مسابقه هنوز پرداخت و فعال‌سازی نشده است. برگزارکننده محترم مسابقه می‌تواند نسبت به پرداخت و فعال‌سازی آن در پنل کاربری اقدام نماید.',
+                'notActivated' => true,
+                'tournamentTitle' => $tournament['title'] ?? ''
+            ], 402);
+        }
+    }
+
+    json_response([
+        'tournament' => $tournament,
+        'preview' => !$isPaid,
+        'adminPreview' => !$isPaid
+    ]);
 }
 
 // 13. GET /api/tournaments/{id}

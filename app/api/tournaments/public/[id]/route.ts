@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { decodeTournamentPayload } from "@/lib/tournamentCodec";
-import { verifyAdminRequest } from "@/lib/auth/adminGuard";
+import { resolveSessionUser } from "@/lib/auth/sessionGuard";
+import { isSuperAdminEmail } from "@/lib/auth/utils";
+import { getRequestToken } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
+
+async function resolveViewerAccess(req: NextRequest, ownerUserId?: string | null) {
+  try {
+    const token = getRequestToken(req);
+    if (!token) return { isAdmin: false, isOwner: false };
+    const session = await db.findSession(token);
+    if (!session) return { isAdmin: false, isOwner: false };
+    const user = await resolveSessionUser(session);
+    if (!user) return { isAdmin: false, isOwner: false };
+    const isAdmin = isSuperAdminEmail(user.email) || user.role === "admin";
+    const isOwner = Boolean(ownerUserId && user.id === ownerUserId);
+    return { isAdmin, isOwner };
+  } catch {
+    return { isAdmin: false, isOwner: false };
+  }
+}
 
 export async function GET(
   req: NextRequest,
@@ -60,23 +78,19 @@ export async function GET(
       );
     }
 
-    // Verify dedicated link payment activation (admin may still view unpaid user tournaments)
     const isPaid = Boolean(tournament.state?.payment?.isPaid);
-    if (!isPaid) {
-      const admin = await verifyAdminRequest(req);
-      if ("error" in admin) {
-        return NextResponse.json(
-          {
-            error: "لینک اختصاصی این مسابقه هنوز پرداخت و فعال‌سازی نشده است. برگزارکننده محترم مسابقه می‌تواند نسبت به پرداخت و فعال‌سازی آن در پنل کاربری اقدام نماید.",
-            notActivated: true,
-            tournamentTitle: tournament.title,
-          },
-          { status: 402 }
-        );
-      }
+    const access = await resolveViewerAccess(req, tournament.user_id);
+    if (!isPaid && !access.isAdmin && !access.isOwner) {
+      return NextResponse.json(
+        {
+          error: "لینک اختصاصی این مسابقه هنوز پرداخت و فعال‌سازی نشده است. برگزارکننده محترم مسابقه می‌تواند نسبت به پرداخت و فعال‌سازی آن در پنل کاربری اقدام نماید.",
+          notActivated: true,
+          tournamentTitle: tournament.title,
+        },
+        { status: 402 }
+      );
     }
 
-    // Return sanitized public tournament payload
     return NextResponse.json({
       tournament: {
         id: tournament.id,
@@ -88,6 +102,8 @@ export async function GET(
         createdAt: tournament.created_at,
         updatedAt: tournament.updated_at,
       },
+      preview: !isPaid,
+      adminPreview: !isPaid && access.isAdmin,
     });
   } catch (err: any) {
     console.error("[Get Public Tournament Error]", err);

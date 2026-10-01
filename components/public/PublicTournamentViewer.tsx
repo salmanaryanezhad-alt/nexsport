@@ -9,6 +9,7 @@ import { NexSportIcon } from "@/components/NexSportLogo";
 import { toPersianDigits } from "@/lib/digits";
 import { ShareTournamentModal } from "@/components/planner/ShareTournamentModal";
 import { decodeTournamentPayload, encodeTournamentPayload } from "@/lib/tournamentCodec";
+import { useAuth } from "@/components/auth/AuthContext";
 
 export interface PublicTournamentData {
   id: string;
@@ -57,11 +58,15 @@ export function PublicTournamentViewer({
   tournamentId: string;
   initialTournament: PublicTournamentData | null;
 }) {
+  const { isAdmin } = useAuth();
   const [tournament, setTournament] = useState<PublicTournamentData | null>(initialTournament);
   const [clientChecking, setClientChecking] = useState<boolean>(!initialTournament);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [unpaidAccess, setUnpaidAccess] = useState<"unknown" | "allowed" | "denied">(
+    initialTournament?.state?.payment?.isPaid ? "allowed" : "unknown"
+  );
 
   // Client recovery effect for serverless environments
   useEffect(() => {
@@ -159,6 +164,44 @@ export function PublicTournamentViewer({
     setClientChecking(false);
   }, [initialTournament, tournamentId]);
 
+  useEffect(() => {
+    const alreadyPaid = Boolean(tournament?.state?.payment?.isPaid);
+    if (alreadyPaid) {
+      setUnpaidAccess("allowed");
+      return;
+    }
+    if (isAdmin) {
+      setUnpaidAccess("allowed");
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/tournaments/public/${tournamentId}/`, {
+          credentials: "same-origin",
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (data?.tournament) {
+            setTournament((prev) => prev || data.tournament);
+          }
+          setUnpaidAccess("allowed");
+          return;
+        }
+        if (res.status === 402) {
+          setUnpaidAccess("denied");
+          return;
+        }
+      } catch {}
+      if (!cancelled) setUnpaidAccess(isAdmin ? "allowed" : "denied");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tournamentId, isAdmin, tournament?.state?.payment?.isPaid]);
+
   if (clientChecking) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -203,9 +246,21 @@ export function PublicTournamentViewer({
     );
   }
 
-  // Unpaid check
   const isPaid = Boolean(tournament.state?.payment?.isPaid);
-  if (!isPaid) {
+  const canViewUnpaid = isAdmin || unpaidAccess === "allowed";
+
+  if (!isPaid && unpaidAccess === "unknown" && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="text-center space-y-3">
+          <div className="w-9 h-9 rounded-full border-3 border-emerald-600 border-t-transparent animate-spin mx-auto" />
+          <p className="text-xs font-bold text-slate-600">در حال بررسی دسترسی مشاهده...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isPaid && !canViewUnpaid) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 text-center space-y-4 shadow-sm">
@@ -445,8 +500,15 @@ export function PublicTournamentViewer({
     window.print();
   }
 
+  const isAdminPreview = !isPaid && (isAdmin || unpaidAccess === "allowed");
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-emerald-200">
+      {isAdminPreview && (
+        <div className="no-print bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-[11px] font-bold text-amber-950">
+          پیش‌نمایش بررسی برنامه — لینک اختصاصی این مسابقه هنوز برای عموم فعال نشده است. ثبت نتیجه در این صفحه ممکن نیست.
+        </div>
+      )}
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -482,6 +544,7 @@ export function PublicTournamentViewer({
               <span className="hidden sm:inline">به‌روزرسانی نتایج</span>
             </button>
 
+            {isPaid && (
             <button
               type="button"
               onClick={() => setShareModalOpen(true)}
@@ -491,6 +554,7 @@ export function PublicTournamentViewer({
               <span>🔗</span>
               <span>اشتراک‌گذاری</span>
             </button>
+            )}
 
             <button
               type="button"
