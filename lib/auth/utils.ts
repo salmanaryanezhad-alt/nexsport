@@ -37,10 +37,18 @@ export function cleanEmailAddress(email: string): string {
   return normalized;
 }
 
-export const SUPER_ADMIN_EMAIL = "salman.aryanezhad@gmail.com";
+function configuredAdminEmails(): string[] {
+  const raw = `${process.env.ADMIN_EMAIL || ""}`;
+  return raw
+    .split(/[,\s]+/)
+    .map((item) => cleanEmailAddress(item))
+    .filter(Boolean);
+}
 
 export function isSuperAdminEmail(email?: string | null): boolean {
-  return cleanEmailAddress(email || "") === SUPER_ADMIN_EMAIL;
+  const clean = cleanEmailAddress(email || "");
+  if (!clean) return false;
+  return configuredAdminEmails().includes(clean);
 }
 
 export function hasUnlimitedPlanning(user?: { email?: string | null; role?: string | null } | null): boolean {

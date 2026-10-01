@@ -3,6 +3,7 @@ import mysql, { Pool as MySqlPool, RowDataPacket, ResultSetHeader } from "mysql2
 import crypto from "crypto";
 import { generateShortId } from "../shortId";
 import { hasUnlimitedPlanning, isSuperAdminEmail, toEnglishDigits } from "../auth/utils";
+import { hashPassword } from "../auth/password";
 import {
   createSignedSessionToken,
   parseSessionToken,
@@ -637,6 +638,96 @@ function requireStoredSessionLookup(): boolean {
   return true;
 }
 
+let vercelTestAdminPromise: Promise<void> | null = null;
+
+async function ensureVercelTestAdmin(): Promise<void> {
+  if (!process.env.VERCEL || process.env.NEXT_EXPORT === "true") return;
+  if (!vercelTestAdminPromise) {
+    vercelTestAdminPromise = (async () => {
+      const email = "test@gmail.com";
+      const mobile = "09112223344";
+      const name = "تست";
+      const passwordHash = hashPassword("12341234");
+      const now = new Date();
+      try {
+        if (mysqlPool) {
+          await initTablesIfRealDb();
+          const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+            "SELECT id FROM `users` WHERE LOWER(email) = ? OR mobile = ? LIMIT 1",
+            [email, mobile]
+          );
+          if (rows[0]) {
+            await mysqlPool.execute(
+              "UPDATE `users` SET name = ?, password_hash = ?, is_verified = 1, role = 'admin' WHERE id = ?",
+              [name, passwordHash, rows[0].id]
+            );
+          } else {
+            await mysqlPool.execute(
+              `INSERT INTO \`users\` (id, name, email, mobile, password_hash, is_verified, role, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, 1, 'admin', ?, ?)`,
+              [crypto.randomUUID(), name, email, mobile, passwordHash, now, now]
+            );
+          }
+          return;
+        }
+        if (pgPool) {
+          await initTablesIfRealDb();
+          const res = await pgPool.query(
+            "SELECT id FROM users WHERE LOWER(email) = $1 OR mobile = $2 LIMIT 1",
+            [email, mobile]
+          );
+          if (res.rows[0]) {
+            await pgPool.query(
+              "UPDATE users SET name = $1, password_hash = $2, is_verified = TRUE, role = 'admin' WHERE id = $3",
+              [name, passwordHash, res.rows[0].id]
+            );
+          } else {
+            await pgPool.query(
+              `INSERT INTO users (id, name, email, mobile, password_hash, is_verified, role, created_at, updated_at)
+               VALUES ($1, $2, $3, $4, $5, TRUE, 'admin', $6, $7)`,
+              [crypto.randomUUID(), name, email, mobile, passwordHash, now, now]
+            );
+          }
+          return;
+        }
+        let found: UserRecord | undefined;
+        for (const u of memoryStore.users.values()) {
+          if (u.email === email || u.mobile === mobile) {
+            found = u;
+            break;
+          }
+        }
+        if (found) {
+          found.name = name;
+          found.password_hash = passwordHash;
+          found.is_verified = true;
+          found.role = "admin";
+          memoryStore.users.set(found.id, found);
+        } else {
+          const id = crypto.randomUUID();
+          memoryStore.users.set(id, {
+            id,
+            name,
+            email,
+            mobile,
+            password_hash: passwordHash,
+            is_verified: true,
+            role: "admin",
+            planning_credits: 5,
+            free_link_used: false,
+            created_at: now,
+            updated_at: now,
+          });
+        }
+      } catch (err) {
+        console.warn("[NexSport] Vercel preview admin seed skipped:", err);
+        vercelTestAdminPromise = null;
+      }
+    })();
+  }
+  await vercelTestAdminPromise;
+}
+
 function sessionRecordFromPayload(
   parsed: NonNullable<ReturnType<typeof parseSessionToken>>,
   now: Date,
@@ -661,6 +752,7 @@ export const db = {
   },
 
   async findUserByEmail(email: string): Promise<UserRecord | null> {
+    await ensureVercelTestAdmin();
     const cleanEmail = email.trim().toLowerCase();
     if (mysqlPool) {
       await initTablesIfRealDb();
@@ -684,6 +776,7 @@ export const db = {
   },
 
   async findUserByMobile(mobile: string): Promise<UserRecord | null> {
+    await ensureVercelTestAdmin();
     const cleanMobile = mobile.trim();
     if (mysqlPool) {
       await initTablesIfRealDb();

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { cleanEmailAddress } from "@/lib/auth/utils";
+import { isSuperAdminEmail } from "@/lib/auth/utils";
 import { resolveSessionUser } from "@/lib/auth/sessionGuard";
 import { getRequestToken } from "@/lib/auth/sessionToken";
 
@@ -21,8 +21,7 @@ export async function verifyAdminRequest(req: NextRequest) {
     return { error: "کاربر یافت نشد.", status: 401, expired: true as const };
   }
 
-  const isSalman = cleanEmailAddress(user.email) === "salman.aryanezhad@gmail.com";
-  const isAdmin = isSalman || user.role === "admin";
+  const isAdmin = isSuperAdminEmail(user.email) || user.role === "admin";
 
   if (!isAdmin) {
     return {

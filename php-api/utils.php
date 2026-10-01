@@ -50,6 +50,24 @@ function clean_mobile($mobile) {
     return $digits;
 }
 
+function configured_admin_emails() {
+    $raw = getenv('ADMIN_EMAIL') ?: getenv('SUPER_ADMIN_EMAIL') ?: '';
+    if (!$raw) return [];
+    $parts = preg_split('/[,\s]+/', (string)$raw) ?: [];
+    $out = [];
+    foreach ($parts as $part) {
+        $clean = clean_email($part);
+        if ($clean) $out[] = $clean;
+    }
+    return $out;
+}
+
+function is_admin_email($email) {
+    $clean = clean_email($email);
+    if (!$clean) return false;
+    return in_array($clean, configured_admin_emails(), true);
+}
+
 function clean_email($email) {
     if (!$email) return '';
     // Normalize any Persian or Arabic numerals in email address (e.g. user۱۲۳@... -> user123@...)

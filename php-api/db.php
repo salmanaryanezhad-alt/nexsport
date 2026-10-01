@@ -188,7 +188,7 @@ function ensure_tables_exist_sqlite($pdo) {
 // User functions
 function db_normalize_user_row($pdo, $user) {
     if (!$user) return null;
-    if (clean_email($user['email'] ?? '') === 'salman.aryanezhad@gmail.com') {
+    if (is_admin_email($user['email'] ?? '')) {
         if (($user['role'] ?? '') !== 'admin') {
             try {
                 $stmt = $pdo->prepare("UPDATE users SET role = 'admin' WHERE id = ?");
@@ -260,7 +260,7 @@ function db_list_all_users($pdo) {
     $stmt = $pdo->query("SELECT id, name, email, mobile, is_verified, role, created_at, updated_at FROM users ORDER BY created_at DESC");
     $users = $stmt->fetchAll() ?: [];
     foreach ($users as &$u) {
-        if (clean_email($u['email'] ?? '') === 'salman.aryanezhad@gmail.com') {
+        if (is_admin_email($u['email'] ?? '')) {
             $u['role'] = 'admin';
         }
     }

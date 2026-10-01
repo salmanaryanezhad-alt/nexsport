@@ -386,7 +386,7 @@ export function UsersModal() {
                   </thead>
                   <tbody className="divide-y divide-line/60">
                     {filteredUsers.map((u, index) => {
-                      const isCurrentUserAdmin = u.email === "salman.aryanezhad@gmail.com" || u.role === "admin";
+                      const isCurrentUserAdmin = u.role === "admin";
                       const isTargetLoading = actionLoadingId === u.id;
                       return (
                         <tr key={u.id} className="hover:bg-chalk/40 transition-colors">
@@ -480,7 +480,7 @@ export function UsersModal() {
               {/* Mobile Card List View */}
               <div className="md:hidden space-y-3">
                 {filteredUsers.map((u, index) => {
-                  const isCurrentUserAdmin = u.email === "salman.aryanezhad@gmail.com" || u.role === "admin";
+                  const isCurrentUserAdmin = u.role === "admin";
                   const isTargetLoading = actionLoadingId === u.id;
                   return (
                     <div

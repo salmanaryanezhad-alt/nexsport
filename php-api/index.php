@@ -642,8 +642,7 @@ if (($path === 'admin/users' || $path === 'users') && $method === 'GET') {
         json_response(['error' => 'کاربر یافت نشد.'], 401);
     }
 
-    $isSalman = (clean_email($user['email'] ?? '') === 'salman.aryanezhad@gmail.com');
-    $isAdmin = $isSalman || (($user['role'] ?? '') === 'admin');
+    $isAdmin = is_admin_email($user['email'] ?? '') || (($user['role'] ?? '') === 'admin');
 
     if (!$isAdmin) {
         json_response(['error' => 'دسترسی غیرمجاز. این بخش منحصراً در اختیار مدیر سامانه می‌باشد.'], 403);
@@ -664,8 +663,7 @@ if (($path === 'admin/users' || $path === 'users') && ($method === 'PATCH' || $m
         json_response(['error' => 'کاربر یافت نشد.'], 401);
     }
 
-    $isSalman = (clean_email($user['email'] ?? '') === 'salman.aryanezhad@gmail.com');
-    $isAdmin = $isSalman || (($user['role'] ?? '') === 'admin');
+    $isAdmin = is_admin_email($user['email'] ?? '') || (($user['role'] ?? '') === 'admin');
 
     if (!$isAdmin) {
         json_response(['error' => 'دسترسی غیرمجاز. این بخش منحصراً در اختیار مدیر سامانه می‌باشد.'], 403);
@@ -702,8 +700,7 @@ if (($path === 'admin/users' || $path === 'users') && $method === 'DELETE') {
         json_response(['error' => 'کاربر یافت نشد.'], 401);
     }
 
-    $isSalman = (clean_email($user['email'] ?? '') === 'salman.aryanezhad@gmail.com');
-    $isAdmin = $isSalman || (($user['role'] ?? '') === 'admin');
+    $isAdmin = is_admin_email($user['email'] ?? '') || (($user['role'] ?? '') === 'admin');
 
     if (!$isAdmin) {
         json_response(['error' => 'دسترسی غیرمجاز. این بخش منحصراً در اختیار مدیر سامانه می‌باشد.'], 403);

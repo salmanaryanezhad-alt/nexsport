@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db, SessionRecord, UserRecord } from "@/lib/db";
-import { cleanEmailAddress } from "@/lib/auth/utils";
+import { isSuperAdminEmail } from "@/lib/auth/utils";
 import { getRequestToken } from "@/lib/auth/sessionToken";
 
 export async function resolveSessionUser(session: SessionRecord): Promise<UserRecord | null> {
@@ -42,8 +42,7 @@ export async function verifySessionRequest(req: NextRequest) {
     return { error: "کاربر یافت نشد.", status: 401, expired: true as const };
   }
 
-  const isSalman = cleanEmailAddress(user.email) === "salman.aryanezhad@gmail.com";
-  const isAdmin = isSalman || user.role === "admin";
+  const isAdmin = isSuperAdminEmail(user.email) || user.role === "admin";
 
   return { user, isAdmin };
 }

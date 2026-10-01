@@ -33,6 +33,7 @@ async function test(name: string, fn: TestFn) {
 }
 
 async function run() {
+  process.env.ADMIN_EMAIL = process.env.ADMIN_EMAIL || "salman.aryanezhad@gmail.com";
   console.log("شروع تست‌های سیستم احراز هویت و دیتابیس (فاز دوم)...\n");
 
   await test("رمز عبور: هش‌گذاری و اعتبارسنجی صحیح رمز", () => {
@@ -548,6 +549,26 @@ async function run() {
 
     // بررسی عدم افشای پسورد هش در خروجی
     assert(!("password_hash" in (allUsers[0] as any)), "هش رمز عبور نباید در خروجی لیست کاربران به فرانت‌اند بازگردانده شود.");
+  });
+
+  await test("اکانت مدیر پیش‌نمایش فقط روی Vercel ساخته می‌شود", async () => {
+    const prevVercel = process.env.VERCEL;
+    delete process.env.VERCEL;
+    const absent = await db.findUserByEmail("test@gmail.com");
+    assertEqual(absent, null, "بدون VERCEL نباید اکانت تست ساخته شود.");
+
+    process.env.VERCEL = "1";
+    const seeded = await db.findUserByEmail("test@gmail.com");
+    assert(Boolean(seeded), "روی Vercel اکانت تست باید موجود باشد.");
+    assertEqual(seeded?.role, "admin", "اکانت تست باید نقش مدیر داشته باشد.");
+    assertEqual(seeded?.name, "تست", "نام اکانت تست باید «تست» باشد.");
+    assertEqual(seeded?.is_verified, true, "اکانت تست باید از قبل تایید شده باشد.");
+    assert(verifyPassword("12341234", seeded!.password_hash), "رمز اکانت تست باید معتبر باشد.");
+    const byMobile = await db.findUserByMobile("09112223344");
+    assertEqual(byMobile?.id, seeded?.id, "ورود با موبایل تست باید همان حساب باشد.");
+
+    if (prevVercel === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = prevVercel;
   });
 
   await test("اعتبار نامحدود مدیر کل: ساخت مکرر مسابقه تستی بدون شارژ", async () => {

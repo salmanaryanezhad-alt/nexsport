@@ -123,10 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [demoVerificationCode, setDemoVerificationCode] = useState<string | null>(null);
 
-  const isAdmin = Boolean(
-    user &&
-    (user.email?.trim().toLowerCase() === "salman.aryanezhad@gmail.com" || user.role === "admin")
-  );
+  const isAdmin = Boolean(user && user.role === "admin");
 
   function syncUser(u: AuthUser | null) {
     setUser(u);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { cleanEmailAddress, hasUnlimitedPlanning } from "@/lib/auth/utils";
+import { hasUnlimitedPlanning, isSuperAdminEmail } from "@/lib/auth/utils";
 import { clearSessionCookies, getRequestToken } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
@@ -24,8 +24,7 @@ async function verifyAdmin(req: NextRequest) {
     return { error: "کاربر یافت نشد.", status: 401, expired: true };
   }
 
-  const isSalman = cleanEmailAddress(user.email) === "salman.aryanezhad@gmail.com";
-  const isAdmin = isSalman || user.role === "admin";
+  const isAdmin = isSuperAdminEmail(user.email) || user.role === "admin";
 
   if (!isAdmin) {
     return { error: "دسترسی غیرمجاز. این بخش منحصراً در اختیار مدیر سامانه می‌باشد.", status: 403 };
