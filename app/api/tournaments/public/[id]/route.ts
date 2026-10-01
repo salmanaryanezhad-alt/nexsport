@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { decodeTournamentPayload } from "@/lib/tournamentCodec";
+import { verifyAdminRequest } from "@/lib/auth/adminGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -59,17 +60,20 @@ export async function GET(
       );
     }
 
-    // Verify dedicated link payment activation
+    // Verify dedicated link payment activation (admin may still view unpaid user tournaments)
     const isPaid = Boolean(tournament.state?.payment?.isPaid);
     if (!isPaid) {
-      return NextResponse.json(
-        {
-          error: "لینک اختصاصی این مسابقه هنوز پرداخت و فعال‌سازی نشده است. برگزارکننده محترم مسابقه می‌تواند نسبت به پرداخت و فعال‌سازی آن در پنل کاربری اقدام نماید.",
-          notActivated: true,
-          tournamentTitle: tournament.title,
-        },
-        { status: 402 }
-      );
+      const admin = await verifyAdminRequest(req);
+      if ("error" in admin) {
+        return NextResponse.json(
+          {
+            error: "لینک اختصاصی این مسابقه هنوز پرداخت و فعال‌سازی نشده است. برگزارکننده محترم مسابقه می‌تواند نسبت به پرداخت و فعال‌سازی آن در پنل کاربری اقدام نماید.",
+            notActivated: true,
+            tournamentTitle: tournament.title,
+          },
+          { status: 402 }
+        );
+      }
     }
 
     // Return sanitized public tournament payload

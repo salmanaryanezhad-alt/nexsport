@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { cleanEmailAddress } from "@/lib/auth/utils";
+import { cleanEmailAddress, hasUnlimitedPlanning } from "@/lib/auth/utils";
 import { clearSessionCookies, getRequestToken } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
@@ -49,10 +49,35 @@ export async function GET(req: NextRequest) {
     }
 
     const users = await db.listAllUsers();
+    const tournaments = await db.listAdminUserTournaments();
+    const tournamentCountByUser: Record<string, number> = {};
+    for (const t of tournaments) {
+      tournamentCountByUser[t.user_id] = (tournamentCountByUser[t.user_id] || 0) + 1;
+    }
+
+    const enriched = users.map((u) => {
+      const isVip = Boolean(u.vip_expires_at && new Date(u.vip_expires_at).getTime() > Date.now());
+      const unlimitedPlanning = isVip || hasUnlimitedPlanning(u);
+      const planningCredits = unlimitedPlanning
+        ? 999999
+        : u.planning_credits !== undefined && u.planning_credits !== null
+        ? Number(u.planning_credits)
+        : 5;
+      return {
+        ...u,
+        isVip,
+        unlimitedPlanning,
+        planningCredits,
+        freeLinkAvailable: !u.free_link_used,
+        vipExpiresAt: u.vip_expires_at ? new Date(u.vip_expires_at).toISOString() : null,
+        tournamentCount: tournamentCountByUser[u.id] || 0,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      count: users.length,
-      users,
+      count: enriched.length,
+      users: enriched,
     });
   } catch (err: any) {
     console.error("[Admin Users GET Error]", err);

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { NexSportIcon } from "@/components/NexSportLogo";
+import { toPersianDigits } from "@/lib/digits";
 
 interface AdminUserItem {
   id: string;
@@ -12,10 +13,16 @@ interface AdminUserItem {
   is_verified: boolean;
   role: string;
   created_at: string;
+  isVip?: boolean;
+  unlimitedPlanning?: boolean;
+  planningCredits?: number;
+  freeLinkAvailable?: boolean;
+  vipExpiresAt?: string | null;
+  tournamentCount?: number;
 }
 
 export function UsersModal() {
-  const { isUsersModalOpen, closeUsersModal, isAdmin, requestOpenPricingModal, requestOpenDiscountsModal, openAdminTicketsModal } = useAuth();
+  const { isUsersModalOpen, closeUsersModal, isAdmin, requestOpenPricingModal, requestOpenDiscountsModal, openAdminTicketsModal, openAdminTournamentsModal } = useAuth();
   const [users, setUsers] = useState<AdminUserItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -165,6 +172,16 @@ export function UsersModal() {
     }
   };
 
+  function planLabel(u: AdminUserItem) {
+    if (u.unlimitedPlanning && !u.isVip) return "نامحدود (مدیر)";
+    if (u.isVip) {
+      const until = u.vipExpiresAt ? formatPersianDate(u.vipExpiresAt) : "";
+      return until ? `VIP تا ${until}` : "کاربر ویژه VIP";
+    }
+    const credits = typeof u.planningCredits === "number" ? u.planningCredits : 5;
+    return `${toPersianDigits(credits)} اعتبار برنامه‌ریزی`;
+  }
+
   if (!isUsersModalOpen || !isAdmin) return null;
 
   const totalCount = users.length;
@@ -172,7 +189,7 @@ export function UsersModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-ink/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl max-h-[90vh] rounded-2xl bg-white shadow-2xl border border-line flex flex-col overflow-hidden">
+      <div className="relative w-full max-w-6xl max-h-[90vh] rounded-2xl bg-white shadow-2xl border border-line flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-line/70 bg-chalk/70 px-5 py-4 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -190,6 +207,15 @@ export function UsersModal() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => openAdminTournamentsModal()}
+              className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 text-indigo-900 px-2.5 py-1 text-[11px] font-bold cursor-pointer"
+              title="مشاهده مسابقات ایجادشده توسط کاربران ثبت‌نام‌شده"
+            >
+              <span>🏆</span>
+              <span className="hidden sm:inline">مسابقات کاربران</span>
+            </button>
             <button
               type="button"
               onClick={openAdminTicketsModal}
@@ -354,6 +380,7 @@ export function UsersModal() {
                       <th className="py-3 px-4">آدرس ایمیل</th>
                       <th className="py-3 px-4">شماره تماس</th>
                       <th className="py-3 px-4">تاریخ عضویت</th>
+                      <th className="py-3 px-4">پلن و سهمیه</th>
                       <th className="py-3 px-3 text-center w-36">وضعیت / عملیات</th>
                     </tr>
                   </thead>
@@ -389,6 +416,19 @@ export function UsersModal() {
                           </td>
                           <td className="py-3 px-4 text-[11px] text-ink/70">
                             {formatPersianDate(u.created_at)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <p className="font-bold text-ink">{planLabel(u)}</p>
+                            <p className="text-[10px] text-ink/50 mt-0.5">
+                              لینک رایگان: {u.freeLinkAvailable ? "دارد" : "مصرف‌شده"} · مسابقات: {toPersianDigits(u.tournamentCount || 0)}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => openAdminTournamentsModal(u.id)}
+                              className="mt-1 text-[10px] font-bold text-pitch hover:underline cursor-pointer"
+                            >
+                              مشاهده مسابقات این کاربر
+                            </button>
                           </td>
                           <td className="py-2.5 px-3 text-center">
                             {u.is_verified ? (
@@ -524,6 +564,23 @@ export function UsersModal() {
                           <span className="text-ink/60">تاریخ عضویت:</span>
                           <span className="text-ink/75">{formatPersianDate(u.created_at)}</span>
                         </div>
+                        <div className="flex items-center justify-between text-[11px] pt-1 border-t border-line/40">
+                          <span className="text-ink/60">پلن و سهمیه:</span>
+                          <span className="text-ink/90 font-bold">{planLabel(u)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-ink/60">لینک رایگان / مسابقات:</span>
+                          <span className="text-ink/75">
+                            {u.freeLinkAvailable ? "لینک رایگان دارد" : "لینک رایگان مصرف‌شده"} · {toPersianDigits(u.tournamentCount || 0)} مسابقه
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openAdminTournamentsModal(u.id)}
+                          className="mt-1 w-full rounded-lg border border-pitch/20 bg-pitch/5 py-1 text-[11px] font-bold text-pitch cursor-pointer"
+                        >
+                          مشاهده مسابقات این کاربر
+                        </button>
                       </div>
                     </div>
                   );

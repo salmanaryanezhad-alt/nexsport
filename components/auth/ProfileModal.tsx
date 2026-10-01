@@ -11,6 +11,7 @@ export function ProfileModal() {
     isProfileModalOpen,
     closeProfileModal,
     openUsersModal,
+    openAdminTournamentsModal,
     requestOpenDiscountsModal,
     requestOpenPricingModal,
     openTicketsModal,
@@ -164,6 +165,16 @@ export function ProfileModal() {
                   className="bg-pitch text-white px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-pitch-light transition cursor-pointer"
                 >
                   مدیریت کاربران
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeProfileModal();
+                    openAdminTournamentsModal();
+                  }}
+                  className="bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-indigo-800 transition cursor-pointer"
+                >
+                  مسابقات کاربران
                 </button>
                 <button
                   type="button"

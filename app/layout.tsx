@@ -94,6 +94,7 @@ import { AuthProvider } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { ProfileModal } from "@/components/auth/ProfileModal";
 import { UsersModal } from "@/components/admin/UsersModal";
+import { AdminTournamentsModal } from "@/components/admin/AdminTournamentsModal";
 import { AdminDiscountsModal } from "@/components/admin/AdminDiscountsModal";
 import { AdminPricingModal } from "@/components/admin/AdminPricingModal";
 import { AdminPasswordGate } from "@/components/admin/AdminPasswordGate";
@@ -124,6 +125,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthModal />
           <ProfileModal />
           <UsersModal />
+          <AdminTournamentsModal />
           <AdminDiscountsModal />
           <AdminPricingModal />
           <AdminPasswordGate />

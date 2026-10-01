@@ -119,6 +119,33 @@ export interface TournamentRecord {
   updated_at: Date;
 }
 
+export interface AdminTournamentListItem {
+  id: string;
+  user_id: string;
+  title: string;
+  format: string;
+  sport: string | null;
+  team_count: number;
+  created_at: Date;
+  updated_at: Date;
+  linkActive: boolean;
+  owner: {
+    id: string;
+    name: string;
+    email: string;
+    mobile: string;
+  };
+}
+
+function tournamentLinkActive(state: unknown): boolean {
+  try {
+    const parsed = typeof state === "string" ? JSON.parse(state) : state;
+    return Boolean((parsed as { payment?: { isPaid?: boolean } } | null)?.payment?.isPaid);
+  } catch {
+    return false;
+  }
+}
+
 const rawConnectionString =
   process.env.DATABASE_URL ||
   process.env.POSTGRES_URL ||
@@ -716,7 +743,7 @@ export const db = {
     if (mysqlPool) {
       await initTablesIfRealDb();
       const [rows] = await mysqlPool.execute<RowDataPacket[]>(
-        "SELECT id, name, email, mobile, is_verified, role, created_at, updated_at FROM `users` ORDER BY created_at DESC"
+        "SELECT id, name, email, mobile, is_verified, role, planning_credits, free_link_used, vip_expires_at, created_at, updated_at FROM `users` ORDER BY created_at DESC"
       );
       return rows.map((r) => {
         const u = normalizeUserRow(r);
@@ -728,7 +755,7 @@ export const db = {
     if (pgPool) {
       await initTablesIfRealDb();
       const res = await pgPool.query(
-        "SELECT id, name, email, mobile, is_verified, role, created_at, updated_at FROM users ORDER BY created_at DESC"
+        "SELECT id, name, email, mobile, is_verified, role, planning_credits, free_link_used, vip_expires_at, created_at, updated_at FROM users ORDER BY created_at DESC"
       );
       return res.rows.map((r) => {
         const u = normalizeUserRow(r);
@@ -1598,6 +1625,108 @@ export const db = {
       }
     }
     return list.sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
+  },
+
+  async listAdminUserTournaments(userId?: string): Promise<AdminTournamentListItem[]> {
+    const wantedUserId = userId?.trim() || "";
+
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const sql = wantedUserId
+        ? `SELECT t.id, t.user_id, t.title, t.format, t.sport, t.team_count, t.state, t.created_at, t.updated_at,
+                  u.name AS owner_name, u.email AS owner_email, u.mobile AS owner_mobile
+           FROM \`tournaments\` t
+           INNER JOIN \`users\` u ON u.id = t.user_id
+           WHERE t.user_id = ? AND t.user_id <> 'public'
+           ORDER BY t.updated_at DESC`
+        : `SELECT t.id, t.user_id, t.title, t.format, t.sport, t.team_count, t.state, t.created_at, t.updated_at,
+                  u.name AS owner_name, u.email AS owner_email, u.mobile AS owner_mobile
+           FROM \`tournaments\` t
+           INNER JOIN \`users\` u ON u.id = t.user_id
+           WHERE t.user_id <> 'public'
+           ORDER BY t.updated_at DESC`;
+      const [rows] = wantedUserId
+        ? await mysqlPool.execute<RowDataPacket[]>(sql, [wantedUserId])
+        : await mysqlPool.execute<RowDataPacket[]>(sql);
+      return rows.map((r) => ({
+        id: r.id,
+        user_id: r.user_id,
+        title: r.title,
+        format: r.format,
+        sport: r.sport,
+        team_count: Number(r.team_count) || 0,
+        created_at: new Date(r.created_at),
+        updated_at: new Date(r.updated_at),
+        linkActive: tournamentLinkActive(r.state),
+        owner: {
+          id: r.user_id,
+          name: r.owner_name || "",
+          email: r.owner_email || "",
+          mobile: r.owner_mobile || "",
+        },
+      }));
+    }
+
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const sql = wantedUserId
+        ? `SELECT t.id, t.user_id, t.title, t.format, t.sport, t.team_count, t.state, t.created_at, t.updated_at,
+                  u.name AS owner_name, u.email AS owner_email, u.mobile AS owner_mobile
+           FROM tournaments t
+           INNER JOIN users u ON u.id = t.user_id
+           WHERE t.user_id = $1 AND t.user_id <> 'public'
+           ORDER BY t.updated_at DESC`
+        : `SELECT t.id, t.user_id, t.title, t.format, t.sport, t.team_count, t.state, t.created_at, t.updated_at,
+                  u.name AS owner_name, u.email AS owner_email, u.mobile AS owner_mobile
+           FROM tournaments t
+           INNER JOIN users u ON u.id = t.user_id
+           WHERE t.user_id <> 'public'
+           ORDER BY t.updated_at DESC`;
+      const res = wantedUserId ? await pgPool.query(sql, [wantedUserId]) : await pgPool.query(sql);
+      return res.rows.map((r) => ({
+        id: r.id,
+        user_id: r.user_id,
+        title: r.title,
+        format: r.format,
+        sport: r.sport,
+        team_count: Number(r.team_count) || 0,
+        created_at: new Date(r.created_at),
+        updated_at: new Date(r.updated_at),
+        linkActive: tournamentLinkActive(r.state),
+        owner: {
+          id: r.user_id,
+          name: r.owner_name || "",
+          email: r.owner_email || "",
+          mobile: r.owner_mobile || "",
+        },
+      }));
+    }
+
+    const items: AdminTournamentListItem[] = [];
+    for (const t of memoryStore.tournaments.values()) {
+      if (!t.user_id || t.user_id === "public" || t.user_id === "guest") continue;
+      if (wantedUserId && t.user_id !== wantedUserId) continue;
+      const owner = memoryStore.users.get(t.user_id);
+      if (!owner) continue;
+      items.push({
+        id: t.id,
+        user_id: t.user_id,
+        title: t.title,
+        format: t.format,
+        sport: t.sport,
+        team_count: t.team_count,
+        created_at: t.created_at,
+        updated_at: t.updated_at,
+        linkActive: tournamentLinkActive(t.state),
+        owner: {
+          id: owner.id,
+          name: owner.name,
+          email: owner.email,
+          mobile: owner.mobile,
+        },
+      });
+    }
+    return items.sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
   },
 
   async getTournament(id: string, userId: string): Promise<TournamentRecord | null> {

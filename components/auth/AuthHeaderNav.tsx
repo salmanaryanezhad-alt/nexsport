@@ -10,6 +10,7 @@ export function AuthHeaderNav() {
     openAuthModal,
     openProfileModal,
     openUsersModal,
+    openAdminTournamentsModal,
     requestOpenDiscountsModal,
     requestOpenPricingModal,
     openTicketsModal,
@@ -227,6 +228,22 @@ export function AuthHeaderNav() {
                   </span>
                   <span className="text-[10px] bg-pitch text-white px-1.5 py-0.5 rounded-full font-bold">
                     مدیر
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    openAdminTournamentsModal();
+                  }}
+                  className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-bold text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors flex items-center justify-between cursor-pointer mb-1 shadow-2xs"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>🏆</span>
+                    <span>مسابقات کاربران</span>
+                  </span>
+                  <span className="text-[10px] bg-indigo-700 text-white px-1.5 py-0.5 rounded-full font-bold">
+                    مشاهده
                   </span>
                 </button>
                 <button

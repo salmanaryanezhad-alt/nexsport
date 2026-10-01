@@ -361,6 +361,51 @@ async function run() {
     assertEqual(listAfter[0].id, t2.id, "مسابقه باقی‌مانده باید دومین مسابقه باشد.");
   });
 
+  await test("فهرست مدیر: پلن/سهمیه کاربر و مسابقات ثبت‌نام‌شده بدون مهمان", async () => {
+    const owner = await db.createUser({
+      name: "برگزارکننده سهمیه",
+      email: "quota-owner@nexsport.ir",
+      mobile: "09121112233",
+      password_hash: hashPassword("QuotaPass123"),
+      is_verified: true,
+    });
+
+    const saved = await db.saveTournament({
+      userId: owner.id,
+      title: "جام باشگاه‌های سهمیه",
+      format: "league-single",
+      sport: "فوتبال",
+      teamCount: 4,
+      state: { payment: { isPaid: true } },
+    });
+
+    await db.saveTournament({
+      userId: "public",
+      title: "مسابقه مهمان نباید دیده شود",
+      format: "knockout",
+      teamCount: 2,
+      state: { payment: { isPaid: true } },
+    });
+
+    const allUsers = await db.listAllUsers();
+    const listedOwner = allUsers.find((u) => u.id === owner.id);
+    assert(Boolean(listedOwner), "کاربر باید در فهرست مدیر باشد.");
+    assertEqual(listedOwner?.planning_credits, 5, "اعتبار اولیه برنامه‌ریزی باید ۵ باشد.");
+    assertEqual(listedOwner?.free_link_used, false, "لینک رایگان باید در ابتدا موجود باشد.");
+    assert(!("password_hash" in (listedOwner as any)), "هش رمز نباید در فهرست مدیر باشد.");
+
+    const adminList = await db.listAdminUserTournaments();
+    assert(adminList.some((t) => t.id === saved.id), "مسابقه کاربر ثبت‌نام‌شده باید در فهرست مدیر باشد.");
+    assert(
+      !adminList.some((t) => t.user_id === "public" || t.title.includes("مهمان")),
+      "مسابقات مهمان/عمومی نباید در فهرست مدیر بیاید."
+    );
+    const mine = await db.listAdminUserTournaments(owner.id);
+    assertEqual(mine.length, 1, "فیلتر کاربر باید فقط مسابقات همان حساب را برگرداند.");
+    assertEqual(mine[0].owner.email, owner.email, "ایمیل برگزارکننده باید همراه مسابقه باشد.");
+    assertEqual(mine[0].linkActive, true, "وضعیت لینک فعال باید از state خوانده شود.");
+  });
+
   await test("صفحه عمومی و لینک اختصاصی مسابقات (فاز سوم): بازیابی عمومی بدون نشست و اعتبارسنجی شناسه کوتاه", async () => {
     const user = await db.createUser({
       name: "برگزارکننده لیگ عمومی",
@@ -499,6 +544,7 @@ async function run() {
     assert(Boolean(adminInList), "مدیر کل باید در فهرست کاربران حضور داشته باشد.");
     assertEqual(adminInList?.name, "سلمان آریان‌نژاد", "نام مدیر باید صحیح باشد.");
     assert(Boolean(adminInList?.created_at), "تاریخ عضویت کاربر باید ثبت شده باشد.");
+    assertEqual(adminInList?.role, "admin", "مدیر کل باید نقش admin داشته باشد.");
 
     // بررسی عدم افشای پسورد هش در خروجی
     assert(!("password_hash" in (allUsers[0] as any)), "هش رمز عبور نباید در خروجی لیست کاربران به فرانت‌اند بازگردانده شود.");
