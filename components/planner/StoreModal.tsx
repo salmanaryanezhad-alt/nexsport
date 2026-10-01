@@ -91,10 +91,19 @@ export function StoreModal({
   async function loadQuota() {
     setLoadingQuota(true);
     try {
-      const res = await fetch("/api/tournaments/quota");
+      const res = await fetch("/api/tournaments/quota/", { credentials: "same-origin" });
       if (res.ok) {
         const data = await res.json();
-        setQuota(data);
+        if (data.isGuest && user) {
+          setQuota({
+            isGuest: false,
+            planningCredits: 5,
+            freeLinkAvailable: true,
+            isVip: false,
+          });
+        } else {
+          setQuota(data);
+        }
       }
     } catch {
       // Fallback
@@ -347,15 +356,7 @@ export function StoreModal({
           <>
         {/* User Balance Overview Strip */}
         <div className="bg-slate-50 border-b border-slate-200/80 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-          {quota?.isGuest ? (
-            <div className="flex items-center gap-2 text-amber-900">
-              <span>👤</span>
-              <span>
-                کاربر مهمان: <strong>{toPersianDigits(quota.guestCount || 0)}</strong> از{" "}
-                <strong>{toPersianDigits(quota.guestLimit || 2)}</strong> مسابقه رایگان استفاده شده
-              </span>
-            </div>
-          ) : quota?.isVip ? (
+          {quota?.isVip ? (
             <div className="flex items-center gap-2 text-amber-900 font-bold">
               <span className="text-amber-500">👑</span>
               <span>اشتراک ویژه VIP فعال است (برنامه‌ریزی و لینک اختصاصی نامحدود)</span>

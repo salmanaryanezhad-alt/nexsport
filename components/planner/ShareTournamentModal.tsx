@@ -54,7 +54,7 @@ export function ShareTournamentModal({
 
   const loadUserQuota = useCallback(async () => {
     try {
-      const res = await fetch("/api/tournaments/quota");
+      const res = await fetch("/api/tournaments/quota/", { credentials: "same-origin" });
       if (res.ok) {
         const data = await res.json();
         setQuota(data);

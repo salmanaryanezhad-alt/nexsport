@@ -338,9 +338,18 @@ function PlannerWizard() {
 
   const loadQuota = useCallback(async () => {
     try {
-      const res = await fetch("/api/tournaments/quota/");
+      const res = await fetch("/api/tournaments/quota/", { credentials: "same-origin" });
       if (res.ok) {
         const data = await res.json();
+        if (data.isGuest && user) {
+          setQuota({
+            isGuest: false,
+            planningCredits: 5,
+            freeLinkAvailable: true,
+            isVip: false,
+          });
+          return;
+        }
         if (data.isGuest && typeof window !== "undefined") {
           const localGuestCount = parseInt(
             localStorage.getItem("nexsport_guest_tournaments_count") || "0",
@@ -357,7 +366,7 @@ function PlannerWizard() {
         setQuota(data);
       }
     } catch {}
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadQuota();
@@ -876,19 +885,15 @@ function PlannerWizard() {
   function handleGenerate(isRedraw = false) {
     // Quota check when creating a new tournament
     if (!isRedraw) {
-      if (quota) {
-        if (quota.isGuest) {
-          if ((quota.guestCount ?? 0) >= (quota.guestLimit ?? 2)) {
-            setGuestLimitModalOpen(true);
-            return;
-          }
-        } else if (!quota.isVip) {
-          if ((quota.planningCredits ?? 5) <= 0) {
-            setStoreModalTab("credits");
-            setStoreModalOpen(true);
-            return;
-          }
+      if (user) {
+        if (quota && !quota.isVip && (quota.planningCredits ?? 5) <= 0) {
+          setStoreModalTab("credits");
+          setStoreModalOpen(true);
+          return;
         }
+      } else if (quota && (quota.guestCount ?? 0) >= (quota.guestLimit ?? 2)) {
+        setGuestLimitModalOpen(true);
+        return;
       }
     }
 
@@ -1000,10 +1005,10 @@ function PlannerWizard() {
       setTimeout(() => setInfoMessage(null), 3500);
     } else {
       // Consume quota for newly created tournament
-      fetch("/api/tournaments/quota", { method: "POST" })
+      fetch("/api/tournaments/quota/", { method: "POST", credentials: "same-origin" })
         .then((res) => res.json())
         .then((data) => {
-          if (data.isGuest) {
+          if (data.isGuest && !user) {
             const currentLocal = parseInt(
               localStorage.getItem("nexsport_guest_tournaments_count") || "0",
               10
@@ -1490,10 +1495,10 @@ function PlannerWizard() {
               setStoreModalOpen(true);
             }}
             className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-black shadow-2xs transition-all cursor-pointer ${
-              quota?.isVip
+              user && quota?.isVip
                 ? "border-amber-400 bg-amber-50 text-amber-950 hover:bg-amber-100"
-                : quota?.isGuest
-                ? (quota.guestCount ?? 0) >= (quota.guestLimit ?? 2)
+                : !user
+                ? (quota?.guestCount ?? 0) >= (quota?.guestLimit ?? 2)
                   ? "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 animate-pulse"
                   : "border-slate-200 bg-white text-slate-700 hover:border-emerald-500"
                 : (quota?.planningCredits ?? 5) > 0
@@ -1502,23 +1507,23 @@ function PlannerWizard() {
             }`}
             title={!user ? "ورود به حساب کاربری" : "افزایش اعتبار / اشتراک ویژه VIP"}
           >
-            {quota?.isVip ? (
+            {user && quota?.isVip ? (
               <>
                 <span>👑</span>
                 <span>عضو VIP</span>
               </>
-            ) : quota?.isGuest ? (
-              <>
-                <span>👤</span>
-                <span>
-                  مهمان: {toPersianDigits(quota.guestCount || 0)}/{toPersianDigits(quota.guestLimit || 2)}
-                </span>
-              </>
-            ) : (
+            ) : user ? (
               <>
                 <span>💎</span>
                 <span>
                   اعتبار: {toPersianDigits(quota?.planningCredits ?? 5)}
+                </span>
+              </>
+            ) : (
+              <>
+                <span>👤</span>
+                <span>
+                  مهمان: {toPersianDigits(quota?.guestCount || 0)}/{toPersianDigits(quota?.guestLimit || 2)}
                 </span>
               </>
             )}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { GUEST_MAX_TOURNAMENTS } from "@/lib/payment/pricing";
+import { resolveSessionUser } from "@/lib/auth/sessionGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -20,14 +21,16 @@ export async function GET(req: NextRequest) {
     if (token) {
       const session = await db.findSession(token);
       if (session) {
+        const user = await resolveSessionUser(session);
         const quota = await db.getUserQuota(session.user_id);
+        const hasDbUser = Boolean(user && quota.role !== "guest");
         return NextResponse.json({
           isGuest: false,
-          planningCredits: quota.planningCredits,
-          freeLinkAvailable: quota.freeLinkAvailable,
+          planningCredits: hasDbUser ? quota.planningCredits : 5,
+          freeLinkAvailable: hasDbUser ? quota.freeLinkAvailable : true,
           isVip: quota.isVip,
           vipExpiresAt: quota.vipExpiresAt ? quota.vipExpiresAt.toISOString() : null,
-          role: quota.role,
+          role: user?.role || quota.role || "user",
         });
       }
     }
