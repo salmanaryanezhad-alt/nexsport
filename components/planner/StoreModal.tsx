@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { toPersianDigits } from "@/lib/digits";
 import {
@@ -65,6 +65,8 @@ export function StoreModal({
 
   const [pricingSettings, setPricingSettings] = useState<PricingSettings>({ ...DEFAULT_PRICING_SETTINGS });
   const [vipPlans, setVipPlans] = useState<VipPlan[]>(VIP_PLANS);
+  const bodyScrollRef = useRef<HTMLDivElement | null>(null);
+  const purchaseResultRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -77,6 +79,21 @@ export function StoreModal({
       loadPricing();
     }
   }, [isOpen, initialTab, user]);
+
+  useEffect(() => {
+    if (!successInfo && !error) return;
+    const container = bodyScrollRef.current;
+    const target = purchaseResultRef.current;
+    if (!container || !target) return;
+    const cRect = container.getBoundingClientRect();
+    const tRect = target.getBoundingClientRect();
+    if (tRect.top < cRect.top || tRect.bottom > cRect.bottom) {
+      container.scrollTo({
+        top: container.scrollTop + (tRect.top - cRect.top) - 8,
+        behavior: "smooth",
+      });
+    }
+  }, [successInfo, error]);
 
   async function loadPricing() {
     try {
@@ -294,6 +311,41 @@ export function StoreModal({
     }
   }
 
+  const purchaseResultBanner =
+    successInfo || error ? (
+      <div ref={purchaseResultRef} className="space-y-2">
+        {successInfo && (
+          <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-3.5 text-emerald-950 space-y-1.5 animate-in zoom-in-95">
+            <div className="flex items-center gap-2 font-black text-sm text-emerald-900">
+              <span className="text-lg">🎉</span>
+              <span>پرداخت با موفقیت انجام شد</span>
+            </div>
+            {successInfo.type === "credits" ? (
+              <p className="text-xs text-emerald-900 leading-relaxed">
+                تعداد <strong>{toPersianDigits(successInfo.count)}</strong> مسابقه به حساب شما اضافه شد. موجودی جدید شما:{" "}
+                <strong>{toPersianDigits(successInfo.totalCredits)}</strong> مسابقه (بدون تاریخ انقضا).
+              </p>
+            ) : (
+              <p className="text-xs text-emerald-900 leading-relaxed">
+                اشتراک <strong>{successInfo.title}</strong> شما فعال گردید. از این لحظه برنامه‌ریزی مسابقات و ایجاد لینک‌های اختصاصی برای شما کاملاً نامحدود و رایگان است!
+              </p>
+            )}
+            {successInfo.refId && (
+              <p className="text-[11px] text-emerald-800 font-mono dir-ltr">
+                کد پیگیری: {toPersianDigits(successInfo.refId)}
+              </p>
+            )}
+          </div>
+        )}
+        {error && (
+          <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-rose-800 text-xs font-bold flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+      </div>
+    ) : null;
+
   if (!isOpen) return null;
 
   return (
@@ -446,39 +498,7 @@ export function StoreModal({
         </div>
 
         {/* Content Body */}
-        <div className="p-5 space-y-4 overflow-y-auto text-xs">
-          {/* Success Banner */}
-          {successInfo && (
-            <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-950 space-y-2 animate-in zoom-in-95">
-              <div className="flex items-center gap-2 font-black text-sm text-emerald-900">
-                <span className="text-xl">🎉</span>
-                <span>پرداخت با موفقیت انجام و سفارش فعال شد!</span>
-              </div>
-              {successInfo.type === "credits" ? (
-                <p className="text-xs text-emerald-900 leading-relaxed">
-                  تعداد <strong>{toPersianDigits(successInfo.count)}</strong> مسابقه به حساب شما اضافه شد. موجودی جدید شما:{" "}
-                  <strong>{toPersianDigits(successInfo.totalCredits)}</strong> مسابقه (بدون تاریخ انقضا).
-                </p>
-              ) : (
-                <p className="text-xs text-emerald-900 leading-relaxed">
-                  اشتراک <strong>{successInfo.title}</strong> شما فعال گردید. از این لحظه برنامه‌ریزی مسابقات و ایجاد لینک‌های اختصاصی برای شما کاملاً نامحدود و رایگان است!
-                </p>
-              )}
-              {successInfo.refId && (
-                <p className="text-[11px] text-emerald-800 font-mono dir-ltr">
-                  کد پیگیری: {toPersianDigits(successInfo.refId)}
-                </p>
-              )}
-            </div>
-          )}
-
-          {error && (
-            <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-rose-800 text-xs font-bold flex items-center gap-2">
-              <span>⚠️</span>
-              <span>{error}</span>
-            </div>
-          )}
-
+        <div ref={bodyScrollRef} className="p-5 space-y-4 overflow-y-auto text-xs">
           {/* TAB 1: CREDIT PACKAGES */}
           {activeTab === "credits" && (
             <div className="space-y-4">
@@ -664,6 +684,8 @@ export function StoreModal({
                   <strong>نکته:</strong> بسته‌های اعتباری مربوط به برنامه‌ریزی و تولید جداول مسابقات است. ایجاد لینک اختصاصی تماشاگران برای هر مسابقه همان {toPersianDigits(pricingSettings.linkPriceTomans.toLocaleString("en-US"))} تومان جداگانه است (به جز ۱ مسابقه اول که هدیه رایگان ثبت‌نام شماست). در صورتی که مایلید تمام لینک‌ها رایگان باشند، به <strong>اشتراک ویژه VIP</strong> ارتقا دهید.
                 </span>
               </div>
+
+              {purchaseResultBanner}
 
               {/* Purchase Action Button */}
               <button
@@ -854,6 +876,8 @@ export function StoreModal({
                   </div>
                 )}
               </div>
+
+              {purchaseResultBanner}
 
               {/* Purchase Action Button */}
               <button
