@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { hasUnlimitedPlanning, isSuperAdminEmail } from "@/lib/auth/utils";
 import {
   PaymentGatewayDriver,
   PaymentGatewayType,
@@ -72,6 +73,7 @@ class PaymentService {
 
   /**
    * Start payment for dedicated tournament link
+   * - Admin account: always FREE, never hits a payment gateway (even after ZarinPal).
    * - VIP Users: 100% FREE!
    * - Registered Normal Users (1st link): 100% FREE gift!
    * - Subsequent Links: Standard 150,000 Tomans (or discounted if coupon applied).
@@ -84,8 +86,9 @@ class PaymentService {
     origin?: string;
     useFreeGift?: boolean;
     discountCode?: string;
+    adminBypass?: boolean;
   }) {
-    const { tournamentId, userId, userEmail, userMobile, origin, useFreeGift, discountCode } = params;
+    const { tournamentId, userId, userEmail, userMobile, origin, useFreeGift, discountCode, adminBypass } = params;
 
     const tournament = await db.getTournament(tournamentId, userId);
     if (!tournament) {
@@ -107,6 +110,51 @@ class PaymentService {
     }
 
     const userQuota = await db.getUserQuota(userId);
+    const dbUser = await db.findUserById(userId);
+    const adminFree =
+      Boolean(adminBypass) ||
+      hasUnlimitedPlanning(dbUser) ||
+      isSuperAdminEmail(userEmail);
+
+    // 0. Admin account: unlimited dedicated links, never redirect to a gateway.
+    if (adminFree) {
+      const paymentInfo = {
+        isPaid: true,
+        amount: 0,
+        currency: "TOMAN",
+        gateway: "admin_free",
+        orderId: `admin_${Date.now()}`,
+        refId: `TRX-ADMIN-${Math.floor(10000000 + Math.random() * 90000000)}`,
+        paidAt: new Date().toISOString(),
+        note: "لینک اختصاصی رایگان حساب مدیر — بدون درگاه پرداخت",
+      };
+
+      const updatedState = {
+        ...tournament.state,
+        payment: paymentInfo,
+      };
+
+      await db.saveTournament({
+        id: tournament.id,
+        userId: tournament.user_id,
+        title: tournament.title,
+        format: tournament.format,
+        sport: tournament.sport || undefined,
+        teamCount: tournament.team_count,
+        state: updatedState,
+      });
+
+      return {
+        success: true,
+        isDirectSuccess: true,
+        isPaid: true,
+        isAdminFree: true,
+        orderId: paymentInfo.orderId,
+        refId: paymentInfo.refId,
+        paymentInfo,
+        tournamentId,
+      };
+    }
 
     // 1. VIP members: All dedicated links are 100% FREE!
     if (userQuota.isVip) {

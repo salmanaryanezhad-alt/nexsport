@@ -2,7 +2,7 @@ import { db } from "../db";
 import { hashPassword, verifyPassword } from "./password";
 import { generateVerificationCode } from "./email";
 import { cleanMobileNumber, toEnglishDigits, hasPersianLetters } from "./utils";
-import { paymentService } from "../payment";
+import { paymentService, MockGateway } from "../payment";
 import { isSignedSessionToken } from "./sessionToken";
 
 type TestFn = () => Promise<void> | void;
@@ -501,6 +501,65 @@ async function run() {
 
     const after = await db.getUserQuota(admin!.id);
     assertEqual(after.unlimitedPlanning, true, "پس از ساخت چند مسابقه، اعتبار مدیر همچنان نامحدود است.");
+  });
+
+  await test("لینک اختصاصی نامحدود مدیر: بدون درگاه حتی اگر زرین‌پال فعال باشد", async () => {
+    const admin = await db.findUserByEmail("salman.aryanezhad@gmail.com");
+    assert(Boolean(admin), "حساب مدیر باید موجود باشد.");
+
+    const tournament = await db.saveTournament({
+      userId: admin!.id,
+      title: "مسابقه تست لینک مدیر",
+      format: "league",
+      teamCount: 4,
+      state: { step: 4 },
+    });
+
+    paymentService.setGatewayDriver({
+      gatewayName: "zarinpal",
+      async initiatePayment() {
+        return {
+          success: true,
+          isDirectSuccess: false,
+          paymentUrl: "https://zarinpal.example/pay",
+        };
+      },
+      async verifyPayment() {
+        return { success: false, error: "should not be called" };
+      },
+    } as any);
+
+    try {
+      const first = await paymentService.initiateTournamentPayment({
+        tournamentId: tournament.id,
+        userId: admin!.id,
+        userEmail: admin!.email,
+      });
+      assertEqual(first.success, true, "فعال‌سازی لینک مدیر باید موفق باشد.");
+      assertEqual(first.isDirectSuccess, true, "مدیر نباید به درگاه پرداخت هدایت شود.");
+      assertEqual(first.isAdminFree, true, "فلگ لینک رایگان مدیر باید true باشد.");
+      assertEqual(first.paymentInfo.amount, 0, "مبلغ لینک مدیر باید ۰ باشد.");
+      assertEqual(first.paymentInfo.gateway, "admin_free", "درگاه نباید زرین‌پال باشد.");
+      assertEqual(Boolean(first.paymentUrl), false, "آدرس درگاه نباید برگردد.");
+      assertEqual(await paymentService.isTournamentPaid(tournament.id), true, "لینک باید فعال شود.");
+
+      const secondTournament = await db.saveTournament({
+        userId: admin!.id,
+        title: "مسابقه دوم تست لینک مدیر",
+        format: "knockout",
+        teamCount: 8,
+        state: { step: 4 },
+      });
+      const second = await paymentService.initiateTournamentPayment({
+        tournamentId: secondTournament.id,
+        userId: admin!.id,
+        userEmail: admin!.email,
+      });
+      assertEqual(second.isDirectSuccess, true, "لینک‌های بعدی مدیر هم باید بدون درگاه فعال شوند.");
+      assertEqual(second.paymentInfo.gateway, "admin_free", "لینک دوم هم باید admin_free باشد.");
+    } finally {
+      paymentService.setGatewayDriver(new MockGateway());
+    }
   });
 
   await test("مدیریت کاربران: تایید دستی کاربر در انتظار (دکمه سبز) و ورود بدون نیاز به کد تایید", async () => {

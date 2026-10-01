@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
           freeLinkAvailable: hasDbUser ? quota.freeLinkAvailable : true,
           isVip: quota.isVip,
           unlimitedPlanning: unlimited,
+          unlimitedLinks: unlimited,
           vipExpiresAt: quota.vipExpiresAt ? quota.vipExpiresAt.toISOString() : null,
           role: user?.role || quota.role || "user",
         });

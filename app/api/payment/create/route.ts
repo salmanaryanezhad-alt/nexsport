@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { paymentService } from "@/lib/payment";
+import { resolveSessionUser } from "@/lib/auth/sessionGuard";
+import { hasUnlimitedPlanning } from "@/lib/auth/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = await db.findUserById(session.user_id);
+    const user = await resolveSessionUser(session);
     if (!user) {
       return NextResponse.json({ error: "کاربر یافت نشد." }, { status: 404 });
     }
@@ -85,6 +87,8 @@ export async function POST(req: NextRequest) {
         userEmail: user.email,
         userMobile: user.mobile || undefined,
         origin,
+        useFreeGift: true,
+        adminBypass: hasUnlimitedPlanning(user),
         discountCode: discountCode ? String(discountCode).trim() : undefined,
       });
 

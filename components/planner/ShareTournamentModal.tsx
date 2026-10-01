@@ -23,7 +23,7 @@ export function ShareTournamentModal({
   onEnsureSaved,
   tournamentData,
 }: ShareTournamentModalProps) {
-  const { user, openAuthModal } = useAuth();
+  const { user, openAuthModal, isAdmin } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(tournamentId);
   const [loading, setLoading] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
@@ -38,6 +38,8 @@ export function ShareTournamentModal({
     isVip?: boolean;
     freeLinkAvailable?: boolean;
     planningCredits?: number;
+    unlimitedPlanning?: boolean;
+    unlimitedLinks?: boolean;
   } | null>(null);
 
   // Discount code state
@@ -308,8 +310,9 @@ export function ShareTournamentModal({
     setError(null);
 
     try {
-      const res = await fetch("/api/payment/create", {
+      const res = await fetch("/api/payment/create/", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tournamentId: activeId,
@@ -350,6 +353,8 @@ export function ShareTournamentModal({
       setPaymentLoading(false);
     }
   }
+
+  const adminFreeLink = Boolean(isAdmin || quota?.unlimitedLinks || quota?.unlimitedPlanning);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -462,7 +467,15 @@ export function ShareTournamentModal({
                   </span>
                 </div>
 
-                {quota?.isVip ? (
+                {adminFreeLink ? (
+                  <div className="rounded-xl bg-emerald-100/80 border border-emerald-300 p-2.5 text-emerald-950 flex items-center justify-between">
+                    <span className="font-black text-xs flex items-center gap-1.5">
+                      <span>🛡️</span>
+                      <span>حساب مدیر — لینک اختصاصی نامحدود و رایگان</span>
+                    </span>
+                    <span className="font-black text-emerald-800 text-sm">۰ تومان</span>
+                  </div>
+                ) : quota?.isVip ? (
                   <div className="rounded-xl bg-amber-100/70 border border-amber-300 p-2.5 text-amber-950 flex items-center justify-between">
                     <span className="font-black text-xs flex items-center gap-1.5">
                       <span>👑</span>
@@ -524,7 +537,7 @@ export function ShareTournamentModal({
               </div>
 
               {/* Discount Code Box (Only when payment is required) */}
-              {!quota?.isVip && !quota?.freeLinkAvailable && (
+              {!adminFreeLink && !quota?.isVip && !quota?.freeLinkAvailable && (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 space-y-2">
                   <label className="block text-[11px] font-bold text-slate-700">
                     کد تخفیف دارید؟
@@ -635,7 +648,7 @@ export function ShareTournamentModal({
                   disabled={paymentLoading || !activeId}
                   onClick={handleProcessPayment}
                   className={`w-full rounded-2xl py-3.5 px-4 font-black text-sm sm:text-base shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 ${
-                    quota?.isVip
+                    adminFreeLink || quota?.isVip
                       ? "bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-slate-950 shadow-amber-600/20 hover:from-amber-400 hover:to-amber-500"
                       : quota?.freeLinkAvailable
                       ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-emerald-700/20 hover:from-emerald-700 hover:to-teal-800"
@@ -646,6 +659,12 @@ export function ShareTournamentModal({
                     <>
                       <div className="w-5 h-5 rounded-full border-2 border-current border-t-transparent animate-spin" />
                       <span>در حال فعال‌سازی لینک اختصاصی...</span>
+                    </>
+                  ) : adminFreeLink ? (
+                    <>
+                      <span>🛡️</span>
+                      <span>فعال‌سازی رایگان لینک اختصاصی (حساب مدیر)</span>
+                      <span>←</span>
                     </>
                   ) : quota?.isVip ? (
                     <>
