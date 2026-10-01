@@ -45,6 +45,7 @@ interface AuthContextType {
   isProfileModalOpen: boolean;
   isUsersModalOpen: boolean;
   isAdminTournamentsModalOpen: boolean;
+  isAdminTeamsModalOpen: boolean;
   adminTournamentsFilterUserId: string | null;
   isDiscountsModalOpen: boolean;
   isPricingModalOpen: boolean;
@@ -64,6 +65,8 @@ interface AuthContextType {
   closeUsersModal: () => void;
   openAdminTournamentsModal: (userId?: string) => void;
   closeAdminTournamentsModal: () => void;
+  openAdminTeamsModal: () => void;
+  closeAdminTeamsModal: () => void;
   openDiscountsModal: () => void;
   closeDiscountsModal: () => void;
   openPricingModal: () => void;
@@ -112,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [isAdminTournamentsModalOpen, setIsAdminTournamentsModalOpen] = useState(false);
+  const [isAdminTeamsModalOpen, setIsAdminTeamsModalOpen] = useState(false);
   const [adminTournamentsFilterUserId, setAdminTournamentsFilterUserId] = useState<string | null>(null);
   const [isDiscountsModalOpen, setIsDiscountsModalOpen] = useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
@@ -262,6 +266,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function closeAdminTournamentsModal() {
     setIsAdminTournamentsModalOpen(false);
     setAdminTournamentsFilterUserId(null);
+  }
+
+  function openAdminTeamsModal() {
+    setIsUsersModalOpen(false);
+    setIsAdminTeamsModalOpen(true);
+  }
+
+  function closeAdminTeamsModal() {
+    setIsAdminTeamsModalOpen(false);
   }
 
   function openDiscountsModal() {
@@ -616,6 +629,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsTicketsModalOpen(false);
       setIsAdminTicketsModalOpen(false);
       setIsAdminTournamentsModalOpen(false);
+      setIsAdminTeamsModalOpen(false);
       setAdminTournamentsFilterUserId(null);
     }
   }
@@ -630,6 +644,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isProfileModalOpen,
         isUsersModalOpen,
         isAdminTournamentsModalOpen,
+        isAdminTeamsModalOpen,
         adminTournamentsFilterUserId,
         isDiscountsModalOpen,
         isPricingModalOpen,
@@ -649,6 +664,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         closeUsersModal,
         openAdminTournamentsModal,
         closeAdminTournamentsModal,
+        openAdminTeamsModal,
+        closeAdminTeamsModal,
         openDiscountsModal,
         closeDiscountsModal,
         openPricingModal,

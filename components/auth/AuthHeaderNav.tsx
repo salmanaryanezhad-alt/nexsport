@@ -11,6 +11,7 @@ export function AuthHeaderNav() {
     openProfileModal,
     openUsersModal,
     openAdminTournamentsModal,
+    openAdminTeamsModal,
     requestOpenDiscountsModal,
     requestOpenPricingModal,
     openTicketsModal,
@@ -250,6 +251,22 @@ export function AuthHeaderNav() {
                   type="button"
                   onClick={() => {
                     setDropdownOpen(false);
+                    openAdminTeamsModal();
+                  }}
+                  className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-bold text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 transition-colors flex items-center justify-between cursor-pointer mb-1 shadow-2xs"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>🛡️</span>
+                    <span>تیم‌های کاربران</span>
+                  </span>
+                  <span className="text-[10px] bg-sky-700 text-white px-1.5 py-0.5 rounded-full font-bold">
+                    مشاهده
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDropdownOpen(false);
                     requestOpenPricingModal();
                   }}
                   className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 transition-colors flex items-center justify-between cursor-pointer mb-1 shadow-2xs"
@@ -295,6 +312,18 @@ export function AuthHeaderNav() {
             >
               <span>مسابقات ذخیره شده من</span>
               <span>📂</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setDropdownOpen(false);
+                if (typeof window !== "undefined") window.location.href = "/teams/";
+              }}
+              className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-semibold text-ink hover:bg-chalk transition-colors flex items-center justify-between cursor-pointer mb-1"
+            >
+              <span>تیم‌های من</span>
+              <span>🛡️</span>
             </button>
 
             <button

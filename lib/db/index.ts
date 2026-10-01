@@ -120,6 +120,39 @@ export interface TournamentRecord {
   updated_at: Date;
 }
 
+export interface TeamRecord {
+  id: string;
+  user_id: string;
+  name: string;
+  short_name: string;
+  sport: string;
+  city: string;
+  founded_year: string;
+  kit_home: string;
+  kit_away: string;
+  coach: string;
+  description: string;
+  created_at: Date;
+  updated_at: Date;
+  player_count?: number;
+  owner_name?: string;
+  owner_email?: string;
+}
+
+export interface PlayerRecord {
+  id: string;
+  team_id: string;
+  name: string;
+  jersey_number: string;
+  position: string;
+  birth_date: string;
+  mobile: string;
+  national_id: string;
+  status: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
 export interface AdminTournamentListItem {
   id: string;
   user_id: string;
@@ -231,6 +264,8 @@ const memoryStore = {
   settings: new Map<string, string>(),
   tickets: new Map<string, TicketRecord>(),
   ticketMessages: new Map<string, TicketMessageRecord>(),
+  teams: new Map<string, TeamRecord>(),
+  players: new Map<string, PlayerRecord>(),
 };
 
 function normalizeDiscountRow(row: any): DiscountCodeRecord {
@@ -481,6 +516,44 @@ async function initTablesIfRealDb() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`teams\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`user_id\` VARCHAR(36) NOT NULL,
+          \`name\` VARCHAR(80) NOT NULL,
+          \`short_name\` VARCHAR(16) DEFAULT '',
+          \`sport\` VARCHAR(40) DEFAULT 'فوتبال',
+          \`city\` VARCHAR(60) DEFAULT '',
+          \`founded_year\` VARCHAR(4) DEFAULT '',
+          \`kit_home\` VARCHAR(40) DEFAULT '',
+          \`kit_away\` VARCHAR(40) DEFAULT '',
+          \`coach\` VARCHAR(80) DEFAULT '',
+          \`description\` VARCHAR(500) DEFAULT '',
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_teams_user\` (\`user_id\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`players\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`team_id\` VARCHAR(36) NOT NULL,
+          \`name\` VARCHAR(80) NOT NULL,
+          \`jersey_number\` VARCHAR(3) DEFAULT '',
+          \`position\` VARCHAR(40) DEFAULT '',
+          \`birth_date\` VARCHAR(10) DEFAULT '',
+          \`mobile\` VARCHAR(20) DEFAULT '',
+          \`national_id\` VARCHAR(10) DEFAULT '',
+          \`status\` VARCHAR(20) DEFAULT 'active',
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_players_team\` (\`team_id\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       tablesInitialized = true;
     } catch (err) {
       console.warn("[NexSport DB] MySQL table auto-init warning:", err);
@@ -623,6 +696,38 @@ async function initTablesIfRealDb() {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket ON ticket_messages(ticket_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS teams (
+          id VARCHAR(36) PRIMARY KEY,
+          user_id VARCHAR(36) NOT NULL,
+          name VARCHAR(80) NOT NULL,
+          short_name VARCHAR(16) DEFAULT '',
+          sport VARCHAR(40) DEFAULT 'فوتبال',
+          city VARCHAR(60) DEFAULT '',
+          founded_year VARCHAR(4) DEFAULT '',
+          kit_home VARCHAR(40) DEFAULT '',
+          kit_away VARCHAR(40) DEFAULT '',
+          coach VARCHAR(80) DEFAULT '',
+          description VARCHAR(500) DEFAULT '',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_teams_user ON teams(user_id);
+
+        CREATE TABLE IF NOT EXISTS players (
+          id VARCHAR(36) PRIMARY KEY,
+          team_id VARCHAR(36) NOT NULL,
+          name VARCHAR(80) NOT NULL,
+          jersey_number VARCHAR(3) DEFAULT '',
+          position VARCHAR(40) DEFAULT '',
+          birth_date VARCHAR(10) DEFAULT '',
+          mobile VARCHAR(20) DEFAULT '',
+          national_id VARCHAR(10) DEFAULT '',
+          status VARCHAR(20) DEFAULT 'active',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_players_team ON players(team_id);
       `);
       tablesInitialized = true;
     } catch (err) {
@@ -1718,6 +1823,57 @@ export const db = {
       }
     }
     return list.sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
+  },
+
+  async listLinkedTournaments(
+    userId: string,
+    teamId: string,
+    teamName: string
+  ): Promise<{ id: string; title: string; format: string; updated_at: Date }[]> {
+    const parseState = (state: any) => {
+      if (!state) return {} as any;
+      if (typeof state === "string") {
+        try {
+          return JSON.parse(state);
+        } catch {
+          return {};
+        }
+      }
+      return state;
+    };
+    const matches = (state: any) => {
+      const s = parseState(state);
+      const ids: string[] = Array.isArray(s.libraryTeamIds) ? s.libraryTeamIds.filter(Boolean) : [];
+      const names: string[] = Array.isArray(s.teamNames) ? s.teamNames : [];
+      return ids.includes(teamId) || names.includes(teamName);
+    };
+    const mapRow = (r: any) => ({
+      id: r.id,
+      title: r.title,
+      format: r.format,
+      updated_at: r.updated_at instanceof Date ? r.updated_at : new Date(r.updated_at),
+    });
+
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT id, title, format, state, updated_at FROM `tournaments` WHERE user_id = ? ORDER BY updated_at DESC",
+        [userId]
+      );
+      return rows.filter((r) => matches(r.state)).map(mapRow);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT id, title, format, state, updated_at FROM tournaments WHERE user_id = $1 ORDER BY updated_at DESC",
+        [userId]
+      );
+      return res.rows.filter((r) => matches(r.state)).map(mapRow);
+    }
+    return Array.from(memoryStore.tournaments.values())
+      .filter((t) => t.user_id === userId && matches(t.state))
+      .map(mapRow)
+      .sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
   },
 
   async listAdminUserTournaments(userId?: string): Promise<AdminTournamentListItem[]> {
@@ -2827,4 +2983,294 @@ export const db = {
       (t) => t.user_id === userId && t.user_has_unread
     ).length;
   },
+
+  async listTeams(userId: string): Promise<TeamRecord[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT t.*, (SELECT COUNT(*) FROM \`players\` p WHERE p.team_id = t.id) AS player_count
+         FROM \`teams\` t WHERE t.user_id = ? ORDER BY t.updated_at DESC`,
+        [userId]
+      );
+      return rows.map(normalizeTeamRow);
+    }
+    if (pgPool) {
+      const res = await pgPool.query(
+        `SELECT t.*, (SELECT COUNT(*)::int FROM players p WHERE p.team_id = t.id) AS player_count
+         FROM teams t WHERE t.user_id = $1 ORDER BY t.updated_at DESC`,
+        [userId]
+      );
+      return res.rows.map(normalizeTeamRow);
+    }
+    return Array.from(memoryStore.teams.values())
+      .filter((t) => t.user_id === userId)
+      .map((t) => ({
+        ...t,
+        player_count: Array.from(memoryStore.players.values()).filter((p) => p.team_id === t.id).length,
+      }))
+      .sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
+  },
+
+  async listAllTeams(): Promise<TeamRecord[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT t.*, u.name AS owner_name, u.email AS owner_email,
+                (SELECT COUNT(*) FROM \`players\` p WHERE p.team_id = t.id) AS player_count
+         FROM \`teams\` t INNER JOIN \`users\` u ON u.id = t.user_id
+         ORDER BY t.updated_at DESC`
+      );
+      return rows.map(normalizeTeamRow);
+    }
+    if (pgPool) {
+      const res = await pgPool.query(
+        `SELECT t.*, u.name AS owner_name, u.email AS owner_email,
+                (SELECT COUNT(*)::int FROM players p WHERE p.team_id = t.id) AS player_count
+         FROM teams t INNER JOIN users u ON u.id = t.user_id
+         ORDER BY t.updated_at DESC`
+      );
+      return res.rows.map(normalizeTeamRow);
+    }
+    const usersById = memoryStore.users;
+    return Array.from(memoryStore.teams.values())
+      .map((t) => {
+        const owner = usersById.get(t.user_id);
+        return {
+          ...t,
+          owner_name: owner?.name || "",
+          owner_email: owner?.email || "",
+          player_count: Array.from(memoryStore.players.values()).filter((p) => p.team_id === t.id).length,
+        };
+      })
+      .sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
+  },
+
+  async getTeam(id: string): Promise<TeamRecord | null> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT t.*, (SELECT COUNT(*) FROM \`players\` p WHERE p.team_id = t.id) AS player_count
+         FROM \`teams\` t WHERE t.id = ? LIMIT 1`,
+        [id]
+      );
+      return rows[0] ? normalizeTeamRow(rows[0]) : null;
+    }
+    if (pgPool) {
+      const res = await pgPool.query(
+        `SELECT t.*, (SELECT COUNT(*)::int FROM players p WHERE p.team_id = t.id) AS player_count
+         FROM teams t WHERE t.id = $1 LIMIT 1`,
+        [id]
+      );
+      return res.rows[0] ? normalizeTeamRow(res.rows[0]) : null;
+    }
+    const t = memoryStore.teams.get(id);
+    if (!t) return null;
+    return {
+      ...t,
+      player_count: Array.from(memoryStore.players.values()).filter((p) => p.team_id === t.id).length,
+    };
+  },
+
+  async createTeam(userId: string, data: Omit<TeamRecord, "id" | "user_id" | "created_at" | "updated_at" | "player_count" | "owner_name" | "owner_email">): Promise<TeamRecord> {
+    await initTablesIfRealDb();
+    const now = new Date();
+    const team: TeamRecord = {
+      id: crypto.randomUUID(),
+      user_id: userId,
+      ...data,
+      created_at: now,
+      updated_at: now,
+      player_count: 0,
+    };
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        `INSERT INTO \`teams\` (id, user_id, name, short_name, sport, city, founded_year, kit_home, kit_away, coach, description, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [team.id, userId, team.name, team.short_name, team.sport, team.city, team.founded_year, team.kit_home, team.kit_away, team.coach, team.description, now, now]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        `INSERT INTO teams (id, user_id, name, short_name, sport, city, founded_year, kit_home, kit_away, coach, description, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [team.id, userId, team.name, team.short_name, team.sport, team.city, team.founded_year, team.kit_home, team.kit_away, team.coach, team.description, now, now]
+      );
+    }
+    memoryStore.teams.set(team.id, team);
+    return team;
+  },
+
+  async updateTeam(id: string, data: Omit<TeamRecord, "id" | "user_id" | "created_at" | "updated_at" | "player_count" | "owner_name" | "owner_email">): Promise<TeamRecord | null> {
+    const existing = await this.getTeam(id);
+    if (!existing) return null;
+    const now = new Date();
+    const updated: TeamRecord = { ...existing, ...data, updated_at: now };
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        `UPDATE \`teams\` SET name=?, short_name=?, sport=?, city=?, founded_year=?, kit_home=?, kit_away=?, coach=?, description=?, updated_at=? WHERE id=?`,
+        [updated.name, updated.short_name, updated.sport, updated.city, updated.founded_year, updated.kit_home, updated.kit_away, updated.coach, updated.description, now, id]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        `UPDATE teams SET name=$1, short_name=$2, sport=$3, city=$4, founded_year=$5, kit_home=$6, kit_away=$7, coach=$8, description=$9, updated_at=$10 WHERE id=$11`,
+        [updated.name, updated.short_name, updated.sport, updated.city, updated.founded_year, updated.kit_home, updated.kit_away, updated.coach, updated.description, now, id]
+      );
+    }
+    memoryStore.teams.set(id, updated);
+    return updated;
+  },
+
+  async deleteTeam(id: string): Promise<boolean> {
+    const existing = await this.getTeam(id);
+    if (!existing) return false;
+    if (mysqlPool) {
+      await mysqlPool.execute("DELETE FROM `players` WHERE team_id = ?", [id]);
+      await mysqlPool.execute("DELETE FROM `teams` WHERE id = ?", [id]);
+    } else if (pgPool) {
+      await pgPool.query("DELETE FROM players WHERE team_id = $1", [id]);
+      await pgPool.query("DELETE FROM teams WHERE id = $1", [id]);
+    }
+    for (const [pid, p] of memoryStore.players) {
+      if (p.team_id === id) memoryStore.players.delete(pid);
+    }
+    memoryStore.teams.delete(id);
+    return true;
+  },
+
+  async listPlayers(teamId: string): Promise<PlayerRecord[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `players` WHERE team_id = ? ORDER BY jersey_number ASC, name ASC",
+        [teamId]
+      );
+      return rows.map(normalizePlayerRow);
+    }
+    if (pgPool) {
+      const res = await pgPool.query(
+        "SELECT * FROM players WHERE team_id = $1 ORDER BY jersey_number ASC, name ASC",
+        [teamId]
+      );
+      return res.rows.map(normalizePlayerRow);
+    }
+    return Array.from(memoryStore.players.values())
+      .filter((p) => p.team_id === teamId)
+      .map((p) => ({ ...p }))
+      .sort((a, b) => Number(a.jersey_number || 999) - Number(b.jersey_number || 999) || a.name.localeCompare(b.name, "fa"));
+  },
+
+  async createPlayer(teamId: string, data: Omit<PlayerRecord, "id" | "team_id" | "created_at" | "updated_at">): Promise<PlayerRecord | { error: string }> {
+    const roster = await this.listPlayers(teamId);
+    if (data.jersey_number && roster.some((p) => p.jersey_number && p.jersey_number === data.jersey_number)) {
+      return { error: "این شماره پیراهن در این تیم قبلاً ثبت شده است." };
+    }
+    const now = new Date();
+    const player: PlayerRecord = {
+      id: crypto.randomUUID(),
+      team_id: teamId,
+      ...data,
+      created_at: now,
+      updated_at: now,
+    };
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        `INSERT INTO \`players\` (id, team_id, name, jersey_number, position, birth_date, mobile, national_id, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [player.id, teamId, player.name, player.jersey_number, player.position, player.birth_date, player.mobile, player.national_id, player.status, now, now]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        `INSERT INTO players (id, team_id, name, jersey_number, position, birth_date, mobile, national_id, status, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [player.id, teamId, player.name, player.jersey_number, player.position, player.birth_date, player.mobile, player.national_id, player.status, now, now]
+      );
+    }
+    memoryStore.players.set(player.id, player);
+    return player;
+  },
+
+  async updatePlayer(playerId: string, data: Omit<PlayerRecord, "id" | "team_id" | "created_at" | "updated_at">): Promise<PlayerRecord | { error: string } | null> {
+    const current = await this.getPlayer(playerId);
+    if (!current) return null;
+    const roster = await this.listPlayers(current.team_id);
+    if (data.jersey_number && roster.some((p) => p.id !== playerId && p.jersey_number && p.jersey_number === data.jersey_number)) {
+      return { error: "این شماره پیراهن در این تیم قبلاً ثبت شده است." };
+    }
+    const now = new Date();
+    const updated: PlayerRecord = { ...current, ...data, updated_at: now };
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        `UPDATE \`players\` SET name=?, jersey_number=?, position=?, birth_date=?, mobile=?, national_id=?, status=?, updated_at=? WHERE id=?`,
+        [updated.name, updated.jersey_number, updated.position, updated.birth_date, updated.mobile, updated.national_id, updated.status, now, playerId]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        `UPDATE players SET name=$1, jersey_number=$2, position=$3, birth_date=$4, mobile=$5, national_id=$6, status=$7, updated_at=$8 WHERE id=$9`,
+        [updated.name, updated.jersey_number, updated.position, updated.birth_date, updated.mobile, updated.national_id, updated.status, now, playerId]
+      );
+    }
+    memoryStore.players.set(playerId, updated);
+    return updated;
+  },
+
+  async getPlayer(playerId: string): Promise<PlayerRecord | null> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>("SELECT * FROM `players` WHERE id = ? LIMIT 1", [playerId]);
+      return rows[0] ? normalizePlayerRow(rows[0]) : null;
+    }
+    if (pgPool) {
+      const res = await pgPool.query("SELECT * FROM players WHERE id = $1 LIMIT 1", [playerId]);
+      return res.rows[0] ? normalizePlayerRow(res.rows[0]) : null;
+    }
+    return memoryStore.players.get(playerId) || null;
+  },
+
+  async deletePlayer(playerId: string): Promise<boolean> {
+    const existing = await this.getPlayer(playerId);
+    if (!existing) return false;
+    if (mysqlPool) {
+      await mysqlPool.execute("DELETE FROM `players` WHERE id = ?", [playerId]);
+    } else if (pgPool) {
+      await pgPool.query("DELETE FROM players WHERE id = $1", [playerId]);
+    }
+    memoryStore.players.delete(playerId);
+    return true;
+  },
 };
+
+function normalizeTeamRow(row: any): TeamRecord {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    name: row.name,
+    short_name: row.short_name || "",
+    sport: row.sport || "فوتبال",
+    city: row.city || "",
+    founded_year: row.founded_year || "",
+    kit_home: row.kit_home || "",
+    kit_away: row.kit_away || "",
+    coach: row.coach || "",
+    description: row.description || "",
+    created_at: new Date(row.created_at),
+    updated_at: new Date(row.updated_at),
+    player_count: Number(row.player_count || 0),
+    owner_name: row.owner_name,
+    owner_email: row.owner_email,
+  };
+}
+
+function normalizePlayerRow(row: any): PlayerRecord {
+  return {
+    id: row.id,
+    team_id: row.team_id,
+    name: row.name,
+    jersey_number: row.jersey_number || "",
+    position: row.position || "",
+    birth_date: row.birth_date || "",
+    mobile: row.mobile || "",
+    national_id: row.national_id || "",
+    status: row.status || "active",
+    created_at: new Date(row.created_at),
+    updated_at: new Date(row.updated_at),
+  };
+}

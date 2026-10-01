@@ -785,6 +785,153 @@ if (($path === 'admin/users' || $path === 'users') && $method === 'DELETE') {
     }
 }
 
+function php_sanitize_team_input($body) {
+    $name = trim((string)($body['name'] ?? ''));
+    if ($name === '') return ['error' => 'نام تیم را وارد نمایید.'];
+    if (mb_strlen($name) > 80) return ['error' => 'نام تیم نباید بیش از ۸۰ نویسه باشد.'];
+    $yearDigits = preg_replace('/\D/', '', to_english_digits((string)($body['founded_year'] ?? '')));
+    if ($yearDigits && (strlen($yearDigits) !== 4 || (int)$yearDigits < 1300 || (int)$yearDigits > 1415)) {
+        return ['error' => 'سال تأسیس را به‌صورت سال شمسی چهار رقمی وارد کنید.'];
+    }
+    $sports = ['فوتبال','فوتسال','والیبال','بسکتبال','هندبال','کشتی','سایر'];
+    $sportRaw = trim((string)($body['sport'] ?? ''));
+    $sport = in_array($sportRaw, $sports, true) ? $sportRaw : ($sportRaw !== '' ? $sportRaw : 'فوتبال');
+    return ['data' => [
+        'name' => $name,
+        'short_name' => mb_substr(trim((string)($body['short_name'] ?? '')), 0, 16),
+        'sport' => $sport,
+        'city' => mb_substr(trim((string)($body['city'] ?? '')), 0, 60),
+        'founded_year' => $yearDigits ?: '',
+        'kit_home' => mb_substr(trim((string)($body['kit_home'] ?? '')), 0, 40),
+        'kit_away' => mb_substr(trim((string)($body['kit_away'] ?? '')), 0, 40),
+        'coach' => mb_substr(trim((string)($body['coach'] ?? '')), 0, 80),
+        'description' => mb_substr(trim((string)($body['description'] ?? '')), 0, 500),
+    ]];
+}
+
+function php_sanitize_player_input($body) {
+    $name = trim((string)($body['name'] ?? ''));
+    if ($name === '') return ['error' => 'نام بازیکن را وارد نمایید.'];
+    if (mb_strlen($name) > 80) return ['error' => 'نام بازیکن نباید بیش از ۸۰ نویسه باشد.'];
+    $jersey = substr(preg_replace('/\D/', '', to_english_digits((string)($body['jersey_number'] ?? ''))), 0, 3);
+    $birth = trim((string)($body['birth_date'] ?? ''));
+    if ($birth && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $birth)) {
+        return ['error' => 'تاریخ تولد نامعتبر است.'];
+    }
+    $mobileRaw = (string)($body['mobile'] ?? '');
+    $mobile = $mobileRaw !== '' ? clean_mobile($mobileRaw) : '';
+    if ($mobile && strlen($mobile) < 10) {
+        return ['error' => 'شماره موبایل بازیکن معتبر نیست.'];
+    }
+    $nid = preg_replace('/\D/', '', to_english_digits((string)($body['national_id'] ?? '')));
+    if ($nid && strlen($nid) !== 10) {
+        return ['error' => 'کد ملی در صورت ورود باید ۱۰ رقم باشد.'];
+    }
+    $statusRaw = (string)($body['status'] ?? 'active');
+    $status = in_array($statusRaw, ['active','injured','inactive'], true) ? $statusRaw : 'active';
+    return ['data' => [
+        'name' => $name,
+        'jersey_number' => $jersey,
+        'position' => mb_substr(trim((string)($body['position'] ?? '')), 0, 40),
+        'birth_date' => $birth,
+        'mobile' => $mobile,
+        'national_id' => $nid,
+        'status' => $status,
+    ]];
+}
+
+function php_require_team_owner($pdo, $teamId) {
+    list($session) = require_auth($pdo);
+    $user = db_find_user_by_id($pdo, $session['user_id']);
+    if (!$user) json_response(['error' => 'کاربر یافت نشد.'], 401);
+    $team = db_get_team($pdo, $teamId);
+    if (!$team) json_response(['error' => 'تیم یافت نشد.'], 404);
+    $isAdmin = is_admin_email($user['email'] ?? '') || (($user['role'] ?? '') === 'admin');
+    if ($team['user_id'] !== $user['id'] && !$isAdmin) {
+        json_response(['error' => 'دسترسی به این تیم مجاز نیست.'], 403);
+    }
+    return [$user, $team, $isAdmin];
+}
+
+if ($path === 'teams' && $method === 'GET') {
+    list($session) = require_auth($pdo);
+    json_response(['teams' => db_list_teams($pdo, $session['user_id'])]);
+}
+
+if ($path === 'teams' && $method === 'POST') {
+    list($session) = require_auth($pdo);
+    $parsed = php_sanitize_team_input(get_json_input());
+    if (isset($parsed['error'])) json_response(['error' => $parsed['error']], 400);
+    $team = db_create_team($pdo, $session['user_id'], $parsed['data']);
+    json_response(['success' => true, 'team' => $team]);
+}
+
+if (preg_match('#^teams/([^/]+)$#', $path, $matches) && $method === 'GET') {
+    list($user, $team) = php_require_team_owner($pdo, $matches[1]);
+    json_response([
+        'team' => $team,
+        'players' => db_list_players($pdo, $team['id']),
+        'tournaments' => db_list_linked_tournaments($pdo, $team['user_id'], $team['id'], $team['name']),
+    ]);
+}
+
+if (preg_match('#^teams/([^/]+)$#', $path, $matches) && ($method === 'PATCH' || $method === 'PUT')) {
+    list($user, $team) = php_require_team_owner($pdo, $matches[1]);
+    $parsed = php_sanitize_team_input(get_json_input());
+    if (isset($parsed['error'])) json_response(['error' => $parsed['error']], 400);
+    json_response(['success' => true, 'team' => db_update_team($pdo, $team['id'], $parsed['data'])]);
+}
+
+if (preg_match('#^teams/([^/]+)$#', $path, $matches) && $method === 'DELETE') {
+    list($user, $team) = php_require_team_owner($pdo, $matches[1]);
+    db_delete_team($pdo, $team['id']);
+    json_response(['success' => true]);
+}
+
+if (preg_match('#^teams/([^/]+)/players$#', $path, $matches) && $method === 'GET') {
+    list($user, $team) = php_require_team_owner($pdo, $matches[1]);
+    json_response(['players' => db_list_players($pdo, $team['id'])]);
+}
+
+if (preg_match('#^teams/([^/]+)/players$#', $path, $matches) && $method === 'POST') {
+    list($user, $team) = php_require_team_owner($pdo, $matches[1]);
+    $parsed = php_sanitize_player_input(get_json_input());
+    if (isset($parsed['error'])) json_response(['error' => $parsed['error']], 400);
+    $result = db_create_player($pdo, $team['id'], $parsed['data']);
+    if (isset($result['error'])) json_response(['error' => $result['error']], 409);
+    json_response(['success' => true, 'player' => $result]);
+}
+
+if (preg_match('#^teams/([^/]+)/players/([^/]+)$#', $path, $matches) && ($method === 'PATCH' || $method === 'PUT')) {
+    list($user, $team) = php_require_team_owner($pdo, $matches[1]);
+    $player = db_get_player($pdo, $matches[2]);
+    if (!$player || $player['team_id'] !== $team['id']) json_response(['error' => 'بازیکن یافت نشد.'], 404);
+    $parsed = php_sanitize_player_input(get_json_input());
+    if (isset($parsed['error'])) json_response(['error' => $parsed['error']], 400);
+    $result = db_update_player($pdo, $player['id'], $team['id'], $parsed['data']);
+    if (isset($result['error'])) json_response(['error' => $result['error']], 409);
+    json_response(['success' => true, 'player' => $result]);
+}
+
+if (preg_match('#^teams/([^/]+)/players/([^/]+)$#', $path, $matches) && $method === 'DELETE') {
+    list($user, $team) = php_require_team_owner($pdo, $matches[1]);
+    $player = db_get_player($pdo, $matches[2]);
+    if (!$player || $player['team_id'] !== $team['id']) json_response(['error' => 'بازیکن یافت نشد.'], 404);
+    db_delete_player($pdo, $player['id']);
+    json_response(['success' => true]);
+}
+
+if ($path === 'admin/teams' && $method === 'GET') {
+    list($session) = require_auth($pdo);
+    $user = db_find_user_by_id($pdo, $session['user_id']);
+    if (!$user) json_response(['error' => 'کاربر یافت نشد.'], 401);
+    $isAdmin = is_admin_email($user['email'] ?? '') || (($user['role'] ?? '') === 'admin');
+    if (!$isAdmin) {
+        json_response(['error' => 'دسترسی غیرمجاز. این بخش منحصراً در اختیار مدیر سامانه می‌باشد.'], 403);
+    }
+    json_response(['success' => true, 'teams' => db_list_all_teams($pdo)]);
+}
+
 // 404 Route Not Found
 json_response([
     'error' => 'مسیر درخواستی در سامانه یافت نشد.',

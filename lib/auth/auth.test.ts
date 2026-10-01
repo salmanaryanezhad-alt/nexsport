@@ -1311,6 +1311,85 @@ async function run() {
     assertEqual(found?.user_name, "کاربر تیکت", "نام کاربر در فهرست مدیر مشخص باشد.");
   });
 
+  await test("تیم و بازیکن: اعتبارسنجی، کد ملی اختیاری، شماره پیراهن یکتا", async () => {
+    const { sanitizeTeamInput, sanitizePlayerInput } = await import("../teams/validate");
+
+    const emptyTeam = sanitizeTeamInput({ name: "" });
+    assert(!emptyTeam.ok, "نام خالی تیم باید رد شود.");
+
+    const yearFa = sanitizeTeamInput({ name: "پرسپولیس", founded_year: "۱۴۰۰" });
+    assert(yearFa.ok, "سال شمسی با ارقام فارسی باید قبول شود.");
+    if (yearFa.ok) assertEqual(yearFa.data.founded_year, "1400", "سال باید به ارقام انگلیسی تبدیل شود.");
+
+    const badYear = sanitizeTeamInput({ name: "پرسپولیس", founded_year: "1998" });
+    assert(!badYear.ok, "سال میلادی خارج از بازه شمسی باید رد شود.");
+
+    const emptyNid = sanitizePlayerInput({ name: "علی" });
+    assert(emptyNid.ok, "کد ملی اختیاری است.");
+    if (emptyNid.ok) assertEqual(emptyNid.data.national_id, "", "کد ملی خالی بماند.");
+
+    const nidFa = sanitizePlayerInput({ name: "علی", national_id: "۱۲۳۴۵۶۷۸۹۰", jersey_number: "۱۰" });
+    assert(nidFa.ok, "کد ملی ۱۰ رقمی فارسی باید قبول شود.");
+    if (nidFa.ok) {
+      assertEqual(nidFa.data.national_id, "1234567890", "کد ملی به انگلیسی.");
+      assertEqual(nidFa.data.jersey_number, "10", "شماره پیراهن به انگلیسی.");
+    }
+
+    const badNid = sanitizePlayerInput({ name: "علی", national_id: "12345" });
+    assert(!badNid.ok, "کد ملی ناقص باید رد شود.");
+
+    const owner = await db.createUser({
+      name: "مالک تیم",
+      email: "team-owner@nexsport.ir",
+      mobile: "09120001122",
+      password_hash: hashPassword("12345678"),
+      is_verified: true,
+    });
+    const teamIn = sanitizeTeamInput({ name: "نکس اسپورت", sport: "فوتسال", city: "تهران", founded_year: "1402" });
+    assert(teamIn.ok, "ورودی تیم معتبر.");
+    if (!teamIn.ok) return;
+    const team = await db.createTeam(owner.id, teamIn.data);
+    assert(Boolean(team.id), "تیم باید شناسه داشته باشد.");
+    assertEqual(team.sport, "فوتسال", "رشته ورزشی ذخیره شود.");
+
+    const listed = await db.listTeams(owner.id);
+    assert(listed.some((t) => t.id === team.id), "تیم در فهرست مالک باشد.");
+
+    if (!nidFa.ok) return;
+    const p1 = await db.createPlayer(team.id, nidFa.data);
+    assert(!("error" in p1), "بازیکن اول باید ثبت شود.");
+
+    const dup = await db.createPlayer(team.id, {
+      name: "رضا",
+      jersey_number: "10",
+      position: "",
+      birth_date: "",
+      mobile: "",
+      national_id: "",
+      status: "active",
+    });
+    assert("error" in dup, "شماره پیراهن تکراری در یک تیم باید رد شود.");
+
+    const p2in = sanitizePlayerInput({ name: "حسن", jersey_number: "9", status: "injured" });
+    assert(p2in.ok, "بازیکن دوم معتبر.");
+    if (!p2in.ok) return;
+    const p2 = await db.createPlayer(team.id, p2in.data);
+    assert(!("error" in p2), "بازیکن با شماره متفاوت ثبت شود.");
+
+    const roster = await db.listPlayers(team.id);
+    assertEqual(roster.length, 2, "دو بازیکن در فهرست.");
+
+    await db.deletePlayer(("id" in p2 ? p2.id : "") as string);
+    const afterDel = await db.listPlayers(team.id);
+    assertEqual(afterDel.length, 1, "پس از حذف یک بازیکن بماند.");
+
+    await db.deleteTeam(team.id);
+    const afterTeam = await db.getTeam(team.id);
+    assertEqual(afterTeam, null, "پس از حذف، تیم وجود نداشته باشد.");
+    const orphanPlayers = await db.listPlayers(team.id);
+    assertEqual(orphanPlayers.length, 0, "بازیکنان تیم حذف‌شده پاک شوند.");
+  });
+
   await test("تبدیل تقویم شمسی و میلادی", async () => {
     const { gregorianToJalali, jalaliToGregorian, parseJalaliInput } = await import("../jalali");
     const j = gregorianToJalali(2026, 3, 21);

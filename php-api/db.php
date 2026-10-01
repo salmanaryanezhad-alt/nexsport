@@ -114,6 +114,40 @@ function ensure_tables_exist_mysql($pdo) {
         PRIMARY KEY (`id`),
         KEY `idx_tournaments_user_id` (`user_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS `teams` (
+        `id` VARCHAR(36) NOT NULL,
+        `user_id` VARCHAR(36) NOT NULL,
+        `name` VARCHAR(80) NOT NULL,
+        `short_name` VARCHAR(16) DEFAULT '',
+        `sport` VARCHAR(40) DEFAULT 'فوتبال',
+        `city` VARCHAR(60) DEFAULT '',
+        `founded_year` VARCHAR(4) DEFAULT '',
+        `kit_home` VARCHAR(40) DEFAULT '',
+        `kit_away` VARCHAR(40) DEFAULT '',
+        `coach` VARCHAR(80) DEFAULT '',
+        `description` VARCHAR(500) DEFAULT '',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        KEY `idx_teams_user` (`user_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS `players` (
+        `id` VARCHAR(36) NOT NULL,
+        `team_id` VARCHAR(36) NOT NULL,
+        `name` VARCHAR(80) NOT NULL,
+        `jersey_number` VARCHAR(3) DEFAULT '',
+        `position` VARCHAR(40) DEFAULT '',
+        `birth_date` VARCHAR(10) DEFAULT '',
+        `mobile` VARCHAR(20) DEFAULT '',
+        `national_id` VARCHAR(10) DEFAULT '',
+        `status` VARCHAR(20) DEFAULT 'active',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        KEY `idx_players_team` (`team_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ";
 
     try {
@@ -187,6 +221,36 @@ function ensure_tables_exist_sqlite($pdo) {
         sport TEXT,
         team_count INTEGER NOT NULL,
         state TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS teams (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        short_name TEXT DEFAULT '',
+        sport TEXT DEFAULT 'فوتبال',
+        city TEXT DEFAULT '',
+        founded_year TEXT DEFAULT '',
+        kit_home TEXT DEFAULT '',
+        kit_away TEXT DEFAULT '',
+        coach TEXT DEFAULT '',
+        description TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS players (
+        id TEXT PRIMARY KEY,
+        team_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        jersey_number TEXT DEFAULT '',
+        position TEXT DEFAULT '',
+        birth_date TEXT DEFAULT '',
+        mobile TEXT DEFAULT '',
+        national_id TEXT DEFAULT '',
+        status TEXT DEFAULT 'active',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -654,4 +718,193 @@ function db_delete_tournament($pdo, $id, $userId) {
     $stmt = $pdo->prepare("DELETE FROM tournaments WHERE id = ? AND user_id = ?");
     $stmt->execute([$id, $userId]);
     return $stmt->rowCount() > 0;
+}
+
+function db_normalize_team_row($row, $playerCount = null, $owner = null) {
+    if (!$row) return null;
+    $out = [
+        'id' => $row['id'],
+        'user_id' => $row['user_id'],
+        'name' => $row['name'],
+        'short_name' => $row['short_name'] ?? '',
+        'sport' => $row['sport'] ?? 'فوتبال',
+        'city' => $row['city'] ?? '',
+        'founded_year' => $row['founded_year'] ?? '',
+        'kit_home' => $row['kit_home'] ?? '',
+        'kit_away' => $row['kit_away'] ?? '',
+        'coach' => $row['coach'] ?? '',
+        'description' => $row['description'] ?? '',
+        'created_at' => $row['created_at'],
+        'updated_at' => $row['updated_at'],
+        'player_count' => $playerCount !== null ? (int)$playerCount : (int)($row['player_count'] ?? 0),
+    ];
+    if ($owner) {
+        $out['owner_name'] = $owner['name'] ?? ($row['owner_name'] ?? '');
+        $out['owner_email'] = $owner['email'] ?? ($row['owner_email'] ?? '');
+    } else {
+        if (isset($row['owner_name'])) $out['owner_name'] = $row['owner_name'];
+        if (isset($row['owner_email'])) $out['owner_email'] = $row['owner_email'];
+    }
+    return $out;
+}
+
+function db_normalize_player_row($row) {
+    if (!$row) return null;
+    return [
+        'id' => $row['id'],
+        'team_id' => $row['team_id'],
+        'name' => $row['name'],
+        'jersey_number' => $row['jersey_number'] ?? '',
+        'position' => $row['position'] ?? '',
+        'birth_date' => $row['birth_date'] ?? '',
+        'mobile' => $row['mobile'] ?? '',
+        'national_id' => $row['national_id'] ?? '',
+        'status' => $row['status'] ?? 'active',
+        'created_at' => $row['created_at'],
+        'updated_at' => $row['updated_at'],
+    ];
+}
+
+function db_list_teams($pdo, $userId) {
+    $stmt = $pdo->prepare("
+        SELECT t.*, (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id) AS player_count
+        FROM teams t WHERE t.user_id = ? ORDER BY t.updated_at DESC
+    ");
+    $stmt->execute([$userId]);
+    return array_map('db_normalize_team_row', $stmt->fetchAll() ?: []);
+}
+
+function db_list_all_teams($pdo) {
+    $stmt = $pdo->query("
+        SELECT t.*, u.name AS owner_name, u.email AS owner_email,
+               (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id) AS player_count
+        FROM teams t INNER JOIN users u ON u.id = t.user_id
+        ORDER BY t.updated_at DESC
+    ");
+    return array_map('db_normalize_team_row', $stmt->fetchAll() ?: []);
+}
+
+function db_get_team($pdo, $id) {
+    $stmt = $pdo->prepare("
+        SELECT t.*, (SELECT COUNT(*) FROM players p WHERE p.team_id = t.id) AS player_count
+        FROM teams t WHERE t.id = ? LIMIT 1
+    ");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    return $row ? db_normalize_team_row($row) : null;
+}
+
+function db_create_team($pdo, $userId, $data) {
+    $id = generate_uuid();
+    $stmt = $pdo->prepare("
+        INSERT INTO teams (id, user_id, name, short_name, sport, city, founded_year, kit_home, kit_away, coach, description, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ");
+    $stmt->execute([
+        $id, $userId, $data['name'], $data['short_name'], $data['sport'], $data['city'],
+        $data['founded_year'], $data['kit_home'], $data['kit_away'], $data['coach'], $data['description']
+    ]);
+    return db_get_team($pdo, $id);
+}
+
+function db_update_team($pdo, $id, $data) {
+    $stmt = $pdo->prepare("
+        UPDATE teams SET name=?, short_name=?, sport=?, city=?, founded_year=?, kit_home=?, kit_away=?, coach=?, description=?, updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+    ");
+    $stmt->execute([
+        $data['name'], $data['short_name'], $data['sport'], $data['city'], $data['founded_year'],
+        $data['kit_home'], $data['kit_away'], $data['coach'], $data['description'], $id
+    ]);
+    return db_get_team($pdo, $id);
+}
+
+function db_delete_team($pdo, $id) {
+    $pdo->prepare("DELETE FROM players WHERE team_id = ?")->execute([$id]);
+    $stmt = $pdo->prepare("DELETE FROM teams WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->rowCount() > 0;
+}
+
+function db_list_players($pdo, $teamId) {
+    $stmt = $pdo->prepare("SELECT * FROM players WHERE team_id = ? ORDER BY jersey_number ASC, name ASC");
+    $stmt->execute([$teamId]);
+    return array_map('db_normalize_player_row', $stmt->fetchAll() ?: []);
+}
+
+function db_get_player($pdo, $id) {
+    $stmt = $pdo->prepare("SELECT * FROM players WHERE id = ? LIMIT 1");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    return $row ? db_normalize_player_row($row) : null;
+}
+
+function db_jersey_taken($pdo, $teamId, $jersey, $exceptId = null) {
+    if ($jersey === '' || $jersey === null) return false;
+    if ($exceptId) {
+        $stmt = $pdo->prepare("SELECT id FROM players WHERE team_id = ? AND jersey_number = ? AND id <> ? LIMIT 1");
+        $stmt->execute([$teamId, $jersey, $exceptId]);
+    } else {
+        $stmt = $pdo->prepare("SELECT id FROM players WHERE team_id = ? AND jersey_number = ? LIMIT 1");
+        $stmt->execute([$teamId, $jersey]);
+    }
+    return (bool)$stmt->fetch();
+}
+
+function db_create_player($pdo, $teamId, $data) {
+    if (db_jersey_taken($pdo, $teamId, $data['jersey_number'])) {
+        return ['error' => 'این شماره پیراهن در این تیم قبلاً ثبت شده است.'];
+    }
+    $id = generate_uuid();
+    $stmt = $pdo->prepare("
+        INSERT INTO players (id, team_id, name, jersey_number, position, birth_date, mobile, national_id, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ");
+    $stmt->execute([
+        $id, $teamId, $data['name'], $data['jersey_number'], $data['position'], $data['birth_date'],
+        $data['mobile'], $data['national_id'], $data['status']
+    ]);
+    return db_get_player($pdo, $id);
+}
+
+function db_update_player($pdo, $playerId, $teamId, $data) {
+    if (db_jersey_taken($pdo, $teamId, $data['jersey_number'], $playerId)) {
+        return ['error' => 'این شماره پیراهن در این تیم قبلاً ثبت شده است.'];
+    }
+    $stmt = $pdo->prepare("
+        UPDATE players SET name=?, jersey_number=?, position=?, birth_date=?, mobile=?, national_id=?, status=?, updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+    ");
+    $stmt->execute([
+        $data['name'], $data['jersey_number'], $data['position'], $data['birth_date'],
+        $data['mobile'], $data['national_id'], $data['status'], $playerId
+    ]);
+    return db_get_player($pdo, $playerId);
+}
+
+function db_delete_player($pdo, $playerId) {
+    $stmt = $pdo->prepare("DELETE FROM players WHERE id = ?");
+    $stmt->execute([$playerId]);
+    return $stmt->rowCount() > 0;
+}
+
+function db_list_linked_tournaments($pdo, $userId, $teamId, $teamName) {
+    $stmt = $pdo->prepare("SELECT id, title, format, state, updated_at FROM tournaments WHERE user_id = ? ORDER BY updated_at DESC");
+    $stmt->execute([$userId]);
+    $out = [];
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $state = json_decode($row['state'] ?? '', true);
+        if (!is_array($state)) $state = [];
+        $ids = isset($state['libraryTeamIds']) && is_array($state['libraryTeamIds']) ? $state['libraryTeamIds'] : [];
+        $names = isset($state['teamNames']) && is_array($state['teamNames']) ? $state['teamNames'] : [];
+        if (in_array($teamId, $ids, true) || in_array($teamName, $names, true)) {
+            $out[] = [
+                'id' => $row['id'],
+                'title' => $row['title'],
+                'format' => $row['format'],
+                'updated_at' => $row['updated_at'],
+            ];
+        }
+    }
+    return $out;
 }

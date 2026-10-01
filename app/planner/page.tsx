@@ -28,6 +28,7 @@ import {
 import { ShareTournamentModal } from "@/components/planner/ShareTournamentModal";
 import { DrawCeremonyModal } from "@/components/planner/DrawCeremonyModal";
 import { StoreModal } from "@/components/planner/StoreModal";
+import { SavedTeamsPicker } from "@/components/planner/SavedTeamsPicker";
 import { toPersianDigits, toEnglishDigits } from "@/lib/digits";
 import { encodeTournamentPayload } from "@/lib/tournamentCodec";
 
@@ -260,6 +261,7 @@ function PlannerWizard() {
   const [teamCount, setTeamCount] = useState(8);
   const [teamCountInput, setTeamCountInput] = useState("۸");
   const [teamNames, setTeamNames] = useState<string[]>([]);
+  const [libraryTeamIds, setLibraryTeamIds] = useState<(string | null)[]>([]);
   const [numGroups, setNumGroups] = useState(2);
   const [qualifiersPerGroup, setQualifiersPerGroup] = useState(2);
   const [seededTeams, setSeededTeams] = useState<string[]>([]);
@@ -493,6 +495,7 @@ function PlannerWizard() {
           setTeamCountInput(toPersianDigits(parsed.teamCount));
         }
         if (Array.isArray(parsed.teamNames)) setTeamNames(parsed.teamNames);
+        if (Array.isArray(parsed.libraryTeamIds)) setLibraryTeamIds(parsed.libraryTeamIds);
         if (typeof parsed.numGroups === "number") setNumGroups(parsed.numGroups);
         if (typeof parsed.qualifiersPerGroup === "number")
           setQualifiersPerGroup(parsed.qualifiersPerGroup);
@@ -637,6 +640,7 @@ function PlannerWizard() {
           format,
           teamCount,
           teamNames,
+          libraryTeamIds,
           numGroups,
           qualifiersPerGroup,
           seededTeams,
@@ -666,6 +670,7 @@ function PlannerWizard() {
     format,
     teamCount,
     teamNames,
+    libraryTeamIds,
     numGroups,
     qualifiersPerGroup,
     seededTeams,
@@ -727,6 +732,7 @@ function PlannerWizard() {
                   format,
                   teamCount,
                   teamNames,
+                  libraryTeamIds,
                   numGroups,
                   qualifiersPerGroup,
                   seededTeams,
@@ -903,6 +909,7 @@ function PlannerWizard() {
     }
 
     setTeamNames(nextNames);
+    setLibraryTeamIds([]);
     setShowBulkModal(false);
     setBulkText("");
 
@@ -1196,6 +1203,7 @@ function PlannerWizard() {
       setTeamCount(8);
       setTeamCountInput("8");
       setTeamNames([]);
+      setLibraryTeamIds([]);
       setNumGroups(calculateDefaultNumGroups(8));
       setQualifiersPerGroup(2);
       setSeededTeams([]);
@@ -1307,6 +1315,7 @@ function PlannerWizard() {
         format,
         teamCount,
         teamNames,
+        libraryTeamIds,
         numGroups,
         qualifiersPerGroup,
         seededTeams,
@@ -1367,6 +1376,7 @@ function PlannerWizard() {
         setTeamCountInput(toPersianDigits(s.teamCount));
       }
       if (Array.isArray(s.teamNames)) setTeamNames(s.teamNames);
+      if (Array.isArray(s.libraryTeamIds)) setLibraryTeamIds(s.libraryTeamIds);
       if (typeof s.numGroups === "number") setNumGroups(s.numGroups);
       if (typeof s.qualifiersPerGroup === "number")
         setQualifiersPerGroup(s.qualifiersPerGroup);
@@ -1959,10 +1969,19 @@ function PlannerWizard() {
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-600 mt-1">
-                نام‌ها باید یکتا باشند؛ می‌توانید تایپ کنید، از فایل اکسل بخوانید یا پیست کنید.
+                نام‌ها باید یکتا باشند؛ می‌توانید تایپ کنید، از تیم‌های ذخیره‌شده انتخاب کنید، از فایل اکسل بخوانید یا پیست کنید.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <SavedTeamsPicker
+                teamCount={teamCount}
+                currentNames={teamNames}
+                currentIds={libraryTeamIds}
+                onApply={(names, ids) => {
+                  setTeamNames(names);
+                  setLibraryTeamIds(ids);
+                }}
+              />
               <button
                 type="button"
                 onClick={() => {
@@ -2155,6 +2174,7 @@ function PlannerWizard() {
                   const next = [...sample];
                   while (next.length < teamCount) next.push(`تیم ${toPersianDigits(next.length + 1)}`);
                   setTeamNames(next);
+                  setLibraryTeamIds([]);
                 }}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer"
               >
@@ -2167,6 +2187,7 @@ function PlannerWizard() {
                   const next = [...sample];
                   while (next.length < teamCount) next.push(`تیم ${toPersianDigits(next.length + 1)}`);
                   setTeamNames(next);
+                  setLibraryTeamIds([]);
                 }}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer"
               >
@@ -2176,6 +2197,7 @@ function PlannerWizard() {
                 type="button"
                 onClick={() => {
                   setTeamNames(Array.from({ length: teamCount }).map((_, i) => `تیم ${toPersianDigits(i + 1)}`));
+                  setLibraryTeamIds([]);
                 }}
                 className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer"
               >
@@ -2186,7 +2208,10 @@ function PlannerWizard() {
             <div className="flex items-center gap-2 text-xs">
               <button
                 type="button"
-                onClick={() => setTeamNames(Array.from({ length: teamCount }).map(() => ""))}
+                onClick={() => {
+                  setTeamNames(Array.from({ length: teamCount }).map(() => ""));
+                  setLibraryTeamIds([]);
+                }}
                 className="text-rose-600 hover:underline font-black cursor-pointer"
               >
                 پاک‌سازی همه
@@ -2213,6 +2238,12 @@ function PlannerWizard() {
                       const next = [...teamNames];
                       next[i] = e.target.value;
                       setTeamNames(next);
+                      setLibraryTeamIds((prev) => {
+                        const ids = [...prev];
+                        while (ids.length < teamCount) ids.push(null);
+                        ids[i] = null;
+                        return ids;
+                      });
                     }}
                     className="w-full bg-transparent text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:outline-none"
                     placeholder={`تیم ${toPersianDigits(i + 1)}`}
@@ -2230,6 +2261,12 @@ function PlannerWizard() {
                         const next = [...teamNames];
                         next[i] = "";
                         setTeamNames(next);
+                        setLibraryTeamIds((prev) => {
+                          const ids = [...prev];
+                          while (ids.length < teamCount) ids.push(null);
+                          ids[i] = null;
+                          return ids;
+                        });
                       }}
                       className="opacity-0 group-hover:opacity-100 hover:text-rose-600 text-slate-400 p-1 text-xs transition-opacity cursor-pointer"
                       title="پاک کردن نام تیم"
@@ -3473,6 +3510,7 @@ function PlannerWizard() {
                   format,
                   teamCount,
                   teamNames,
+                  libraryTeamIds,
                   numGroups,
                   qualifiersPerGroup,
                   seededTeams,
@@ -3529,6 +3567,7 @@ function PlannerWizard() {
             format,
             teamCount,
             teamNames,
+            libraryTeamIds,
             numGroups,
             qualifiersPerGroup,
             seededTeams,
