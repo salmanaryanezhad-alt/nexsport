@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolveSessionUser } from "@/lib/auth/sessionGuard";
+import { shouldSkipAdminSensitiveReauth } from "@/lib/auth/utils";
 import {
   refreshSignedSessionToken,
   applySessionCookies,
@@ -13,12 +14,16 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function withPreviewFlags<T extends Record<string, unknown>>(payload: T) {
+  return { ...payload, skipSensitiveReauth: shouldSkipAdminSensitiveReauth() };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const token = getRequestToken(req);
 
     if (!token) {
-      return NextResponse.json({ user: null });
+      return NextResponse.json(withPreviewFlags({ user: null }));
     }
 
     const session = await db.findSession(token);
@@ -26,18 +31,18 @@ export async function GET(req: NextRequest) {
       const parsed = parseSessionToken(token);
       if (parsed) {
         const snap = snapshotFromPayload(parsed);
-        const response = NextResponse.json({ user: snap, token });
+        const response = NextResponse.json(withPreviewFlags({ user: snap, token }));
         applySessionCookies(response, token);
         return response;
       }
-      const response = NextResponse.json({ user: null, expired: true });
+      const response = NextResponse.json(withPreviewFlags({ user: null, expired: true }));
       clearSessionCookies(response);
       return response;
     }
 
     const user = await resolveSessionUser(session);
     if (!user) {
-      const response = NextResponse.json({
+      const response = NextResponse.json(withPreviewFlags({
         user: {
           id: session.user_id,
           name: session.user_snapshot?.name || "",
@@ -47,13 +52,13 @@ export async function GET(req: NextRequest) {
           role: session.user_snapshot?.role || "user",
         },
         token,
-      });
+      }));
       applySessionCookies(response, token);
       return response;
     }
 
     const refreshed = refreshSignedSessionToken(token, SESSION_HOURS) || token;
-    const response = NextResponse.json({
+    const response = NextResponse.json(withPreviewFlags({
       user: {
         id: user.id,
         name: user.name,
@@ -63,7 +68,7 @@ export async function GET(req: NextRequest) {
         role: user.role,
       },
       token: refreshed,
-    });
+    }));
     applySessionCookies(response, refreshed);
     return response;
   } catch (err: any) {

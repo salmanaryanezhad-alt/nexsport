@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { shouldSkipAdminSensitiveReauth } from "@/lib/auth/utils";
 
 const CLIENT_SESSION_KEY = "nexsport_session";
 
@@ -119,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ticketUnreadCount, setTicketUnreadCount] = useState(0);
   const [ticketUnansweredCount, setTicketUnansweredCount] = useState(0);
   const [sensitiveUnlockTarget, setSensitiveUnlockTarget] = useState<"discounts" | "pricing" | null>(null);
+  const [skipSensitiveReauth, setSkipSensitiveReauth] = useState(() => shouldSkipAdminSensitiveReauth());
   const [modalTab, setModalTab] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [demoVerificationCode, setDemoVerificationCode] = useState<string | null>(null);
@@ -196,6 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         const data = await res.json();
+        if (data && data.skipSensitiveReauth === true) setSkipSensitiveReauth(true);
         if (data && data.user) {
           if (data.token) saveClientSession(data.token);
           syncUser(data.user);
@@ -281,6 +284,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsUsersModalOpen(false);
     setIsProfileModalOpen(false);
     setIsPricingModalOpen(false);
+    if (skipSensitiveReauth || shouldSkipAdminSensitiveReauth()) {
+      setSensitiveUnlockTarget(null);
+      setIsDiscountsModalOpen(true);
+      return;
+    }
     setSensitiveUnlockTarget("discounts");
   }
 
@@ -288,6 +296,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsUsersModalOpen(false);
     setIsProfileModalOpen(false);
     setIsDiscountsModalOpen(false);
+    if (skipSensitiveReauth || shouldSkipAdminSensitiveReauth()) {
+      setSensitiveUnlockTarget(null);
+      setIsPricingModalOpen(true);
+      return;
+    }
     setSensitiveUnlockTarget("pricing");
   }
 

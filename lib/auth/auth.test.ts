@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { hashPassword, verifyPassword } from "./password";
 import { generateVerificationCode } from "./email";
-import { cleanMobileNumber, toEnglishDigits, hasPersianLetters } from "./utils";
+import { cleanMobileNumber, toEnglishDigits, hasPersianLetters, shouldSkipAdminSensitiveReauth } from "./utils";
 import { paymentService, MockGateway } from "../payment";
 import { isSignedSessionToken, getRequestToken, createSignedSessionToken } from "./sessionToken";
 
@@ -569,6 +569,31 @@ async function run() {
 
     if (prevVercel === undefined) delete process.env.VERCEL;
     else process.env.VERCEL = prevVercel;
+  });
+
+  await test("پلن مالی و کد تخفیف بدون رمز فقط روی Vercel", () => {
+    const prevVercel = process.env.VERCEL;
+    const prevExport = process.env.NEXT_EXPORT;
+    const prevPublic = process.env.NEXT_PUBLIC_VERCEL_ENV;
+    delete process.env.VERCEL;
+    delete process.env.NEXT_PUBLIC_VERCEL_ENV;
+    delete process.env.NEXT_EXPORT;
+    assertEqual(shouldSkipAdminSensitiveReauth(), false, "روی سرور باید رمز مجدد بماند.");
+
+    process.env.NEXT_EXPORT = "true";
+    process.env.VERCEL = "1";
+    assertEqual(shouldSkipAdminSensitiveReauth(), false, "خروجی استاتیک/زیپ نباید رمز را بردارد.");
+
+    delete process.env.NEXT_EXPORT;
+    process.env.VERCEL = "1";
+    assertEqual(shouldSkipAdminSensitiveReauth(), true, "روی Vercel نباید رمز مجدد بخواهد.");
+
+    if (prevVercel === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = prevVercel;
+    if (prevExport === undefined) delete process.env.NEXT_EXPORT;
+    else process.env.NEXT_EXPORT = prevExport;
+    if (prevPublic === undefined) delete process.env.NEXT_PUBLIC_VERCEL_ENV;
+    else process.env.NEXT_PUBLIC_VERCEL_ENV = prevPublic;
   });
 
   await test("اعتبار نامحدود مدیر کل: ساخت مکرر مسابقه تستی بدون شارژ", async () => {

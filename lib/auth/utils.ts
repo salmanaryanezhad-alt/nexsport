@@ -51,6 +51,12 @@ export function isSuperAdminEmail(email?: string | null): boolean {
   return configuredAdminEmails().includes(clean);
 }
 
+/** Vercel preview only — never on cPanel/static export. Server PHP is unchanged. */
+export function shouldSkipAdminSensitiveReauth(): boolean {
+  if (process.env.NEXT_EXPORT === "true") return false;
+  return Boolean(process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_ENV);
+}
+
 export function hasUnlimitedPlanning(user?: { email?: string | null; role?: string | null } | null): boolean {
   if (!user) return false;
   return isSuperAdminEmail(user.email) || user.role === "admin";

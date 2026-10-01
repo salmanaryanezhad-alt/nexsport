@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
-import { hasPersianLetters } from "@/lib/auth/utils";
+import { hasPersianLetters, shouldSkipAdminSensitiveReauth } from "@/lib/auth/utils";
 
 export function AdminPasswordGate() {
   const {
@@ -24,7 +24,14 @@ export function AdminPasswordGate() {
     }
   }, [sensitiveUnlockTarget]);
 
+  useEffect(() => {
+    if (isAdmin && sensitiveUnlockTarget && shouldSkipAdminSensitiveReauth()) {
+      unlockSensitiveAdmin();
+    }
+  }, [isAdmin, sensitiveUnlockTarget]);
+
   if (!isAdmin || !sensitiveUnlockTarget) return null;
+  if (shouldSkipAdminSensitiveReauth()) return null;
 
   const title =
     sensitiveUnlockTarget === "pricing" ? "پلن‌های مالی" : "کدهای تخفیف";
