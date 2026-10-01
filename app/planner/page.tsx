@@ -307,6 +307,10 @@ function PlannerWizard() {
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [quotaCharged, setQuotaCharged] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const generateLockRef = useRef(false);
+  const pendingUnchargedDrawRef = useRef(false);
 
   // Cloud Tournament Storage & Auth Integration
   const { user, openAuthModal, isAdmin } = useAuth();
@@ -369,6 +373,80 @@ function PlannerWizard() {
   useEffect(() => {
     loadQuota();
   }, [loadQuota, user]);
+
+  function applyConsumeResult(data: any) {
+    if (data?.isGuest && !user) {
+      try {
+        const currentLocal = parseInt(localStorage.getItem("nexsport_guest_tournaments_count") || "0", 10);
+        const newCount = Math.max(Number(data.count || 0), Number.isFinite(currentLocal) ? currentLocal + 1 : 1);
+        localStorage.setItem("nexsport_guest_tournaments_count", String(newCount));
+        setQuota((prev) => ({
+          isGuest: true,
+          guestLimit: prev?.guestLimit ?? 2,
+          guestCount: newCount,
+          remaining: Math.max(0, (prev?.guestLimit ?? 2) - newCount),
+        }));
+      } catch {}
+      return;
+    }
+    if (data?.unlimitedPlanning || data?.isVip || isAdmin) {
+      setQuota((prev) =>
+        prev ? { ...prev, unlimitedPlanning: true, planningCredits: 999999, isVip: Boolean(prev.isVip || data.isVip) } : prev
+      );
+      return;
+    }
+    if (typeof data?.remaining === "number") {
+      setQuota((prev) => (prev ? { ...prev, planningCredits: data.remaining } : prev));
+    }
+  }
+
+  async function consumeQuotaForDraw(): Promise<boolean> {
+    try {
+      const res = await fetch("/api/tournaments/quota/", { method: "POST", credentials: "same-origin" });
+      const data = await res.json().catch(() => ({}));
+      if (user && (res.status === 401 || data.expired || data.isGuest)) {
+        openAuthModal("login");
+        setError("نشست شما برای ثبت سهمیه معتبر نیست. لطفاً دوباره وارد شوید.");
+        return false;
+      }
+      if (!res.ok) {
+        if (data.needsPurchase) {
+          setStoreModalTab("credits");
+          setStoreModalOpen(true);
+        } else if (data.needsAuth) {
+          setGuestLimitModalOpen(true);
+        }
+        setError(data.error || "سهمیه شما برای ساخت برنامه کافی نیست.");
+        return false;
+      }
+      applyConsumeResult(data);
+      return true;
+    } catch {
+      setError("برای ساخت برنامه باید اتصال اینترنت برقرار باشد تا سهمیه ثبت شود.");
+      return false;
+    }
+  }
+
+  useEffect(() => {
+    if (!isLoaded || !pendingUnchargedDrawRef.current) return;
+    pendingUnchargedDrawRef.current = false;
+    let cancelled = false;
+    (async () => {
+      const charged = await consumeQuotaForDraw();
+      if (cancelled) return;
+      if (charged) {
+        setQuotaCharged(true);
+      } else {
+        setResult(null);
+        setQuotaCharged(false);
+        setShowDrawCeremony(false);
+        setStep(3);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, user]);
 
   // Live Draw Ceremony state
   const [showDrawCeremony, setShowDrawCeremony] = useState(false);
@@ -438,6 +516,13 @@ function PlannerWizard() {
         if (parsed.matchDetails) setMatchDetails(parsed.matchDetails);
         if (typeof parsed.currentSavedId === "string")
           setCurrentSavedId(parsed.currentSavedId);
+        if (parsed.result) {
+          if (parsed.quotaCharged || parsed.step === 4 || parsed.currentSavedId) {
+            setQuotaCharged(true);
+          } else {
+            pendingUnchargedDrawRef.current = true;
+          }
+        }
       }
 
       // If user came with ?open=saved, open the saved tournaments modal
@@ -448,6 +533,8 @@ function PlannerWizard() {
 
       // If user selected a format on the homepage (e.g. /planner?format=knockout), jump directly to that format!
       if (formatQuery && validFormats.includes(formatQuery)) {
+        pendingUnchargedDrawRef.current = false;
+        setQuotaCharged(false);
         setFormat(formatQuery);
         setStep(1);
         setResult(null);
@@ -511,6 +598,7 @@ function PlannerWizard() {
           result,
           scores,
           matchDetails,
+          quotaCharged,
         })
       );
     } catch {
@@ -535,6 +623,7 @@ function PlannerWizard() {
     result,
     scores,
     matchDetails,
+    quotaCharged,
   ]);
 
   // Auto-sync scores & matchDetails to public spectator links whenever updated
@@ -880,19 +969,18 @@ function PlannerWizard() {
     XLSX.writeFile(wb, "nexsport-sample-teams.xlsx");
   }
 
-  function handleGenerate(isRedraw = false) {
-    // Quota check when creating a new tournament
-    if (!isRedraw) {
-      if (user) {
-        if (quota && !quota.isVip && !quota.unlimitedPlanning && !isAdmin && (quota.planningCredits ?? 5) <= 0) {
-          setStoreModalTab("credits");
-          setStoreModalOpen(true);
-          return;
-        }
-      } else if (quota && (quota.guestCount ?? 0) >= (quota.guestLimit ?? 2)) {
-        setGuestLimitModalOpen(true);
+  async function handleGenerate() {
+    if (generateLockRef.current || isGenerating) return;
+
+    if (user) {
+      if (quota && !quota.isVip && !quota.unlimitedPlanning && !isAdmin && (quota.planningCredits ?? 5) <= 0) {
+        setStoreModalTab("credits");
+        setStoreModalOpen(true);
         return;
       }
+    } else if (quota && (quota.guestCount ?? 0) >= (quota.guestLimit ?? 2)) {
+      setGuestLimitModalOpen(true);
+      return;
     }
 
     if (result && Object.keys(scores).length > 0) {
@@ -979,10 +1067,29 @@ function PlannerWizard() {
         });
       }
 
+      generateLockRef.current = true;
+      setIsGenerating(true);
+      const charged = await consumeQuotaForDraw();
+      if (!charged) {
+        generateLockRef.current = false;
+        setIsGenerating(false);
+        return;
+      }
+
+      setQuotaCharged(true);
       setResult(r);
-      setIsRedrawCeremony(isRedraw);
+      setScores({});
+      setIsRedrawCeremony(false);
       setCeremonyMode("full");
       setShowDrawCeremony(true);
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ ...parsed, result: r, scores: {}, quotaCharged: true })
+        );
+      } catch {}
     } catch (e) {
       setError(
         e instanceof ScheduleValidationError
@@ -991,6 +1098,9 @@ function PlannerWizard() {
           ? e.message
           : "خطایی رخ داد. لطفاً دوباره تلاش کنید."
       );
+    } finally {
+      generateLockRef.current = false;
+      setIsGenerating(false);
     }
   }
 
@@ -1016,47 +1126,6 @@ function PlannerWizard() {
   function handleCeremonyComplete() {
     setShowDrawCeremony(false);
     setStep(4);
-    if (isRedrawCeremony) {
-      setScores({});
-      setInfoMessage("🎲 قرعه‌کشی جدید با موفقیت اعمال و ثبت شد!");
-      setTimeout(() => setInfoMessage(null), 3500);
-    } else {
-      // Consume quota for newly created tournament
-      fetch("/api/tournaments/quota/", { method: "POST", credentials: "same-origin" })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.isGuest && !user) {
-            const currentLocal = parseInt(
-              localStorage.getItem("nexsport_guest_tournaments_count") || "0",
-              10
-            );
-            const newCount = Math.max(data.count || 1, currentLocal + 1);
-            localStorage.setItem("nexsport_guest_tournaments_count", String(newCount));
-            setQuota((prev) =>
-              prev ? { ...prev, guestCount: newCount, remaining: Math.max(0, 2 - newCount) } : null
-            );
-            setInfoMessage(
-              `🎉 مسابقه رایگان مهمان ایجاد شد (${toPersianDigits(newCount)} از ۲). با ثبت‌نام ۵ مسابقه دیگر هدیه بگیرید.`
-            );
-            setTimeout(() => setInfoMessage(null), 5000);
-          } else if (data.unlimitedPlanning || data.isVip || isAdmin) {
-            setQuota((prev) =>
-              prev ? { ...prev, unlimitedPlanning: true, planningCredits: 999999 } : prev
-            );
-            setInfoMessage("⚽ مسابقه ایجاد شد. اعتبار مدیر نامحدود است.");
-            setTimeout(() => setInfoMessage(null), 3500);
-          } else if (!data.isVip) {
-            setQuota((prev) =>
-              prev ? { ...prev, planningCredits: data.remaining } : null
-            );
-            setInfoMessage(
-              `⚽ مسابقه ایجاد شد. اعتبار باقی‌مانده شما: ${toPersianDigits(data.remaining)} مسابقه.`
-            );
-            setTimeout(() => setInfoMessage(null), 4000);
-          }
-        })
-        .catch(() => {});
-    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -1098,6 +1167,8 @@ function PlannerWizard() {
       setResult(null);
       setScores({});
       setCurrentSavedId(null);
+      setQuotaCharged(false);
+      setShowDrawCeremony(false);
       setError(null);
       setInfoMessage(null);
     }
@@ -1272,6 +1343,7 @@ function PlannerWizard() {
       if (s.matchDetails) setMatchDetails(s.matchDetails);
 
       setCurrentSavedId(t.id);
+      setQuotaCharged(true);
       setInfoMessage(`☁️ مسابقه «${t.title}» با موفقیت از فضای ابری بارگذاری شد.`);
       setTimeout(() => setInfoMessage(null), 4000);
     } catch (err) {
@@ -3221,8 +3293,12 @@ function PlannerWizard() {
                 <button className={btnGhost} onClick={() => setStep(2)}>
                   مرحله قبل
                 </button>
-                <button className={btnPrimary} onClick={() => handleGenerate(false)}>
-                  تولید برنامه مسابقات
+                <button
+                  className={btnPrimary}
+                  disabled={isGenerating}
+                  onClick={() => handleGenerate()}
+                >
+                  {isGenerating ? "در حال ثبت سهمیه و تولید..." : "تولید برنامه مسابقات"}
                 </button>
               </>
             )}
