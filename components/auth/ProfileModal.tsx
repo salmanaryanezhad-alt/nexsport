@@ -11,7 +11,8 @@ export function ProfileModal() {
     isProfileModalOpen,
     closeProfileModal,
     openUsersModal,
-    openDiscountsModal,
+    requestOpenDiscountsModal,
+    requestOpenPricingModal,
     updateProfile,
     changePassword,
   } = useAuth();
@@ -148,7 +149,17 @@ export function ProfileModal() {
                   type="button"
                   onClick={() => {
                     closeProfileModal();
-                    openDiscountsModal();
+                    requestOpenPricingModal();
+                  }}
+                  className="bg-amber-600 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-amber-700 transition cursor-pointer"
+                >
+                  پلن‌های مالی
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeProfileModal();
+                    requestOpenDiscountsModal();
                   }}
                   className="bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-emerald-800 transition cursor-pointer"
                 >

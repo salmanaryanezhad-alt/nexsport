@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 
 export function AuthHeaderNav() {
-  const { user, isAdmin, openAuthModal, openProfileModal, openUsersModal, openDiscountsModal, logout } = useAuth();
+  const { user, isAdmin, openAuthModal, openProfileModal, openUsersModal, requestOpenDiscountsModal, requestOpenPricingModal, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -120,7 +120,16 @@ export function AuthHeaderNav() {
           </button>
           <button
             type="button"
-            onClick={openDiscountsModal}
+            onClick={requestOpenPricingModal}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 px-2.5 py-1 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs"
+            title="تعیین تعرفه‌ها و پلن‌های مالی"
+          >
+            <span>💰</span>
+            <span className="hidden sm:inline">پلن‌های مالی</span>
+          </button>
+          <button
+            type="button"
+            onClick={requestOpenDiscountsModal}
             className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 px-2.5 py-1 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs"
             title="تعریف و مدیریت کدهای تخفیف"
           >
@@ -199,7 +208,23 @@ export function AuthHeaderNav() {
                   type="button"
                   onClick={() => {
                     setDropdownOpen(false);
-                    openDiscountsModal();
+                    requestOpenPricingModal();
+                  }}
+                  className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 transition-colors flex items-center justify-between cursor-pointer mb-1 shadow-2xs"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>💰</span>
+                    <span>پلن‌های مالی</span>
+                  </span>
+                  <span className="text-[10px] bg-amber-700 text-white px-1.5 py-0.5 rounded-full font-bold">
+                    تعرفه
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    requestOpenDiscountsModal();
                   }}
                   className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 transition-colors flex items-center justify-between cursor-pointer mb-2 shadow-2xs"
                 >

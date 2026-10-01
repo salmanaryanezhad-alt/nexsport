@@ -9,7 +9,7 @@ interface DiscountCodeItem {
   id: string;
   code: string;
   discount_percent: number;
-  applies_to: "planning" | "link" | "all";
+  applies_to: "credits" | "vip" | "link" | "planning" | "all";
   is_active: boolean;
   expires_at: string | null;
   created_at: string;
@@ -32,7 +32,7 @@ export function AdminDiscountsModal() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [newPercent, setNewPercent] = useState<string>("20");
-  const [newAppliesTo, setNewAppliesTo] = useState<"planning" | "link" | "all">("all");
+  const [newAppliesTo, setNewAppliesTo] = useState<"credits" | "vip" | "link" | "planning" | "all">("all");
   const [hasExpiry, setHasExpiry] = useState(false);
   const [newExpiryDate, setNewExpiryDate] = useState("");
   const [submittingNew, setSubmittingNew] = useState(false);
@@ -457,9 +457,11 @@ export function AdminDiscountsModal() {
                   onChange={(e) => setNewAppliesTo(e.target.value as any)}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-600 focus:outline-none cursor-pointer"
                 >
-                  <option value="all">هردو (برنامه‌ریزی و لینک اختصاصی)</option>
-                  <option value="planning">فقط برنامه‌ریزی مسابقات (اعتبار و VIP)</option>
-                  <option value="link">فقط ایجاد لینک اختصاصی مسابقه</option>
+                  <option value="credits">بسته‌های اعتباری</option>
+                  <option value="vip">حساب VIP</option>
+                  <option value="link">ایجاد لینک</option>
+                  <option value="planning">برنامه‌ریزی (اعتباری و VIP)</option>
+                  <option value="all">هر سه مورد</option>
                 </select>
               </div>
             </div>
@@ -548,9 +550,11 @@ export function AdminDiscountsModal() {
                 );
                 const isLoading = actionLoadingId === item.id;
 
-                let appliesLabel = "هردو بخش (برنامه‌ریزی و لینک)";
-                if (item.applies_to === "planning") appliesLabel = "فقط برنامه‌ریزی مسابقات";
-                if (item.applies_to === "link") appliesLabel = "فقط لینک اختصاصی";
+                let appliesLabel = "هر سه مورد";
+                if (item.applies_to === "credits") appliesLabel = "بسته‌های اعتباری";
+                if (item.applies_to === "vip") appliesLabel = "حساب VIP";
+                if (item.applies_to === "link") appliesLabel = "ایجاد لینک";
+                if (item.applies_to === "planning") appliesLabel = "برنامه‌ریزی (اعتباری و VIP)";
 
                 return (
                   <div

@@ -3,9 +3,10 @@ import {
   PaymentGatewayDriver,
   PaymentGatewayType,
   PaymentOrder,
-  DEDICATED_LINK_PRICE_TOMANS,
   calculateCreditPrice,
-  VIP_PLANS,
+  buildVipPlans,
+  applyCouponOnFinal,
+  DEFAULT_PRICING_SETTINGS,
 } from "./types";
 import { MockGateway } from "./gateways/mockGateway";
 import { ZarinpalGateway } from "./gateways/zarinpalGateway";
@@ -189,8 +190,9 @@ class PaymentService {
       };
     }
 
-    // 3. Otherwise: standard 150,000 Tomans (with discount code if provided)
-    let finalAmount = DEDICATED_LINK_PRICE_TOMANS;
+    // 3. Otherwise: standard link price (with discount code if provided — applied on the current final amount)
+    const pricing = await db.getPricingSettings();
+    let finalAmount = pricing.linkPriceTomans;
     let appliedCode: string | undefined = undefined;
     let discountPercentApplied = 0;
 
@@ -204,8 +206,8 @@ class PaymentService {
       }
       appliedCode = val.discount?.code;
       discountPercentApplied = val.discountPercent || 0;
-      const discountTomans = Math.round((finalAmount * discountPercentApplied) / 100);
-      finalAmount = Math.max(0, finalAmount - discountTomans);
+      const stacked = applyCouponOnFinal(finalAmount, discountPercentApplied);
+      finalAmount = stacked.finalAmount;
     }
 
     if (finalAmount === 0) {
@@ -353,22 +355,22 @@ class PaymentService {
     discountCode?: string;
   }) {
     const { userId, creditCount, userEmail, userMobile, origin, discountCode } = params;
-    const { count, baseTotal, discountPercent, discountTomans, finalPrice } =
-      calculateCreditPrice(creditCount);
+    const pricing = await db.getPricingSettings();
+    const { count, finalPrice } = calculateCreditPrice(creditCount, pricing);
 
     let finalPayPrice = finalPrice;
     let appliedCode: string | undefined = undefined;
     let codeDiscountPercent = 0;
 
     if (discountCode) {
-      const val = await db.validateDiscountCode(discountCode, "planning");
+      const val = await db.validateDiscountCode(discountCode, "credits");
       if (!val.valid) {
         return { success: false, error: val.error || "کد تخفیف وارد شده معتبر نمی‌باشد." };
       }
       appliedCode = val.discount?.code;
       codeDiscountPercent = val.discountPercent || 0;
-      const extraDiscount = Math.round((finalPayPrice * codeDiscountPercent) / 100);
-      finalPayPrice = Math.max(0, finalPayPrice - extraDiscount);
+      const stacked = applyCouponOnFinal(finalPayPrice, codeDiscountPercent);
+      finalPayPrice = stacked.finalAmount;
     }
 
     if (finalPayPrice === 0) {
@@ -480,21 +482,23 @@ class PaymentService {
     discountCode?: string;
   }) {
     const { userId, vipPlanId, userEmail, userMobile, origin, discountCode } = params;
-    const plan = VIP_PLANS.find((p) => p.id === vipPlanId) || VIP_PLANS[0];
+    const pricing = await db.getPricingSettings();
+    const vipPlans = buildVipPlans(pricing);
+    const plan = vipPlans.find((p) => p.id === vipPlanId) || vipPlans[0];
 
     let finalVipPrice = plan.finalPriceTomans;
     let appliedCode: string | undefined = undefined;
     let codeDiscountPercent = 0;
 
     if (discountCode) {
-      const val = await db.validateDiscountCode(discountCode, "planning");
+      const val = await db.validateDiscountCode(discountCode, "vip");
       if (!val.valid) {
         return { success: false, error: val.error || "کد تخفیف وارد شده معتبر نمی‌باشد." };
       }
       appliedCode = val.discount?.code;
       codeDiscountPercent = val.discountPercent || 0;
-      const extraDiscount = Math.round((finalVipPrice * codeDiscountPercent) / 100);
-      finalVipPrice = Math.max(0, finalVipPrice - extraDiscount);
+      const stacked = applyCouponOnFinal(finalVipPrice, codeDiscountPercent);
+      finalVipPrice = stacked.finalAmount;
     }
 
     if (finalVipPrice === 0) {
@@ -630,7 +634,7 @@ class PaymentService {
       if (tournament) {
         const paymentInfo = {
           isPaid: true,
-          amount: order.amount_tomans || DEDICATED_LINK_PRICE_TOMANS,
+          amount: order.amount_tomans || DEFAULT_PRICING_SETTINGS.linkPriceTomans,
           currency: "TOMAN",
           gateway: this.activeDriver.gatewayName,
           orderId: params.orderId,

@@ -878,6 +878,95 @@ async function run() {
 
     const valDeleted = await db.validateDiscountCode("LINK20", "link");
     assertEqual(valDeleted.valid, false, "کد حذف‌شده نباید یافت شود.");
+
+    // ۱۰. محدوده‌های جدید کد تخفیف: credits / vip / planning
+    const codeCredits = await db.createDiscountCode({
+      code: "CREDIT30",
+      discountPercent: 30,
+      appliesTo: "credits",
+      isActive: true,
+    });
+    const codeVip = await db.createDiscountCode({
+      code: "VIP15",
+      discountPercent: 15,
+      appliesTo: "vip",
+      isActive: true,
+    });
+    const valCreditsOnCredits = await db.validateDiscountCode("CREDIT30", "credits");
+    assertEqual(valCreditsOnCredits.valid, true, "کد بسته‌های اعتباری باید روی اعتبار اعمال شود.");
+    const valCreditsOnVip = await db.validateDiscountCode("CREDIT30", "vip");
+    assertEqual(valCreditsOnVip.valid, false, "کد بسته‌های اعتباری نباید روی VIP اعمال شود.");
+    const valVipOnVip = await db.validateDiscountCode("VIP15", "vip");
+    assertEqual(valVipOnVip.valid, true, "کد VIP باید روی اشتراک ویژه اعمال شود.");
+    const valVipOnLink = await db.validateDiscountCode("VIP15", "link");
+    assertEqual(valVipOnLink.valid, false, "کد VIP نباید روی لینک اعمال شود.");
+    const valPlanningOnCredits = await db.validateDiscountCode("NOWRUZ50", "credits");
+    assertEqual(valPlanningOnCredits.valid, true, "کد all باید روی اعتبار اعمال شود.");
+
+    // ۱۱. کد تخفیف روی مبلغ نهایی قبلی اعمال می‌شود (تخفیف حجمی + کوپن)
+    const creditBuyer = await db.createUser({
+      name: "خریدار بسته با تخفیف دو لایه",
+      email: "stack_dsc@nexsport.ir",
+      mobile: "09120001122",
+      passwordHash: hashPassword("StackSecret1"),
+      isVerified: true,
+    });
+    const stacked = await paymentService.initiateCreditPackagePayment({
+      userId: creditBuyer.id,
+      creditCount: 100,
+      discountCode: "CREDIT30",
+    });
+    assertEqual(stacked.success, true, "خرید بسته ۱۰۰ تایی با کوپن باید موفق باشد.");
+    // ۱۰۰ × ۵۰هزار = ۵ میلیون، ۲۰٪ تخفیف حجمی = ۴ میلیون، سپس ۳۰٪ کوپن روی ۴ میلیون = ۲٫۸ میلیون
+    assertEqual(stacked.amountTomans, 2800000, "کوپن باید روی مبلغ نهایی قبلی (پس از تخفیف حجمی) اعمال شود.");
+  });
+
+  await test("تنظیمات مالی مدیر: ذخیره و اعمال تعرفه سفارشی بدون کدنویسی", async () => {
+    const { calculateCreditPrice, buildVipPlans } = await import("../payment/pricing");
+
+    const defaults = await db.getPricingSettings();
+    assertEqual(defaults.creditPriceTomans, 50000, "مبلغ پیش‌فرض هر مسابقه ۵۰ هزار تومان است.");
+    assertEqual(defaults.creditDiscountEvery, 5, "پله تخفیف پیش‌فرض هر ۵ مسابقه است.");
+    assertEqual(defaults.creditDiscountPercent, 1, "درصد پیش‌فرض هر پله ۱٪ است.");
+    assertEqual(defaults.vipMonthlyTomans, 350000, "مبلغ ماهانه VIP پیش‌فرض ۳۵۰ هزار تومان است.");
+    assertEqual(defaults.linkPriceTomans, 150000, "تعرفه لینک پیش‌فرض ۱۵۰ هزار تومان است.");
+
+    const saved = await db.savePricingSettings({
+      creditPriceTomans: 40000,
+      creditDiscountEvery: 10,
+      creditDiscountPercent: 2,
+      vipMonthlyTomans: 400000,
+      vipDiscount3mPercent: 10,
+      vipDiscount6mPercent: 25,
+      vipDiscount12mPercent: 35,
+      linkPriceTomans: 180000,
+    });
+    assertEqual(saved.creditPriceTomans, 40000, "مبلغ هر مسابقه باید ۴۰ هزار ذخیره شود.");
+    assertEqual(saved.linkPriceTomans, 180000, "تعرفه لینک باید ۱۸۰ هزار ذخیره شود.");
+
+    const loaded = await db.getPricingSettings();
+    assertEqual(loaded.vipDiscount12mPercent, 35, "تخفیف سالانه باید ۳۵٪ خوانده شود.");
+
+    const p100 = calculateCreditPrice(100, loaded);
+    assertEqual(p100.discountPercent, 20, "۱۰۰ مسابقه با هر ۱۰ تا ۲٪ باید ۲۰٪ تخفیف داشته باشد.");
+    assertEqual(p100.finalPrice, 3200000, "مبلغ نهایی ۱۰۰ مسابقه با تعرفه ۴۰هزار و ۲۰٪ تخفیف ۳٫۲ میلیون است.");
+
+    const plans = buildVipPlans(loaded);
+    const y = plans.find((p) => p.id === "vip-12m");
+    assertEqual(y?.basePriceTomans, 4800000, "قیمت پایه سالانه باید ۴٫۸ میلیون باشد.");
+    assertEqual(y?.finalPriceTomans, 3120000, "قیمت نهایی سالانه با ۳۵٪ تخفیف ۳٫۱۲۰ میلیون است.");
+
+    // بازگردانی پیش‌فرض برای ایزوله ماندن تست‌های بعدی
+    await db.savePricingSettings({
+      creditPriceTomans: 50000,
+      creditDiscountEvery: 5,
+      creditDiscountPercent: 1,
+      vipMonthlyTomans: 350000,
+      vipDiscount3mPercent: 20,
+      vipDiscount6mPercent: 30,
+      vipDiscount12mPercent: 40,
+      linkPriceTomans: 150000,
+    });
   });
 
   console.log("\n======================================");

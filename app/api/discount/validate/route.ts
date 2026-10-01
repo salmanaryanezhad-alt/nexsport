@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { applyCouponOnFinal, DiscountItemType } from "@/lib/payment/pricing";
 
 export const dynamic = "force-dynamic";
+
+const ALLOWED_TYPES: DiscountItemType[] = ["credits", "vip", "link"];
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { code, itemType = "all", baseAmount = 0 } = body || {};
+    const { code, itemType = "credits", baseAmount = 0 } = body || {};
 
     if (!code || !String(code).trim()) {
       return NextResponse.json(
@@ -15,7 +18,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const type = itemType === "link" ? "link" : "planning";
+    const type: DiscountItemType = ALLOWED_TYPES.includes(itemType)
+      ? itemType
+      : itemType === "planning"
+      ? "credits"
+      : "credits";
+
     const val = await db.validateDiscountCode(String(code), type);
 
     if (!val.valid) {
@@ -26,16 +34,14 @@ export async function POST(req: NextRequest) {
     }
 
     const discountPercent = val.discountPercent || 0;
-    const base = Number(baseAmount) || 0;
-    const discountAmount = Math.round((base * discountPercent) / 100);
-    const finalAmount = Math.max(0, base - discountAmount);
+    const stacked = applyCouponOnFinal(Number(baseAmount) || 0, discountPercent);
 
     return NextResponse.json({
       valid: true,
       code: val.discount?.code,
       discountPercent,
-      discountAmount,
-      finalAmount,
+      discountAmount: stacked.discountAmount,
+      finalAmount: stacked.finalAmount,
       appliesTo: val.discount?.applies_to,
     });
   } catch (err: any) {

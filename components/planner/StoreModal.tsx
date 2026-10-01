@@ -6,6 +6,8 @@ import { toPersianDigits } from "@/lib/digits";
 import {
   CREDIT_PRESETS,
   VIP_PLANS,
+  DEFAULT_PRICING_SETTINGS,
+  PricingSettings,
   calculateCreditPrice,
   VipPlan,
 } from "@/lib/payment/pricing";
@@ -60,14 +62,31 @@ export function StoreModal({
     discountPercent: number;
   } | null>(null);
 
+  const [pricingSettings, setPricingSettings] = useState<PricingSettings>({ ...DEFAULT_PRICING_SETTINGS });
+  const [vipPlans, setVipPlans] = useState<VipPlan[]>(VIP_PLANS);
+
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialTab);
       setSuccessInfo(null);
       setError(null);
+      setAppliedDiscount(null);
+      setDiscountError(null);
       loadQuota();
+      loadPricing();
     }
   }, [isOpen, initialTab, user]);
+
+  async function loadPricing() {
+    try {
+      const res = await fetch("/api/pricing");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) setPricingSettings(data.settings);
+        if (Array.isArray(data.vipPlans) && data.vipPlans.length) setVipPlans(data.vipPlans);
+      }
+    } catch {}
+  }
 
   async function loadQuota() {
     setLoadingQuota(true);
@@ -89,8 +108,8 @@ export function StoreModal({
     ? Math.max(1, parseInt(customCount, 10) || 1)
     : selectedPreset;
 
-  const creditPricing = calculateCreditPrice(activeCount);
-  const selectedVip = VIP_PLANS.find((p) => p.id === selectedVipPlan) || VIP_PLANS[3];
+  const creditPricing = calculateCreditPrice(activeCount, pricingSettings);
+  const selectedVip = vipPlans.find((p) => p.id === selectedVipPlan) || vipPlans[3] || vipPlans[0];
 
   // Dynamic discount amounts
   const creditDiscountAmount = appliedDiscount
@@ -136,7 +155,7 @@ export function StoreModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: rawCode,
-          itemType: "planning",
+          itemType: activeTab === "credits" ? "credits" : "vip",
           baseAmount: baseAmt,
         }),
       });
@@ -375,6 +394,8 @@ export function StoreModal({
               setActiveTab("credits");
               setSuccessInfo(null);
               setError(null);
+              setAppliedDiscount(null);
+              setDiscountError(null);
             }}
             className={`flex items-center gap-2 pb-3 px-3 font-black text-xs sm:text-sm border-b-2 transition-all cursor-pointer ${
               activeTab === "credits"
@@ -395,6 +416,8 @@ export function StoreModal({
               setActiveTab("vip");
               setSuccessInfo(null);
               setError(null);
+              setAppliedDiscount(null);
+              setDiscountError(null);
             }}
             className={`flex items-center gap-2 pb-3 px-3 font-black text-xs sm:text-sm border-b-2 transition-all cursor-pointer ${
               activeTab === "vip"
@@ -455,7 +478,7 @@ export function StoreModal({
               {/* Preset Cards Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {CREDIT_PRESETS.map((preset) => {
-                  const pricing = calculateCreditPrice(preset.count);
+                  const pricing = calculateCreditPrice(preset.count, pricingSettings);
                   const isSelected = !isCustomMode && selectedPreset === preset.count;
 
                   return (
@@ -515,7 +538,7 @@ export function StoreModal({
                 </div>
 
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  💡 <strong>قانون تخفیف پلکانی:</strong> به ازای هر ۵ مسابقه ۱٪ تخفیف اعمال می‌شود (مثلاً ۵ مسابقه: ۱٪، ۱۰ مسابقه: ۲٪، ۵۰ مسابقه: ۱۰٪، ۱۰۰ مسابقه: ۲۰٪).
+                  💡 <strong>قانون تخفیف پلکانی:</strong> به ازای هر {toPersianDigits(pricingSettings.creditDiscountEvery)} مسابقه {toPersianDigits(pricingSettings.creditDiscountPercent)}٪ تخفیف اعمال می‌شود.
                 </p>
               </div>
 
@@ -529,7 +552,7 @@ export function StoreModal({
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-slate-700">
-                  <span>قیمت پایه (هر مسابقه ۵۰,۰۰۰ تومان):</span>
+                  <span>قیمت پایه (هر مسابقه {toPersianDigits(pricingSettings.creditPriceTomans.toLocaleString("en-US"))} تومان):</span>
                   <span>{toPersianDigits(creditPricing.baseTotal.toLocaleString("en-US"))} تومان</span>
                 </div>
 
@@ -632,7 +655,7 @@ export function StoreModal({
               <div className="rounded-xl bg-amber-50/70 border border-amber-200/80 p-2.5 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
                 <span>ℹ️</span>
                 <span>
-                  <strong>نکته:</strong> بسته‌های اعتباری مربوط به برنامه‌ریزی و تولید جداول مسابقات است. ایجاد لینک اختصاصی تماشاگران برای هر مسابقه همان ۱۵۰,۰۰۰ تومان جداگانه است (به جز ۱ مسابقه اول که هدیه رایگان ثبت‌نام شماست). در صورتی که مایلید تمام لینک‌ها رایگان باشند، به <strong>اشتراک ویژه VIP</strong> ارتقا دهید.
+                  <strong>نکته:</strong> بسته‌های اعتباری مربوط به برنامه‌ریزی و تولید جداول مسابقات است. ایجاد لینک اختصاصی تماشاگران برای هر مسابقه همان {toPersianDigits(pricingSettings.linkPriceTomans.toLocaleString("en-US"))} تومان جداگانه است (به جز ۱ مسابقه اول که هدیه رایگان ثبت‌نام شماست). در صورتی که مایلید تمام لینک‌ها رایگان باشند، به <strong>اشتراک ویژه VIP</strong> ارتقا دهید.
                 </span>
               </div>
 
@@ -666,13 +689,13 @@ export function StoreModal({
                 </div>
                 <div className="text-[11px] text-amber-900 leading-relaxed space-y-1">
                   <div>✓ <strong>برنامه‌ریزی نامحدود مسابقات:</strong> ایجاد هر تعداد مسابقه در تمام فرمت‌ها بدون کسر اعتبار.</div>
-                  <div>✓ <strong>ایجاد نامحدود لینک‌های اختصاصی کاملاً رایگان:</strong> دیگر نیازی به پرداخت هزینه ۱۵۰,۰۰۰ تومانی برای هیچ مسابقه‌ای ندارید!</div>
+                  <div>✓ <strong>ایجاد نامحدود لینک‌های اختصاصی کاملاً رایگان:</strong> دیگر نیازی به پرداخت هزینه {toPersianDigits(pricingSettings.linkPriceTomans.toLocaleString("en-US"))} تومانی برای هیچ مسابقه‌ای ندارید!</div>
                 </div>
               </div>
 
               {/* Plans Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {VIP_PLANS.map((plan) => {
+                {vipPlans.map((plan) => {
                   const isSelected = selectedVipPlan === plan.id;
 
                   return (

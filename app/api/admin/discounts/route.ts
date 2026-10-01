@@ -80,9 +80,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!["planning", "link", "all"].includes(appliesTo)) {
+    if (!["credits", "vip", "link", "planning", "all"].includes(appliesTo)) {
       return NextResponse.json(
-        { error: "نوع اعمال نامعتبر است (باید برنامه‌ریزی، ایجاد لینک یا هردو باشد)." },
+        { error: "نوع اعمال نامعتبر است." },
         { status: 400 }
       );
     }

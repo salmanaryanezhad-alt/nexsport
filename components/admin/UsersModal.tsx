@@ -15,7 +15,7 @@ interface AdminUserItem {
 }
 
 export function UsersModal() {
-  const { isUsersModalOpen, closeUsersModal, isAdmin } = useAuth();
+  const { isUsersModalOpen, closeUsersModal, isAdmin, requestOpenPricingModal, requestOpenDiscountsModal } = useAuth();
   const [users, setUsers] = useState<AdminUserItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -189,14 +189,34 @@ export function UsersModal() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={closeUsersModal}
-            className="rounded-lg p-1.5 text-ink/40 hover:bg-chalk hover:text-ink transition-colors cursor-pointer"
-            title="بستن پنجره"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={requestOpenPricingModal}
+              className="inline-flex items-center gap-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 px-2.5 py-1 text-[11px] font-bold cursor-pointer"
+              title="ورود به پلن‌های مالی با رمز عبور"
+            >
+              <span>💰</span>
+              <span className="hidden sm:inline">پلن‌های مالی</span>
+            </button>
+            <button
+              type="button"
+              onClick={requestOpenDiscountsModal}
+              className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 px-2.5 py-1 text-[11px] font-bold cursor-pointer"
+              title="ورود به کدهای تخفیف با رمز عبور"
+            >
+              <span>🏷️</span>
+              <span className="hidden sm:inline">کدهای تخفیف</span>
+            </button>
+            <button
+              type="button"
+              onClick={closeUsersModal}
+              className="rounded-lg p-1.5 text-ink/40 hover:bg-chalk hover:text-ink transition-colors cursor-pointer"
+              title="بستن پنجره"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Top Summary Stats */}

@@ -19,6 +19,8 @@ interface AuthContextType {
   isProfileModalOpen: boolean;
   isUsersModalOpen: boolean;
   isDiscountsModalOpen: boolean;
+  isPricingModalOpen: boolean;
+  sensitiveUnlockTarget: "discounts" | "pricing" | null;
   modalTab: "login" | "register" | "verify" | "forgot" | "reset";
   pendingEmail: string | null;
   demoVerificationCode: string | null;
@@ -30,6 +32,12 @@ interface AuthContextType {
   closeUsersModal: () => void;
   openDiscountsModal: () => void;
   closeDiscountsModal: () => void;
+  openPricingModal: () => void;
+  closePricingModal: () => void;
+  requestOpenDiscountsModal: () => void;
+  requestOpenPricingModal: () => void;
+  closeSensitiveUnlock: () => void;
+  unlockSensitiveAdmin: () => void;
   setPendingVerification: (email: string) => void;
   login: (
     identifier: string,
@@ -65,6 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [isDiscountsModalOpen, setIsDiscountsModalOpen] = useState(false);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [sensitiveUnlockTarget, setSensitiveUnlockTarget] = useState<"discounts" | "pricing" | null>(null);
   const [modalTab, setModalTab] = useState<"login" | "register" | "verify" | "forgot" | "reset">("login");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [demoVerificationCode, setDemoVerificationCode] = useState<string | null>(null);
@@ -160,6 +170,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   function closeDiscountsModal() {
     setIsDiscountsModalOpen(false);
+  }
+
+  function openPricingModal() {
+    setIsPricingModalOpen(true);
+  }
+
+  function closePricingModal() {
+    setIsPricingModalOpen(false);
+  }
+
+  function requestOpenDiscountsModal() {
+    setIsUsersModalOpen(false);
+    setIsProfileModalOpen(false);
+    setIsPricingModalOpen(false);
+    setSensitiveUnlockTarget("discounts");
+  }
+
+  function requestOpenPricingModal() {
+    setIsUsersModalOpen(false);
+    setIsProfileModalOpen(false);
+    setIsDiscountsModalOpen(false);
+    setSensitiveUnlockTarget("pricing");
+  }
+
+  function closeSensitiveUnlock() {
+    setSensitiveUnlockTarget(null);
+  }
+
+  function unlockSensitiveAdmin() {
+    const target = sensitiveUnlockTarget;
+    setSensitiveUnlockTarget(null);
+    if (target === "discounts") {
+      setIsDiscountsModalOpen(true);
+    } else if (target === "pricing") {
+      setIsPricingModalOpen(true);
+    }
   }
 
   function setPendingVerification(email: string) {
@@ -435,6 +481,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isProfileModalOpen,
         isUsersModalOpen,
         isDiscountsModalOpen,
+        isPricingModalOpen,
+        sensitiveUnlockTarget,
         modalTab,
         pendingEmail,
         demoVerificationCode,
@@ -446,6 +494,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         closeUsersModal,
         openDiscountsModal,
         closeDiscountsModal,
+        openPricingModal,
+        closePricingModal,
+        requestOpenDiscountsModal,
+        requestOpenPricingModal,
+        closeSensitiveUnlock,
+        unlockSensitiveAdmin,
         setPendingVerification,
         login,
         register,

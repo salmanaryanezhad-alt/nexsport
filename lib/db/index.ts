@@ -2,6 +2,15 @@ import { Pool as PgPool } from "pg";
 import mysql, { Pool as MySqlPool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import crypto from "crypto";
 import { generateShortId } from "../shortId";
+import {
+  DEFAULT_PRICING_SETTINGS,
+  DiscountAppliesTo,
+  DiscountItemType,
+  PricingSettings,
+  discountAppliesToItem,
+  mismatchDiscountMessage,
+  sanitizePricingSettings,
+} from "../payment/pricing";
 
 export interface UserRecord {
   id: string;
@@ -29,7 +38,7 @@ export interface DiscountCodeRecord {
   id: string;
   code: string;
   discount_percent: number;
-  applies_to: "planning" | "link" | "all";
+  applies_to: DiscountAppliesTo;
   expires_at: Date | null;
   is_active: boolean;
   created_at: Date;
@@ -148,6 +157,7 @@ const memoryStore = {
   guestUsage: new Map<string, GuestUsageRecord>(),
   discountCodes: new Map<string, DiscountCodeRecord>(),
   orders: new Map<string, any>(),
+  settings: new Map<string, string>(),
 };
 
 function normalizeDiscountRow(row: any): DiscountCodeRecord {
@@ -155,7 +165,7 @@ function normalizeDiscountRow(row: any): DiscountCodeRecord {
     id: row.id,
     code: String(row.code || "").trim().toUpperCase(),
     discount_percent: Number(row.discount_percent),
-    applies_to: row.applies_to || "all",
+    applies_to: (row.applies_to || "all") as DiscountAppliesTo,
     expires_at: row.expires_at ? new Date(row.expires_at) : null,
     is_active: Boolean(row.is_active),
     created_at: new Date(row.created_at),
@@ -327,6 +337,15 @@ async function initTablesIfRealDb() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`site_settings\` (
+          \`setting_key\` VARCHAR(50) NOT NULL,
+          \`setting_value\` TEXT NOT NULL,
+          \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`setting_key\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       tablesInitialized = true;
     } catch (err) {
       console.warn("[NexSport DB] MySQL table auto-init warning:", err);
@@ -440,6 +459,12 @@ async function initTablesIfRealDb() {
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_discount_code ON discount_codes(code);
+
+        CREATE TABLE IF NOT EXISTS site_settings (
+          setting_key VARCHAR(50) PRIMARY KEY,
+          setting_value TEXT NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
       `);
       tablesInitialized = true;
     } catch (err) {
@@ -1769,7 +1794,7 @@ export const db = {
   async createDiscountCode(data: {
     code: string;
     discountPercent: number;
-    appliesTo: "planning" | "link" | "all";
+    appliesTo: DiscountAppliesTo;
     expiresAt?: Date | null;
     isActive?: boolean;
     createdBy?: string;
@@ -1879,7 +1904,7 @@ export const db = {
 
   async validateDiscountCode(
     code: string,
-    itemType: "planning" | "link"
+    itemType: DiscountItemType | "planning"
   ): Promise<{
     valid: boolean;
     discount?: DiscountCodeRecord;
@@ -1927,19 +1952,11 @@ export const db = {
       return { valid: false, error: "مهلت استفاده از این کد تخفیف به پایان رسیده است." };
     }
 
-    if (record.applies_to !== "all" && record.applies_to !== itemType) {
-      if (record.applies_to === "planning") {
-        return {
-          valid: false,
-          error: "این کد تخفیف فقط برای بسته‌ها و اشتراک‌های برنامه‌ریزی مسابقات قابل استفاده است.",
-        };
-      }
-      if (record.applies_to === "link") {
-        return {
-          valid: false,
-          error: "این کد تخفیف فقط برای فعال‌سازی لینک اختصاصی تماشاگران قابل استفاده است.",
-        };
-      }
+    if (!discountAppliesToItem(record.applies_to, itemType)) {
+      return {
+        valid: false,
+        error: mismatchDiscountMessage(record.applies_to),
+      };
     }
 
     return {
@@ -1947,5 +1964,62 @@ export const db = {
       discount: record,
       discountPercent: record.discount_percent,
     };
+  },
+
+  async getPricingSettings(): Promise<PricingSettings> {
+    try {
+      if (mysqlPool) {
+        await initTablesIfRealDb();
+        const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+          "SELECT `setting_value` FROM `site_settings` WHERE `setting_key` = ? LIMIT 1",
+          ["pricing"]
+        );
+        if (rows[0]?.setting_value) {
+          return sanitizePricingSettings(JSON.parse(String(rows[0].setting_value)));
+        }
+      } else if (pgPool) {
+        await initTablesIfRealDb();
+        const res = await pgPool.query(
+          "SELECT setting_value FROM site_settings WHERE setting_key = $1 LIMIT 1",
+          ["pricing"]
+        );
+        if (res.rows[0]?.setting_value) {
+          return sanitizePricingSettings(JSON.parse(String(res.rows[0].setting_value)));
+        }
+      } else {
+        const raw = memoryStore.settings.get("pricing");
+        if (raw) return sanitizePricingSettings(JSON.parse(raw));
+      }
+    } catch (err) {
+      console.warn("[NexSport DB] getPricingSettings warning:", err);
+    }
+    return { ...DEFAULT_PRICING_SETTINGS };
+  },
+
+  async savePricingSettings(input: Partial<PricingSettings>): Promise<PricingSettings> {
+    const settings = sanitizePricingSettings(input);
+    const payload = JSON.stringify(settings);
+    const now = new Date();
+
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute(
+        `INSERT INTO \`site_settings\` (\`setting_key\`, \`setting_value\`, \`updated_at\`)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE \`setting_value\` = VALUES(\`setting_value\`), \`updated_at\` = VALUES(\`updated_at\`)`,
+        ["pricing", payload, now]
+      );
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query(
+        `INSERT INTO site_settings (setting_key, setting_value, updated_at)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = EXCLUDED.updated_at`,
+        ["pricing", payload, now]
+      );
+    }
+
+    memoryStore.settings.set("pricing", payload);
+    return settings;
   },
 };

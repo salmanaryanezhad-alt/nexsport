@@ -50,6 +50,7 @@ export function ShareTournamentModal({
     discountAmount: number;
     finalAmount: number;
   } | null>(null);
+  const [linkPrice, setLinkPrice] = useState(DEDICATED_LINK_PRICE_TOMANS);
 
   const loadUserQuota = useCallback(async () => {
     try {
@@ -112,6 +113,15 @@ export function ShareTournamentModal({
       setJustPaidSuccess(false);
       setError(null);
 
+      fetch("/api/pricing")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.settings?.linkPriceTomans != null) {
+            setLinkPrice(Number(data.settings.linkPriceTomans) || DEDICATED_LINK_PRICE_TOMANS);
+          }
+        })
+        .catch(() => {});
+
       if (user) {
         loadUserQuota();
         if (activeId) {
@@ -139,7 +149,7 @@ export function ShareTournamentModal({
               teamCount: wiz.teamCount || 4,
               state: {
                 ...wiz,
-                payment: { isPaid: true, amount: DEDICATED_LINK_PRICE_TOMANS, refId: refId || "TRX-VERIFIED" },
+                payment: { isPaid: true, amount: linkPrice, refId: refId || "TRX-VERIFIED" },
               },
             };
           }
@@ -159,7 +169,7 @@ export function ShareTournamentModal({
         ...(payload.state || {}),
         payment: {
           isPaid: true,
-          amount: DEDICATED_LINK_PRICE_TOMANS,
+          amount: linkPrice,
           refId: refId || payload.state?.payment?.refId || "TRX-VERIFIED",
           paidAt: new Date().toISOString(),
         },
@@ -251,7 +261,7 @@ export function ShareTournamentModal({
         body: JSON.stringify({
           code: rawCode,
           itemType: "link",
-          baseAmount: DEDICATED_LINK_PRICE_TOMANS,
+          baseAmount: linkPrice,
         }),
       });
 
@@ -475,7 +485,7 @@ export function ShareTournamentModal({
                         <div className="flex items-center justify-between text-xs text-slate-500">
                           <span>قیمت اصلی:</span>
                           <del className="line-through font-bold">
-                            {toPersianDigits(DEDICATED_LINK_PRICE_TOMANS.toLocaleString("en-US"))} تومان
+                            {toPersianDigits(linkPrice.toLocaleString("en-US"))} تومان
                           </del>
                         </div>
                         <div className="flex items-center justify-between text-xs text-rose-700 font-bold">
@@ -502,7 +512,7 @@ export function ShareTournamentModal({
                         <div className="flex items-baseline gap-1">
                           <span className="font-black text-lg sm:text-xl text-emerald-700">
                             {toPersianDigits(
-                              DEDICATED_LINK_PRICE_TOMANS.toLocaleString("en-US")
+                              linkPrice.toLocaleString("en-US")
                             )}
                           </span>
                           <span className="font-bold text-slate-600 text-xs">تومان</span>
@@ -669,7 +679,7 @@ export function ShareTournamentModal({
                     <>
                       <span>💳</span>
                       <span>
-                        پرداخت {toPersianDigits(DEDICATED_LINK_PRICE_TOMANS.toLocaleString("en-US"))} تومان و فعال‌سازی لینک
+                        پرداخت {toPersianDigits(linkPrice.toLocaleString("en-US"))} تومان و فعال‌سازی لینک
                       </span>
                       <span>←</span>
                     </>
