@@ -290,6 +290,42 @@ export function StoreModal({
           </button>
         </div>
 
+        {!user ? (
+          <div className="p-6 space-y-4">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 text-center space-y-3">
+              <div className="text-3xl">👤</div>
+              <h3 className="font-black text-sm text-slate-900">
+                برای ادامه وارد حساب کاربری شوید
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                کاربران مهمان می‌توانند تا ۲ مسابقه رایگان برنامه‌ریزی کنند. خرید اعتبار، اشتراک VIP و ایجاد لینک اختصاصی فقط پس از ورود به حساب کاربری در دسترس است.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    openAuthModal("login");
+                  }}
+                  className="w-full sm:flex-1 rounded-xl bg-emerald-600 py-2.5 px-4 font-black text-xs text-white hover:bg-emerald-700 shadow-sm transition-all cursor-pointer"
+                >
+                  ورود به حساب کاربری
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    openAuthModal("register");
+                  }}
+                  className="w-full sm:flex-1 rounded-xl border border-emerald-300 bg-white py-2.5 px-4 font-black text-xs text-emerald-800 hover:bg-emerald-50 transition-all cursor-pointer"
+                >
+                  ثبت‌نام رایگان
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* User Balance Overview Strip */}
         <div className="bg-slate-50 border-b border-slate-200/80 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
           {quota?.isGuest ? (
@@ -329,18 +365,6 @@ export function StoreModal({
             </div>
           )}
 
-          {!user && (
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                openAuthModal("login");
-              }}
-              className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer"
-            >
-              ثبت‌نام برای دریافت ۵ مسابقه رایگان ←
-            </button>
-          )}
         </div>
 
         {/* Tab Selector */}
@@ -491,7 +515,7 @@ export function StoreModal({
                 </div>
 
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  💡 <strong>قانون تخفیف پلکانی:</strong> برای بسته‌های بالاتر از ۱۰ مسابقه، به ازای هر ۱۰ مسابقه ۱٪ تخفیف بیشتر اعمال می‌شود (مثلاً ۲۰ مسابقه: ۲٪، ۵۰ مسابقه: ۵٪، ۱۰۰ مسابقه: ۱۰٪).
+                  💡 <strong>قانون تخفیف پلکانی:</strong> به ازای هر ۵ مسابقه ۱٪ تخفیف اعمال می‌شود (مثلاً ۵ مسابقه: ۱٪، ۱۰ مسابقه: ۲٪، ۵۰ مسابقه: ۱۰٪، ۱۰۰ مسابقه: ۲۰٪).
                 </p>
               </div>
 
@@ -822,6 +846,8 @@ export function StoreModal({
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
     </div>
   );

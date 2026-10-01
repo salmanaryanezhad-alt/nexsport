@@ -1117,6 +1117,10 @@ function PlannerWizard() {
   }
 
   function handleOpenShareModal(tournamentId?: string, tournamentTitle?: string) {
+    if (!user) {
+      openAuthModal("login");
+      return;
+    }
     if (tournamentId) {
       setShareModalTournamentId(tournamentId);
       setShareModalTournamentTitle(tournamentTitle || "");
@@ -1479,11 +1483,11 @@ function PlannerWizard() {
           <button
             type="button"
             onClick={() => {
-              if (!user && quota?.isGuest && (quota.guestCount ?? 0) >= (quota.guestLimit ?? 2)) {
-                setGuestLimitModalOpen(true);
-              } else {
-                setStoreModalOpen(true);
+              if (!user) {
+                openAuthModal("login");
+                return;
               }
+              setStoreModalOpen(true);
             }}
             className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-black shadow-2xs transition-all cursor-pointer ${
               quota?.isVip
@@ -1496,7 +1500,7 @@ function PlannerWizard() {
                 ? "border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100/70"
                 : "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 animate-pulse"
             }`}
-            title="افزایش اعتبار / اشتراک ویژه VIP"
+            title={!user ? "ورود به حساب کاربری" : "افزایش اعتبار / اشتراک ویژه VIP"}
           >
             {quota?.isVip ? (
               <>

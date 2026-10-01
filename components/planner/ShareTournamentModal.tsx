@@ -711,7 +711,7 @@ export function ShareTournamentModal({
                 </span>
                 <span className="inline-flex items-center gap-1 text-emerald-700 font-black text-xs bg-emerald-100/80 px-2.5 py-0.5 rounded-lg">
                   <span>✓</span>
-                  <span>فعال و پرداخت‌شده (۲۰۰,۰۰۰ تومان)</span>
+                  <span>فعال و پرداخت‌شده (۱۵۰,۰۰۰ تومان)</span>
                 </span>
               </div>
 

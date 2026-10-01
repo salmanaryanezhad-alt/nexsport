@@ -638,41 +638,48 @@ async function run() {
     assertEqual(afterBuyConsume.remainingCredits, 9, "موجودی باید ۹ شود.");
   });
 
-  await test("فرمول محاسبات تخفیف بسته‌های اعتباری مسابقه (هر ۱۰ عدد ۱ درصد برای بالای ۱۰)", async () => {
+  await test("فرمول محاسبات تخفیف بسته‌های اعتباری مسابقه (هر ۵ عدد ۱ درصد)", async () => {
     const { calculateCreditPrice } = await import("../payment/pricing");
 
-    // ۱ تا ۱۰ عدد: ۰٪ تخفیف
+    // ۱ عدد: ۰٪ تخفیف (بسته شروع)
+    const p1 = calculateCreditPrice(1);
+    assertEqual(p1.count, 1, "تعداد ۱");
+    assertEqual(p1.discountPercent, 0, "تخفیف ۱ عدد ۰٪ است.");
+    assertEqual(p1.finalPrice, 50000, "قیمت ۱ عدد ۵۰ هزار تومان است.");
+
+    // ۵ عدد: ۱٪ تخفیف
     const p5 = calculateCreditPrice(5);
     assertEqual(p5.count, 5, "تعداد ۵");
-    assertEqual(p5.discountPercent, 0, "تخفیف ۵ عدد ۰٪ است.");
-    assertEqual(p5.finalPrice, 250000, "قیمت ۵ عدد ۲۵۰ هزار تومان است.");
+    assertEqual(p5.discountPercent, 1, "تخفیف ۵ عدد ۱٪ است.");
+    assertEqual(p5.finalPrice, 247500, "قیمت ۵ عدد ۲۴۷,۵۰۰ تومان است.");
 
+    // ۱۰ عدد: ۲٪ تخفیف
     const p10 = calculateCreditPrice(10);
-    assertEqual(p10.discountPercent, 0, "تخفیف ۱۰ عدد ۰٪ است.");
-    assertEqual(p10.finalPrice, 500000, "قیمت ۱۰ عدد ۵۰۰ هزار تومان است.");
+    assertEqual(p10.discountPercent, 2, "تخفیف ۱۰ عدد ۲٪ است.");
+    assertEqual(p10.finalPrice, 490000, "قیمت ۱۰ عدد ۴۹۰ هزار تومان است.");
 
-    // ۲۰ عدد: ۲٪ تخفیف
+    // ۲۰ عدد: ۴٪ تخفیف
     const p20 = calculateCreditPrice(20);
-    assertEqual(p20.discountPercent, 2, "تخفیف ۲۰ عدد ۲٪ است.");
+    assertEqual(p20.discountPercent, 4, "تخفیف ۲۰ عدد ۴٪ است.");
     assertEqual(p20.baseTotal, 1000000, "قیمت پایه ۲۰ عدد ۱ میلیون است.");
-    assertEqual(p20.discountTomans, 20000, "تخفیف ۲۰ هزار تومان.");
-    assertEqual(p20.finalPrice, 980000, "مبلغ نهایی ۹۸۰ هزار تومان.");
+    assertEqual(p20.discountTomans, 40000, "تخفیف ۴۰ هزار تومان.");
+    assertEqual(p20.finalPrice, 960000, "مبلغ نهایی ۹۶۰ هزار تومان.");
 
-    // ۵۰ عدد: ۵٪ تخفیف
+    // ۵۰ عدد: ۱۰٪ تخفیف
     const p50 = calculateCreditPrice(50);
-    assertEqual(p50.discountPercent, 5, "تخفیف ۵۰ عدد ۵٪ است.");
-    assertEqual(p50.finalPrice, 2375000, "مبلغ نهایی ۵۰ عدد ۲,۳۷۵,۰۰۰ تومان است.");
+    assertEqual(p50.discountPercent, 10, "تخفیف ۵۰ عدد ۱۰٪ است.");
+    assertEqual(p50.finalPrice, 2250000, "مبلغ نهایی ۵۰ عدد ۲,۲۵۰,۰۰۰ تومان است.");
 
-    // ۱۰۰ عدد: ۱۰٪ تخفیف
+    // ۱۰۰ عدد: ۲۰٪ تخفیف
     const p100 = calculateCreditPrice(100);
-    assertEqual(p100.discountPercent, 10, "تخفیف ۱۰۰ عدد ۱۰٪ است.");
-    assertEqual(p100.finalPrice, 4500000, "مبلغ نهایی ۱۰۰ عدد ۴,۵۰۰,۰۰۰ تومان است.");
+    assertEqual(p100.discountPercent, 20, "تخفیف ۱۰۰ عدد ۲۰٪ است.");
+    assertEqual(p100.finalPrice, 4000000, "مبلغ نهایی ۱۰۰ عدد ۴,۰۰۰,۰۰۰ تومان است.");
 
-    // عدد غیر رند و دلخواه (مثلاً ۲۵ عدد)
+    // عدد غیر رند و دلخواه (مثلاً ۲۵ عدد): ۵٪ تخفیف
     const p25 = calculateCreditPrice(25);
     assertEqual(p25.count, 25, "تعداد ۲۵");
-    assertEqual(p25.discountPercent, 2, "تخفیف ۲۵ عدد ۲٪ است.");
-    assertEqual(p25.finalPrice, 1225000, "مبلغ نهایی ۲۵ عدد ۱,۲۲۵,۰۰۰ تومان است.");
+    assertEqual(p25.discountPercent, 5, "تخفیف ۲۵ عدد ۵٪ است.");
+    assertEqual(p25.finalPrice, 1187500, "مبلغ نهایی ۲۵ عدد ۱,۱۸۷,۵۰۰ تومان است.");
   });
 
   await test("هدیه اولین ایجاد لینک اختصاصی رایگان و پرداخت برای لینک‌های دوم به بعد", async () => {
@@ -754,7 +761,7 @@ async function run() {
     assertEqual(consumeRes.success, true, "کاربر VIP بدون محدودیت مسابقه ایجاد می‌کند.");
     assertEqual(consumeRes.isVip, true, "تایید هویت VIP در برنامه‌ریزی.");
 
-    // ۲. ایجاد لینک اختصاصی رایگان برای مسابقه (بدون پرداخت ۲۰۰,۰۰۰ تومان)
+    // ۲. ایجاد لینک اختصاصی رایگان برای مسابقه (بدون پرداخت ۱۵۰,۰۰۰ تومان)
     const vipTournament = await db.saveTournament({
       userId: vipUser.id,
       title: "مسابقه بزرگ VIP",
