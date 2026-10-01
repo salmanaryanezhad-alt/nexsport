@@ -57,6 +57,7 @@ function ensure_tables_exist_mysql($pdo) {
         `password_hash` TEXT NOT NULL,
         `is_verified` TINYINT(1) DEFAULT 0,
         `role` VARCHAR(20) DEFAULT 'user',
+        `planning_credits` INT DEFAULT 5,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`),
@@ -127,6 +128,13 @@ function ensure_tables_exist_mysql($pdo) {
             $pdo->exec("ALTER TABLE `sessions` ADD INDEX `idx_sessions_device` (`user_id`, `device_type`)");
         }
     } catch (\Throwable $e) {}
+
+    try {
+        $colCheck = $pdo->query("SHOW COLUMNS FROM `users` LIKE 'planning_credits'");
+        if (!$colCheck || !$colCheck->fetch()) {
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `planning_credits` INT DEFAULT 5");
+        }
+    } catch (\Throwable $e) {}
 }
 
 function ensure_tables_exist_sqlite($pdo) {
@@ -139,6 +147,7 @@ function ensure_tables_exist_sqlite($pdo) {
         password_hash TEXT NOT NULL,
         is_verified INTEGER DEFAULT 0,
         role TEXT DEFAULT 'user',
+        planning_credits INTEGER DEFAULT 5,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -267,11 +276,21 @@ function db_list_all_users($pdo) {
     return $users;
 }
 
+function db_add_planning_credits($pdo, $userId, $count) {
+    $add = max(1, (int)$count);
+    $stmt = $pdo->prepare("UPDATE users SET planning_credits = COALESCE(planning_credits, 5) + ? WHERE id = ?");
+    $stmt->execute([$add, $userId]);
+    $stmt = $pdo->prepare("SELECT planning_credits FROM users WHERE id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $row = $stmt->fetch();
+    return $row ? (int)$row['planning_credits'] : 0;
+}
+
 function db_create_user($pdo, $name, $email, $mobile, $passwordHash, $isVerified = 0, $role = 'user') {
     $id = generate_uuid();
     $stmt = $pdo->prepare("
-        INSERT INTO users (id, name, email, mobile, password_hash, is_verified, role, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO users (id, name, email, mobile, password_hash, is_verified, role, planning_credits, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     ");
     $stmt->execute([
         $id,

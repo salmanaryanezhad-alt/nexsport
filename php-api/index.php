@@ -572,6 +572,25 @@ if (preg_match('#^tournaments/([^/]+)/payment-status$#', $path, $matches) && $me
 if ($path === 'payment/create' && $method === 'POST') {
     list($session) = require_auth($pdo);
     $body = get_json_input();
+    $itemType = trim((string)($body['itemType'] ?? ''));
+
+    if ($itemType === 'planning_credits') {
+        $count = max(1, (int)($body['creditCount'] ?? 1));
+        $newTotal = db_add_planning_credits($pdo, $session['user_id'], $count);
+        $orderId = 'ord_c_' . time() . '_' . substr(md5(uniqid()), 0, 5);
+        $refId = 'TRX-' . rand(10000000, 99999999);
+        json_response([
+            'success'          => true,
+            'isDirectSuccess'  => true,
+            'itemType'         => 'planning_credits',
+            'addedCredits'     => $count,
+            'newTotalCredits'  => $newTotal,
+            'orderId'          => $orderId,
+            'refId'            => $refId,
+            'amountTomans'     => 0
+        ]);
+    }
+
     $tournamentId = trim((string)($body['tournamentId'] ?? ''));
 
     if (!$tournamentId) {
