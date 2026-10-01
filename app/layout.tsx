@@ -7,6 +7,8 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+const isServerExport = process.env.NEXT_EXPORT === "true";
+
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nexsport.ir"),
   title: {
@@ -75,19 +77,31 @@ export const metadata: Metadata = {
       "سامانه هوشمند برنامه‌ریزی مسابقات در ۱ دقیقه. رایگان شروع کنید، حرفه‌ای برگزار کنید.",
     images: ["https://nexsport.ir/og-image.png"],
   },
-  robots: {
-    index: false,
-    follow: false,
-    nocache: true,
-    googleBot: {
-      index: false,
-      follow: false,
-      noimageindex: true,
-      "max-video-preview": -1,
-      "max-image-preview": "none",
-      "max-snippet": -1,
-    },
-  },
+  robots: isServerExport
+    ? {
+        index: true,
+        follow: true,
+        googleBot: {
+          index: true,
+          follow: true,
+          "max-image-preview": "large",
+          "max-video-preview": -1,
+          "max-snippet": -1,
+        },
+      }
+    : {
+        index: false,
+        follow: false,
+        nocache: true,
+        googleBot: {
+          index: false,
+          follow: false,
+          noimageindex: true,
+          "max-video-preview": -1,
+          "max-image-preview": "none",
+          "max-snippet": -1,
+        },
+      },
 };
 
 import { AuthProvider } from "@/components/auth/AuthContext";
@@ -116,8 +130,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="font/woff2"
           crossOrigin="anonymous"
         />
-        <meta name="robots" content="noindex, nofollow, noarchive" />
-        <meta name="googlebot" content="noindex, nofollow, noarchive" />
+        {isServerExport ? (
+          <>
+            <meta name="robots" content="index, follow" />
+            <meta
+              name="googlebot"
+              content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+            />
+          </>
+        ) : (
+          <>
+            <meta name="robots" content="noindex, nofollow, noarchive" />
+            <meta name="googlebot" content="noindex, nofollow, noarchive" />
+          </>
+        )}
       </head>
       <body className="min-h-screen font-sans antialiased bg-chalk text-ink selection:bg-gold selection:text-ink">
         <AuthProvider>

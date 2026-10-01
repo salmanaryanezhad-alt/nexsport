@@ -66,9 +66,13 @@ if (fs.existsSync(publicHtaccess)) {
 }
 if (!htaccessContent.includes('X-Robots-Tag')) {
     const seoHeaders = `
-# Search Engine Indexing Headers (Permanent rule: 100% Index and Follow on Server)
+# Site pages: index, follow. User tournament links /t/ stay noindex, nofollow.
+<IfModule mod_setenvif.c>
+  SetEnvIf Request_URI "^/t/" is_tournament_page
+</IfModule>
 <IfModule mod_headers.c>
-  Header set X-Robots-Tag "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+  Header set X-Robots-Tag "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" env=!is_tournament_page
+  Header set X-Robots-Tag "noindex, nofollow, noarchive" env=is_tournament_page
 </IfModule>
 `;
     htaccessContent = seoHeaders + "\n" + htaccessContent;
@@ -79,11 +83,13 @@ console.log('✓ Injected root .htaccess with API routing and X-Robots-Tag: inde
 // 5.1 Enforce robots.txt for Server (Allow: / and Sitemap)
 const robotsTxt = `User-Agent: *
 Allow: /
+Disallow: /t/
+Disallow: /api/
 
 Sitemap: https://nexsport.ir/sitemap.xml
 `;
 fs.writeFileSync(path.join(OUT_DIR, 'robots.txt'), robotsTxt);
-console.log('✓ Enforced Server robots.txt with Allow: / and Sitemap: https://nexsport.ir/sitemap.xml');
+console.log('✓ Enforced Server robots.txt: Allow / , Disallow /t/ and /api/, Sitemap');
 
 // 5.2 Enforce sitemap.xml for Server
 const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -114,38 +120,45 @@ function sanitizeHtmlForIndexing(dir) {
             if (entry.name !== 'api') sanitizeHtmlForIndexing(fullPath);
         } else if (entry.name.endsWith('.html')) {
             let html = fs.readFileSync(fullPath, 'utf8');
-            // Remove any noindex meta tags
-            html = html.replace(/<meta\s+name=["']robots["']\s+content=["'][^"']*noindex[^"']*["']\s*\/?>/gi, '');
-            html = html.replace(/<meta\s+name=["']googlebot["']\s+content=["'][^"']*noindex[^"']*["']\s*\/?>/gi, '');
-            // Replace within serialized Next.js payloads
-            html = html.replace(/noindex,\s*nofollow(?:,\s*noarchive)?(?:,\s*nocache)?/gi, 'index, follow');
-            html = html.replace(/\\"noimageindex\\":true/gi, '\\"noimageindex\\":false');
-            html = html.replace(/\\"index\\":false/gi, '\\"index\\":true');
-            html = html.replace(/\\"follow\\":false/gi, '\\"follow\\":true');
-            html = html.replace(/"index":false/gi, '"index":true');
-            html = html.replace(/"follow":false/gi, '"follow":true');
+            const isTournamentPage = /[/\\]t[/\\]/.test(fullPath);
 
-            // Ensure index, follow meta tags are present in <head>
-            if (!html.includes('content="index, follow"')) {
+            if (isTournamentPage) {
+                html = html.replace(/<meta\s+name=["']robots["']\s+content=["'][^"']*["']\s*\/?>/gi, '');
+                html = html.replace(/<meta\s+name=["']googlebot["']\s+content=["'][^"']*["']\s*\/?>/gi, '');
                 html = html.replace(
                     /<head>/i,
-                    '<head><meta name="robots" content="index, follow" /><meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />'
+                    '<head><meta name="robots" content="noindex, nofollow, noarchive" /><meta name="googlebot" content="noindex, nofollow, noarchive" />'
                 );
-            }
-            // Ensure canonical tag
-            if (!html.includes('rel="canonical"') && !html.includes("rel='canonical'")) {
-                const canonicalUrl = fullPath.includes('planner') ? 'https://nexsport.ir/planner/' : 'https://nexsport.ir/';
-                html = html.replace(
-                    /<head>/i,
-                    `<head><link rel="canonical" href="${canonicalUrl}" />`
-                );
+            } else {
+                html = html.replace(/<meta\s+name=["']robots["']\s+content=["'][^"']*noindex[^"']*["']\s*\/?>/gi, '');
+                html = html.replace(/<meta\s+name=["']googlebot["']\s+content=["'][^"']*noindex[^"']*["']\s*\/?>/gi, '');
+                html = html.replace(/noindex,\s*nofollow(?:,\s*noarchive)?(?:,\s*nocache)?/gi, 'index, follow');
+                html = html.replace(/\\"noimageindex\\":true/gi, '\\"noimageindex\\":false');
+                html = html.replace(/\\"index\\":false/gi, '\\"index\\":true');
+                html = html.replace(/\\"follow\\":false/gi, '\\"follow\\":true');
+                html = html.replace(/"index":false/gi, '"index":true');
+                html = html.replace(/"follow":false/gi, '"follow":true');
+
+                if (!html.includes('content="index, follow"')) {
+                    html = html.replace(
+                        /<head>/i,
+                        '<head><meta name="robots" content="index, follow" /><meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />'
+                    );
+                }
+                if (!html.includes('rel="canonical"') && !html.includes("rel='canonical'")) {
+                    const canonicalUrl = fullPath.includes('planner') ? 'https://nexsport.ir/planner/' : 'https://nexsport.ir/';
+                    html = html.replace(
+                        /<head>/i,
+                        `<head><link rel="canonical" href="${canonicalUrl}" />`
+                    );
+                }
             }
             fs.writeFileSync(fullPath, html);
         }
     }
 }
 sanitizeHtmlForIndexing(OUT_DIR);
-console.log('✓ Sanitized and confirmed 100% index, follow across all HTML pages');
+console.log('✓ Server HTML: index, follow on site pages; noindex, nofollow on /t/ tournament links');
 
 // 6. Include MySQL Schema in out/database/
 const dbDir = path.join(OUT_DIR, 'database');
