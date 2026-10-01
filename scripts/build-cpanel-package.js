@@ -83,6 +83,8 @@ console.log('✓ Injected root .htaccess with API routing and X-Robots-Tag: inde
 // 5.1 Enforce robots.txt for Server (Allow: / and Sitemap)
 const robotsTxt = `User-Agent: *
 Allow: /
+Allow: /planner
+Allow: /planner/
 Disallow: /t/
 Disallow: /api/
 
