@@ -1,51 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { cleanEmailAddress } from "@/lib/auth/utils";
+import { verifyAdminRequest } from "@/lib/auth/adminGuard";
+import {
+  mergeDiscountRecords,
+  readDiscountCatalogCookie,
+  writeDiscountCatalogCookie,
+} from "@/lib/auth/discountCatalog";
 
 export const dynamic = "force-dynamic";
 
-async function verifyAdmin(req: NextRequest) {
-  const token =
-    req.cookies.get("nexsport_token")?.value ||
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-
-  if (!token) {
-    return { error: "ابتدا وارد حساب کاربری شوید.", status: 401, expired: true };
-  }
-
-  const session = await db.findSession(token);
-  if (!session) {
-    return { error: "نشست شما منقضی شده است. لطفاً مجدداً وارد شوید.", status: 401, expired: true };
-  }
-
-  const user = await db.findUserById(session.user_id);
-  if (!user) {
-    return { error: "کاربر یافت نشد.", status: 401, expired: true };
-  }
-
-  const isSalman = cleanEmailAddress(user.email) === "salman.aryanezhad@gmail.com";
-  const isAdmin = isSalman || user.role === "admin";
-
-  if (!isAdmin) {
-    return { error: "دسترسی غیرمجاز. این بخش منحصراً در اختیار مدیر سامانه می‌باشد.", status: 403 };
-  }
-
-  return { user };
-}
-
 export async function GET(req: NextRequest) {
   try {
-    const auth = await verifyAdmin(req);
+    const auth = await verifyAdminRequest(req);
     if ("error" in auth) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
-    const discounts = await db.listDiscountCodes();
-    return NextResponse.json({
+    const stored = await db.listDiscountCodes();
+    const discounts = mergeDiscountRecords(readDiscountCatalogCookie(req), stored);
+    const response = NextResponse.json({
       success: true,
       count: discounts.length,
       discounts,
     });
+    writeDiscountCatalogCookie(response, discounts);
+    return response;
   } catch (err: any) {
     console.error("[Admin Discounts GET Error]", err);
     return NextResponse.json(
@@ -57,7 +36,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await verifyAdmin(req);
+    const auth = await verifyAdminRequest(req);
     if ("error" in auth) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
@@ -96,10 +75,17 @@ export async function POST(req: NextRequest) {
       createdBy: auth.user.email,
     });
 
-    return NextResponse.json({
+    const discounts = mergeDiscountRecords(
+      readDiscountCatalogCookie(req),
+      await db.listDiscountCodes(),
+      [created]
+    );
+    const response = NextResponse.json({
       success: true,
       discount: created,
     });
+    writeDiscountCatalogCookie(response, discounts);
+    return response;
   } catch (err: any) {
     console.error("[Admin Discounts POST Error]", err);
     return NextResponse.json(

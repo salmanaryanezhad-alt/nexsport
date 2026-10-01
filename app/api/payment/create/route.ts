@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { paymentService } from "@/lib/payment";
 import { resolveSessionUser } from "@/lib/auth/sessionGuard";
 import { hasUnlimitedPlanning } from "@/lib/auth/utils";
+import { readDiscountCatalogCookie } from "@/lib/auth/discountCatalog";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { itemType, tournamentId, creditCount, vipPlanId, discountCode } = body || {};
     const origin = req.nextUrl.origin;
+    const discountCatalog = readDiscountCatalogCookie(req);
 
     // 1. Credit Package Purchase (بسته تعداد برنامه‌ریزی)
     if (itemType === "planning_credits") {
@@ -43,6 +45,7 @@ export async function POST(req: NextRequest) {
         userMobile: user.mobile || undefined,
         origin,
         discountCode: discountCode ? String(discountCode).trim() : undefined,
+        discountCatalog,
       });
 
       if (!result.success) {
@@ -62,6 +65,7 @@ export async function POST(req: NextRequest) {
         userMobile: user.mobile || undefined,
         origin,
         discountCode: discountCode ? String(discountCode).trim() : undefined,
+        discountCatalog,
       });
 
       if (!result.success) {
@@ -90,6 +94,7 @@ export async function POST(req: NextRequest) {
         useFreeGift: true,
         adminBypass: hasUnlimitedPlanning(user),
         discountCode: discountCode ? String(discountCode).trim() : undefined,
+        discountCatalog,
       });
 
       if (!result.success) {

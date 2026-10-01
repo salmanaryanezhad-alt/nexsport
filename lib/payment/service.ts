@@ -87,8 +87,9 @@ class PaymentService {
     useFreeGift?: boolean;
     discountCode?: string;
     adminBypass?: boolean;
+    discountCatalog?: any[];
   }) {
-    const { tournamentId, userId, userEmail, userMobile, origin, useFreeGift, discountCode, adminBypass } = params;
+    const { tournamentId, userId, userEmail, userMobile, origin, useFreeGift, discountCode, adminBypass, discountCatalog } = params;
 
     const tournament = await db.getTournament(tournamentId, userId);
     if (!tournament) {
@@ -245,7 +246,7 @@ class PaymentService {
     let discountPercentApplied = 0;
 
     if (discountCode) {
-      const val = await db.validateDiscountCode(discountCode, "link");
+      const val = await db.validateDiscountCode(discountCode, "link", discountCatalog || []);
       if (!val.valid) {
         return {
           success: false,
@@ -401,8 +402,9 @@ class PaymentService {
     userMobile?: string;
     origin?: string;
     discountCode?: string;
+    discountCatalog?: any[];
   }) {
-    const { userId, creditCount, userEmail, userMobile, origin, discountCode } = params;
+    const { userId, creditCount, userEmail, userMobile, origin, discountCode, discountCatalog } = params;
     const pricing = await db.getPricingSettings();
     const { count, finalPrice } = calculateCreditPrice(creditCount, pricing);
 
@@ -411,7 +413,7 @@ class PaymentService {
     let codeDiscountPercent = 0;
 
     if (discountCode) {
-      const val = await db.validateDiscountCode(discountCode, "credits");
+      const val = await db.validateDiscountCode(discountCode, "credits", discountCatalog || []);
       if (!val.valid) {
         return { success: false, error: val.error || "کد تخفیف وارد شده معتبر نمی‌باشد." };
       }
@@ -528,8 +530,9 @@ class PaymentService {
     userMobile?: string;
     origin?: string;
     discountCode?: string;
+    discountCatalog?: any[];
   }) {
-    const { userId, vipPlanId, userEmail, userMobile, origin, discountCode } = params;
+    const { userId, vipPlanId, userEmail, userMobile, origin, discountCode, discountCatalog } = params;
     const pricing = await db.getPricingSettings();
     const vipPlans = buildVipPlans(pricing);
     const plan = vipPlans.find((p) => p.id === vipPlanId) || vipPlans[0];
@@ -539,7 +542,7 @@ class PaymentService {
     let codeDiscountPercent = 0;
 
     if (discountCode) {
-      const val = await db.validateDiscountCode(discountCode, "vip");
+      const val = await db.validateDiscountCode(discountCode, "vip", discountCatalog || []);
       if (!val.valid) {
         return { success: false, error: val.error || "کد تخفیف وارد شده معتبر نمی‌باشد." };
       }

@@ -1015,6 +1015,21 @@ async function run() {
     const valPlanningOnCredits = await db.validateDiscountCode("NOWRUZ50", "credits");
     assertEqual(valPlanningOnCredits.valid, true, "کد all باید روی اعتبار اعمال شود.");
 
+    const portable = await db.validateDiscountCode("PORTABLE25", "vip", [
+      {
+        id: "portable-1",
+        code: "PORTABLE25",
+        discount_percent: 25,
+        applies_to: "all",
+        expires_at: null,
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    ]);
+    assertEqual(portable.valid, true, "کد تخفیف باید از کاتالوگ کمکی هم اعمال شود.");
+    assertEqual(portable.discountPercent, 25, "درصد کاتالوگ کمکی ۲۵ است.");
+
     // ۱۱. کد تخفیف روی مبلغ نهایی قبلی اعمال می‌شود (تخفیف حجمی + کوپن)
     const creditBuyer = await db.createUser({
       name: "خریدار بسته با تخفیف دو لایه",

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { applyCouponOnFinal, DiscountItemType } from "@/lib/payment/pricing";
+import { readDiscountCatalogCookie } from "@/lib/auth/discountCatalog";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,8 @@ export async function POST(req: NextRequest) {
       ? "credits"
       : "credits";
 
-    const val = await db.validateDiscountCode(String(code), type);
+    const catalog = readDiscountCatalogCookie(req);
+    const val = await db.validateDiscountCode(String(code), type, catalog);
 
     if (!val.valid) {
       return NextResponse.json(

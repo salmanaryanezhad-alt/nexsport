@@ -2,7 +2,7 @@ import { Pool as PgPool } from "pg";
 import mysql, { Pool as MySqlPool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import crypto from "crypto";
 import { generateShortId } from "../shortId";
-import { hasUnlimitedPlanning, isSuperAdminEmail } from "../auth/utils";
+import { hasUnlimitedPlanning, isSuperAdminEmail, toEnglishDigits } from "../auth/utils";
 import {
   createSignedSessionToken,
   parseSessionToken,
@@ -2029,7 +2029,7 @@ export const db = {
     createdBy?: string;
   }): Promise<DiscountCodeRecord> {
     const id = crypto.randomUUID();
-    const cleanCode = data.code.trim().toUpperCase();
+    const cleanCode = toEnglishDigits(data.code).trim().toUpperCase();
     const discountPercent = Math.min(
       100,
       Math.max(1, Math.round(Number(data.discountPercent) || 10))
@@ -2039,20 +2039,24 @@ export const db = {
     const isActive = data.isActive !== undefined ? Boolean(data.isActive) : true;
     const now = new Date();
 
-    if (mysqlPool) {
-      await initTablesIfRealDb();
-      await mysqlPool.execute(
-        `INSERT INTO \`discount_codes\` (id, code, discount_percent, applies_to, expires_at, is_active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, cleanCode, discountPercent, appliesTo, expiresAt, isActive ? 1 : 0, now, now]
-      );
-    } else if (pgPool) {
-      await initTablesIfRealDb();
-      await pgPool.query(
-        `INSERT INTO discount_codes (id, code, discount_percent, applies_to, expires_at, is_active, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [id, cleanCode, discountPercent, appliesTo, expiresAt, isActive, now, now]
-      );
+    try {
+      if (mysqlPool) {
+        await initTablesIfRealDb();
+        await mysqlPool.execute(
+          `INSERT INTO \`discount_codes\` (id, code, discount_percent, applies_to, expires_at, is_active, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [id, cleanCode, discountPercent, appliesTo, expiresAt, isActive ? 1 : 0, now, now]
+        );
+      } else if (pgPool) {
+        await initTablesIfRealDb();
+        await pgPool.query(
+          `INSERT INTO discount_codes (id, code, discount_percent, applies_to, expires_at, is_active, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [id, cleanCode, discountPercent, appliesTo, expiresAt, isActive, now, now]
+        );
+      }
+    } catch (err) {
+      console.warn("[NexSport DB] createDiscountCode persist failed:", err);
     }
 
     const record: DiscountCodeRecord = {
@@ -2133,36 +2137,50 @@ export const db = {
 
   async validateDiscountCode(
     code: string,
-    itemType: DiscountItemType | "planning"
+    itemType: DiscountItemType | "planning",
+    extraRecords: DiscountCodeRecord[] = []
   ): Promise<{
     valid: boolean;
     discount?: DiscountCodeRecord;
     discountPercent?: number;
     error?: string;
   }> {
-    const cleanCode = String(code || "").trim().toUpperCase();
+    const cleanCode = toEnglishDigits(String(code || "")).trim().toUpperCase();
     if (!cleanCode) {
       return { valid: false, error: "لطفاً کد تخفیف را وارد فرمایید." };
     }
 
     let record: DiscountCodeRecord | null = null;
-    if (mysqlPool) {
-      await initTablesIfRealDb();
-      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
-        "SELECT * FROM `discount_codes` WHERE code = ? LIMIT 1",
-        [cleanCode]
-      );
-      if (rows[0]) record = normalizeDiscountRow(rows[0]);
-    } else if (pgPool) {
-      await initTablesIfRealDb();
-      const res = await pgPool.query(
-        "SELECT * FROM discount_codes WHERE code = $1 LIMIT 1",
-        [cleanCode]
-      );
-      if (res.rows[0]) record = normalizeDiscountRow(res.rows[0]);
-    } else {
+    try {
+      if (mysqlPool) {
+        await initTablesIfRealDb();
+        const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+          "SELECT * FROM `discount_codes` WHERE code = ? LIMIT 1",
+          [cleanCode]
+        );
+        if (rows[0]) record = normalizeDiscountRow(rows[0]);
+      } else if (pgPool) {
+        await initTablesIfRealDb();
+        const res = await pgPool.query(
+          "SELECT * FROM discount_codes WHERE code = $1 LIMIT 1",
+          [cleanCode]
+        );
+        if (res.rows[0]) record = normalizeDiscountRow(res.rows[0]);
+      }
+    } catch (err) {
+      console.warn("[NexSport DB] validateDiscountCode store failed:", err);
+    }
+    if (!record) {
       for (const d of memoryStore.discountCodes.values()) {
-        if (d.code === cleanCode) {
+        if (String(d.code || "").trim().toUpperCase() === cleanCode) {
+          record = normalizeDiscountRow(d);
+          break;
+        }
+      }
+    }
+    if (!record) {
+      for (const d of extraRecords) {
+        if (String(d.code || "").trim().toUpperCase() === cleanCode) {
           record = normalizeDiscountRow(d);
           break;
         }

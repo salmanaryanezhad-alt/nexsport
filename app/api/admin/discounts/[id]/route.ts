@@ -1,44 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { cleanEmailAddress } from "@/lib/auth/utils";
+import { verifyAdminRequest } from "@/lib/auth/adminGuard";
+import {
+  mergeDiscountRecords,
+  readDiscountCatalogCookie,
+  writeDiscountCatalogCookie,
+} from "@/lib/auth/discountCatalog";
 
 export const dynamic = "force-dynamic";
-
-async function verifyAdmin(req: NextRequest) {
-  const token =
-    req.cookies.get("nexsport_token")?.value ||
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-
-  if (!token) {
-    return { error: "ابتدا وارد حساب کاربری شوید.", status: 401, expired: true };
-  }
-
-  const session = await db.findSession(token);
-  if (!session) {
-    return { error: "نشست شما منقضی شده است. لطفاً مجدداً وارد شوید.", status: 401, expired: true };
-  }
-
-  const user = await db.findUserById(session.user_id);
-  if (!user) {
-    return { error: "کاربر یافت نشد.", status: 401, expired: true };
-  }
-
-  const isSalman = cleanEmailAddress(user.email) === "salman.aryanezhad@gmail.com";
-  const isAdmin = isSalman || user.role === "admin";
-
-  if (!isAdmin) {
-    return { error: "دسترسی غیرمجاز. این بخش منحصراً در اختیار مدیر سامانه می‌باشد.", status: 403 };
-  }
-
-  return { user };
-}
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const auth = await verifyAdmin(req);
+    const auth = await verifyAdminRequest(req);
     if ("error" in auth) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
@@ -47,7 +23,18 @@ export async function PATCH(
     const body = await req.json();
     const { isActive } = body;
 
-    const updated = await db.toggleDiscountCode(id, isActive);
+    let updated = await db.toggleDiscountCode(id, isActive);
+    const catalog = readDiscountCatalogCookie(req);
+    if (!updated) {
+      const found = catalog.find((item) => item.id === id);
+      if (found) {
+        updated = {
+          ...found,
+          is_active: typeof isActive === "boolean" ? isActive : !found.is_active,
+          updated_at: new Date(),
+        };
+      }
+    }
     if (!updated) {
       return NextResponse.json(
         { error: "کد تخفیف مورد نظر یافت نشد." },
@@ -55,10 +42,13 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({
+    const discounts = mergeDiscountRecords(catalog, await db.listDiscountCodes(), [updated]);
+    const response = NextResponse.json({
       success: true,
       discount: updated,
     });
+    writeDiscountCatalogCookie(response, discounts);
+    return response;
   } catch (err: any) {
     console.error("[Admin Discounts PATCH Error]", err);
     return NextResponse.json(
@@ -73,24 +63,23 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const auth = await verifyAdmin(req);
+    const auth = await verifyAdminRequest(req);
     if ("error" in auth) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const { id } = params;
-    const deleted = await db.deleteDiscountCode(id);
-    if (!deleted) {
-      return NextResponse.json(
-        { error: "کد تخفیف مورد نظر یافت نشد یا قبلاً حذف شده است." },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
+    await db.deleteDiscountCode(id);
+    const remaining = mergeDiscountRecords(
+      readDiscountCatalogCookie(req).filter((item) => item.id !== id),
+      (await db.listDiscountCodes()).filter((item) => item.id !== id)
+    );
+    const response = NextResponse.json({
       success: true,
       message: "کد تخفیف با موفقیت حذف گردید.",
     });
+    writeDiscountCatalogCookie(response, remaining);
+    return response;
   } catch (err: any) {
     console.error("[Admin Discounts DELETE Error]", err);
     return NextResponse.json(

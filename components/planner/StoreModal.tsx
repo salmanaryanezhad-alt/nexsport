@@ -161,8 +161,9 @@ export function StoreModal({
 
     try {
       const baseAmt = activeTab === "credits" ? creditPricing.finalPrice : selectedVip.finalPriceTomans;
-      const res = await fetch("/api/discount/validate", {
+      const res = await fetch("/api/discount/validate/", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: rawCode,
@@ -207,8 +208,9 @@ export function StoreModal({
     setError(null);
 
     try {
-      const res = await fetch("/api/payment/create", {
+      const res = await fetch("/api/payment/create/", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemType: "planning_credits",
@@ -252,8 +254,9 @@ export function StoreModal({
     setError(null);
 
     try {
-      const res = await fetch("/api/payment/create", {
+      const res = await fetch("/api/payment/create/", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemType: "vip_subscription",

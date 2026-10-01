@@ -257,8 +257,9 @@ export function ShareTournamentModal({
     setDiscountError(null);
 
     try {
-      const res = await fetch("/api/discount/validate", {
+      const res = await fetch("/api/discount/validate/", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: rawCode,

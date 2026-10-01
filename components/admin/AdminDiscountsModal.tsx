@@ -43,7 +43,7 @@ export function AdminDiscountsModal() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/discounts");
+      const res = await fetch("/api/admin/discounts/", { credentials: "same-origin" });
       let data: any = {};
       try {
         data = await res.json();
@@ -85,8 +85,9 @@ export function AdminDiscountsModal() {
     setActionMessage(null);
 
     try {
-      const res = await fetch(`/api/admin/discounts/${target.id}`, {
+      const res = await fetch(`/api/admin/discounts/${target.id}/`, {
         method: "PATCH",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: nextState }),
       });
@@ -130,8 +131,9 @@ export function AdminDiscountsModal() {
     setActionMessage(null);
 
     try {
-      const res = await fetch(`/api/admin/discounts/${target.id}`, {
+      const res = await fetch(`/api/admin/discounts/${target.id}/`, {
         method: "DELETE",
+        credentials: "same-origin",
       });
 
       const data = await res.json();
@@ -176,7 +178,8 @@ export function AdminDiscountsModal() {
     setActionMessage(null);
 
     try {
-      const res = await fetch("/api/admin/discounts", {
+      const res = await fetch("/api/admin/discounts/", {
+        credentials: "same-origin",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
