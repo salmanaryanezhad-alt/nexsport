@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { toPersianDigits } from "@/lib/digits";
 import { DEDICATED_LINK_PRICE_TOMANS } from "@/lib/payment/types";
@@ -30,6 +30,7 @@ export function ShareTournamentModal({
   const [isPaid, setIsPaid] = useState<boolean>(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [justPaidSuccess, setJustPaidSuccess] = useState(false);
+  const bodyScrollRef = useRef<HTMLDivElement | null>(null);
   const [refId, setRefId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [shareTextCopied, setShareTextCopied] = useState(false);
@@ -107,6 +108,14 @@ export function ShareTournamentModal({
       setLoading(false);
     }
   }, [onEnsureSaved, checkPaymentStatus]);
+
+  useEffect(() => {
+    if (!justPaidSuccess) return;
+    const id = window.requestAnimationFrame(() => {
+      bodyScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [justPaidSuccess]);
 
   useEffect(() => {
     if (isOpen) {
@@ -386,7 +395,7 @@ export function ShareTournamentModal({
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-5 space-y-4 text-xs overflow-y-auto">
+        <div ref={bodyScrollRef} className="p-5 space-y-4 text-xs overflow-y-auto">
           {/* Case 1: User is not logged in */}
           {!user && (
             <div className="rounded-2xl border border-amber-300 bg-amber-50/70 p-4 space-y-3">

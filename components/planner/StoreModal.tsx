@@ -16,6 +16,13 @@ interface StoreModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: "credits" | "vip";
+  initialSuccess?: {
+    type: "credits" | "vip";
+    count?: number;
+    totalCredits?: number;
+    title?: string;
+    refId?: string;
+  } | null;
   onSuccess?: () => void;
 }
 
@@ -23,6 +30,7 @@ export function StoreModal({
   isOpen,
   onClose,
   initialTab = "credits",
+  initialSuccess = null,
   onSuccess,
 }: StoreModalProps) {
   const { user, openAuthModal, isAdmin } = useAuth();
@@ -69,31 +77,23 @@ export function StoreModal({
   const purchaseResultRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      setActiveTab(initialTab);
-      setSuccessInfo(null);
-      setError(null);
-      setAppliedDiscount(null);
-      setDiscountError(null);
-      loadQuota();
-      loadPricing();
-    }
-  }, [isOpen, initialTab, user]);
+    if (!isOpen) return;
+    setActiveTab(initialTab);
+    setSuccessInfo(initialSuccess || null);
+    setError(null);
+    setAppliedDiscount(null);
+    setDiscountError(null);
+    loadQuota();
+    loadPricing();
+  }, [isOpen]);
 
   useEffect(() => {
-    if (!successInfo && !error) return;
-    const container = bodyScrollRef.current;
-    const target = purchaseResultRef.current;
-    if (!container || !target) return;
-    const cRect = container.getBoundingClientRect();
-    const tRect = target.getBoundingClientRect();
-    if (tRect.top < cRect.top || tRect.bottom > cRect.bottom) {
-      container.scrollTo({
-        top: container.scrollTop + (tRect.top - cRect.top) - 8,
-        behavior: "smooth",
-      });
-    }
-  }, [successInfo, error]);
+    if (!isOpen || (!successInfo && !error)) return;
+    const id = window.requestAnimationFrame(() => {
+      bodyScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [isOpen, successInfo, error]);
 
   async function loadPricing() {
     try {
@@ -243,6 +243,11 @@ export function StoreModal({
         return;
       }
 
+      if (data.paymentUrl && !data.isDirectSuccess) {
+        window.location.href = data.paymentUrl;
+        return;
+      }
+
       const added = Number(data.addedCredits) > 0 ? Number(data.addedCredits) : creditPricing.count;
       const previous =
         typeof quota?.planningCredits === "number" ? quota.planningCredits : 5;
@@ -290,6 +295,11 @@ export function StoreModal({
       if (!res.ok || !data.success) {
         setError(data.error || "خطا در پردازش اشتراک ویژه.");
         setProcessing(false);
+        return;
+      }
+
+      if (data.paymentUrl && !data.isDirectSuccess) {
+        window.location.href = data.paymentUrl;
         return;
       }
 
@@ -499,6 +509,8 @@ export function StoreModal({
 
         {/* Content Body */}
         <div ref={bodyScrollRef} className="p-5 space-y-4 overflow-y-auto text-xs">
+          {purchaseResultBanner}
+
           {/* TAB 1: CREDIT PACKAGES */}
           {activeTab === "credits" && (
             <div className="space-y-4">
@@ -684,8 +696,6 @@ export function StoreModal({
                   <strong>نکته:</strong> بسته‌های اعتباری مربوط به برنامه‌ریزی و تولید جداول مسابقات است. ایجاد لینک اختصاصی تماشاگران برای هر مسابقه همان {toPersianDigits(pricingSettings.linkPriceTomans.toLocaleString("en-US"))} تومان جداگانه است (به جز ۱ مسابقه اول که هدیه رایگان ثبت‌نام شماست). در صورتی که مایلید تمام لینک‌ها رایگان باشند، به <strong>اشتراک ویژه VIP</strong> ارتقا دهید.
                 </span>
               </div>
-
-              {purchaseResultBanner}
 
               {/* Purchase Action Button */}
               <button
@@ -876,8 +886,6 @@ export function StoreModal({
                   </div>
                 )}
               </div>
-
-              {purchaseResultBanner}
 
               {/* Purchase Action Button */}
               <button

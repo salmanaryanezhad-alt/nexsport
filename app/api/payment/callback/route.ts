@@ -49,9 +49,18 @@ export async function GET(req: NextRequest) {
     });
 
     if (verifyResult.success) {
-      return NextResponse.redirect(
-        `${baseUrl}/planner?payment_status=success&refId=${verifyResult.refId}&tournamentId=${tournamentId}`
-      );
+      const order: any = verifyResult.order || {};
+      const itemType = String(order.item_type || order.itemType || "");
+      const tid = String(order.tournament_id || order.tournamentId || tournamentId || "");
+      const qty = Number(order.item_quantity || order.itemQuantity || 0);
+      const params = new URLSearchParams({
+        payment_status: "success",
+        refId: String(verifyResult.refId || ""),
+      });
+      if (itemType) params.set("itemType", itemType);
+      if (tid) params.set("tournamentId", tid);
+      if (qty) params.set("creditCount", String(qty));
+      return NextResponse.redirect(`${baseUrl}/planner?${params.toString()}`);
     } else {
       return NextResponse.redirect(
         `${baseUrl}/planner?payment_status=failed&error=${encodeURIComponent(verifyResult.error || "تراکنش ناموفق بود.")}`

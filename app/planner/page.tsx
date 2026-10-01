@@ -324,6 +324,13 @@ function PlannerWizard() {
   // Store & Quota Management
   const [storeModalOpen, setStoreModalOpen] = useState(false);
   const [storeModalTab, setStoreModalTab] = useState<"credits" | "vip">("credits");
+  const [storeReturnSuccess, setStoreReturnSuccess] = useState<{
+    type: "credits" | "vip";
+    count?: number;
+    totalCredits?: number;
+    title?: string;
+    refId?: string;
+  } | null>(null);
   const [guestLimitModalOpen, setGuestLimitModalOpen] = useState(false);
   const [quota, setQuota] = useState<{
     isGuest: boolean;
@@ -560,6 +567,54 @@ function PlannerWizard() {
       setSavedModalOpen(true);
     }
   }, [openQuery]);
+
+  const paymentStatusQuery = searchParams.get("payment_status");
+  useEffect(() => {
+    if (!paymentStatusQuery) return;
+    const itemType = searchParams.get("itemType") || "";
+    const tournamentId = searchParams.get("tournamentId") || "";
+    const refId = searchParams.get("refId") || "";
+    const creditCount = Number(searchParams.get("creditCount") || 0);
+
+    if (paymentStatusQuery === "success") {
+      if (itemType === "vip_subscription") {
+        setStoreReturnSuccess({ type: "vip", title: "VIP", refId: refId || undefined });
+        setStoreModalTab("vip");
+        setStoreModalOpen(true);
+      } else if (itemType === "planning_credits" || (!itemType && !tournamentId)) {
+        setStoreReturnSuccess({
+          type: "credits",
+          count: creditCount || undefined,
+          refId: refId || undefined,
+        });
+        setStoreModalTab("credits");
+        setStoreModalOpen(true);
+      } else if (tournamentId) {
+        setShareModalTournamentId(tournamentId);
+        setShareModalOpen(true);
+      }
+      loadQuota();
+    } else if (
+      paymentStatusQuery === "failed" ||
+      paymentStatusQuery === "canceled" ||
+      paymentStatusQuery === "error"
+    ) {
+      if (itemType === "vip_subscription") setStoreModalTab("vip");
+      else if (!tournamentId) setStoreModalTab("credits");
+      if (itemType === "planning_credits" || itemType === "vip_subscription" || !tournamentId) {
+        setStoreModalOpen(true);
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      ["payment_status", "refId", "itemType", "tournamentId", "creditCount", "error"].forEach((key) => {
+        url.searchParams.delete(key);
+      });
+      const next = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "");
+      window.history.replaceState({}, "", next);
+    }
+  }, [paymentStatusQuery, searchParams, loadQuota]);
 
   useEffect(() => {
     function handleOpenEvent() {
@@ -3577,8 +3632,12 @@ function PlannerWizard() {
       {/* Store & Membership Modal */}
       <StoreModal
         isOpen={storeModalOpen}
-        onClose={() => setStoreModalOpen(false)}
+        onClose={() => {
+          setStoreModalOpen(false);
+          setStoreReturnSuccess(null);
+        }}
         initialTab={storeModalTab}
+        initialSuccess={storeReturnSuccess}
         onSuccess={() => {
           loadQuota();
         }}
