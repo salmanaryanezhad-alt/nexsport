@@ -135,13 +135,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function checkMe() {
       try {
         const res = await fetch("/api/auth/me");
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.user) {
-            syncUser(data.user);
-          } else {
-            syncUser(null);
-          }
+        if (!res.ok) {
+          // Transient 5xx on serverless must not wipe a cached login.
+          return;
+        }
+        const data = await res.json();
+        if (data && data.user) {
+          syncUser(data.user);
         } else {
           syncUser(null);
         }

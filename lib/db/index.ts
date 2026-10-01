@@ -3,6 +3,12 @@ import mysql, { Pool as MySqlPool, RowDataPacket, ResultSetHeader } from "mysql2
 import crypto from "crypto";
 import { generateShortId } from "../shortId";
 import {
+  createSignedSessionToken,
+  parseSessionToken,
+  snapshotFromPayload,
+  SessionUserSnapshot,
+} from "../auth/sessionToken";
+import {
   DEFAULT_PRICING_SETTINGS,
   DiscountAppliesTo,
   DiscountItemType,
@@ -62,6 +68,7 @@ export interface SessionRecord {
   expires_at: Date;
   last_active_at?: Date;
   created_at: Date;
+  user_snapshot?: SessionUserSnapshot;
 }
 
 export interface PasswordResetRecord {
@@ -135,11 +142,18 @@ let mysqlPool: MySqlPool | null = null;
 let pgPool: PgPool | null = null;
 let tablesInitialized = false;
 
+const runningOnVercel = Boolean(process.env.VERCEL);
+const mysqlHostIsLoopback =
+  mysqlHost === "localhost" || mysqlHost === "127.0.0.1" || mysqlHost === "::1";
+
 if (isMySql) {
   try {
-    if (connectionString && (connectionString.startsWith("mysql://") || connectionString.startsWith("mysql2://"))) {
+    const mysqlUrl =
+      connectionString &&
+      (connectionString.startsWith("mysql://") || connectionString.startsWith("mysql2://"));
+    if (mysqlUrl) {
       mysqlPool = mysql.createPool(connectionString);
-    } else if (mysqlDatabase && mysqlUser) {
+    } else if (mysqlDatabase && mysqlUser && !(runningOnVercel && mysqlHostIsLoopback)) {
       mysqlPool = mysql.createPool({
         host: mysqlHost,
         port: mysqlPort,
@@ -153,6 +167,8 @@ if (isMySql) {
         keepAliveInitialDelay: 10000,
         charset: "utf8mb4",
       });
+    } else if (runningOnVercel && mysqlHostIsLoopback) {
+      console.warn("[NexSport DB] Skipping localhost MySQL on Vercel; sessions use signed cookies.");
     }
   } catch (err) {
     console.warn("[NexSport DB] MySQL pool creation warning:", err);
@@ -586,9 +602,34 @@ async function initTablesIfRealDb() {
   }
 }
 
+function requireStoredSessionLookup(): boolean {
+  if (mysqlPool || pgPool) return true;
+  // Vercel memory is per-instance; signed cookies must stand alone.
+  return !process.env.VERCEL;
+}
+
+function sessionRecordFromPayload(
+  parsed: NonNullable<ReturnType<typeof parseSessionToken>>,
+  now: Date,
+  rollingExpiresAt: Date
+): SessionRecord {
+  return {
+    id: parsed.sid,
+    user_id: parsed.u,
+    device_type: parsed.d === "mobile" ? "mobile" : "desktop",
+    expires_at: rollingExpiresAt,
+    last_active_at: now,
+    created_at: now,
+    user_snapshot: snapshotFromPayload(parsed),
+  };
+}
+
 export const db = {
   isConfigured: Boolean(mysqlPool || pgPool),
   driver: mysqlPool ? "mysql" : pgPool ? "postgres" : "memory",
+  hasSharedSessionStore(): boolean {
+    return Boolean(mysqlPool || pgPool);
+  },
 
   async findUserByEmail(email: string): Promise<UserRecord | null> {
     const cleanEmail = email.trim().toLowerCase();
@@ -647,19 +688,23 @@ export const db = {
   },
 
   async findUserById(id: string): Promise<UserRecord | null> {
-    if (mysqlPool) {
-      await initTablesIfRealDb();
-      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
-        "SELECT * FROM `users` WHERE id = ? LIMIT 1",
-        [id]
-      );
-      return rows[0] ? normalizeUserRow(rows[0]) : null;
-    }
+    try {
+      if (mysqlPool) {
+        await initTablesIfRealDb();
+        const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+          "SELECT * FROM `users` WHERE id = ? LIMIT 1",
+          [id]
+        );
+        return rows[0] ? normalizeUserRow(rows[0]) : null;
+      }
 
-    if (pgPool) {
-      await initTablesIfRealDb();
-      const res = await pgPool.query("SELECT * FROM users WHERE id = $1 LIMIT 1", [id]);
-      return res.rows[0] ? normalizeUserRow(res.rows[0]) : null;
+      if (pgPool) {
+        await initTablesIfRealDb();
+        const res = await pgPool.query("SELECT * FROM users WHERE id = $1 LIMIT 1", [id]);
+        return res.rows[0] ? normalizeUserRow(res.rows[0]) : null;
+      }
+    } catch (err) {
+      console.warn("[NexSport DB] findUserById failed:", err);
     }
     const u = memoryStore.users.get(id);
     return u ? normalizeUserRow(u) : null;
@@ -954,55 +999,78 @@ export const db = {
   },
 
   async createSession(userId: string, hours = 48, deviceType: "desktop" | "mobile" = "desktop"): Promise<string> {
-    const token = crypto.randomBytes(32).toString("hex");
     const now = new Date();
     const expiresAt = new Date(now.getTime() + hours * 60 * 60 * 1000);
-
-    if (mysqlPool) {
-      await initTablesIfRealDb();
-      try {
-        await mysqlPool.execute(
-          `INSERT INTO \`sessions\` (id, user_id, device_type, expires_at, last_active_at, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [token, userId, deviceType, expiresAt, now, now]
-        );
-      } catch {
-        await mysqlPool.query("ALTER TABLE `sessions` ADD COLUMN `device_type` VARCHAR(20) DEFAULT 'desktop'").catch(() => {});
-        await mysqlPool.execute(
-          `INSERT INTO \`sessions\` (id, user_id, device_type, expires_at, last_active_at, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [token, userId, deviceType, expiresAt, now, now]
-        ).catch(async () => {
-          await mysqlPool!.execute(
-            `INSERT INTO \`sessions\` (id, user_id, expires_at, last_active_at, created_at)
-             VALUES (?, ?, ?, ?, ?)`,
-            [token, userId, expiresAt, now, now]
-          );
-        });
-      }
-      await mysqlPool.execute("UPDATE `users` SET updated_at = ? WHERE id = ?", [now, userId]).catch(() => {});
-      return token;
+    let snapshotUser: UserRecord | null = null;
+    try {
+      snapshotUser = await this.findUserById(userId);
+    } catch {
+      snapshotUser = null;
     }
-
-    if (pgPool) {
-      await initTablesIfRealDb();
-      await pgPool.query(
-        `INSERT INTO sessions (id, user_id, device_type, expires_at, last_active_at, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [token, userId, deviceType, expiresAt, now, now]
-      );
-      await pgPool.query("UPDATE users SET updated_at = $1 WHERE id = $2", [now, userId]).catch(() => {});
-      return token;
-    }
-
-    memoryStore.sessions.set(token, {
-      id: token,
+    const signed = createSignedSessionToken({
+      userId,
+      name: snapshotUser?.name,
+      email: snapshotUser?.email,
+      mobile: snapshotUser?.mobile,
+      role: snapshotUser?.role,
+      isVerified: snapshotUser?.is_verified,
+      deviceType,
+      hours,
+    });
+    const token = signed.token;
+    const sid = signed.sid;
+    const record: SessionRecord = {
+      id: sid,
       user_id: userId,
       device_type: deviceType,
       expires_at: expiresAt,
       last_active_at: now,
       created_at: now,
-    });
+      user_snapshot: snapshotFromPayload(signed.payload),
+    };
+
+    try {
+      if (mysqlPool) {
+        await initTablesIfRealDb();
+        try {
+          await mysqlPool.execute(
+            `INSERT INTO \`sessions\` (id, user_id, device_type, expires_at, last_active_at, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [sid, userId, deviceType, expiresAt, now, now]
+          );
+        } catch {
+          await mysqlPool.query("ALTER TABLE `sessions` ADD COLUMN `device_type` VARCHAR(20) DEFAULT 'desktop'").catch(() => {});
+          await mysqlPool.execute(
+            `INSERT INTO \`sessions\` (id, user_id, device_type, expires_at, last_active_at, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [sid, userId, deviceType, expiresAt, now, now]
+          ).catch(async () => {
+            await mysqlPool!.execute(
+              `INSERT INTO \`sessions\` (id, user_id, expires_at, last_active_at, created_at)
+               VALUES (?, ?, ?, ?, ?)`,
+              [sid, userId, expiresAt, now, now]
+            );
+          });
+        }
+        await mysqlPool.execute("UPDATE `users` SET updated_at = ? WHERE id = ?", [now, userId]).catch(() => {});
+        return token;
+      }
+
+      if (pgPool) {
+        await initTablesIfRealDb();
+        await pgPool.query(
+          `INSERT INTO sessions (id, user_id, device_type, expires_at, last_active_at, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [sid, userId, deviceType, expiresAt, now, now]
+        );
+        await pgPool.query("UPDATE users SET updated_at = $1 WHERE id = $2", [now, userId]).catch(() => {});
+        return token;
+      }
+    } catch (err) {
+      console.warn("[NexSport DB] createSession persist failed; using signed cookie only:", err);
+    }
+
+    memoryStore.sessions.set(sid, record);
     return token;
   },
 
@@ -1100,73 +1168,115 @@ export const db = {
   async findSession(token: string): Promise<SessionRecord | null> {
     const now = new Date();
     const rollingExpiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    const parsed = parseSessionToken(token);
+    const lookupId = parsed?.sid || token;
+    const snapshot = parsed ? snapshotFromPayload(parsed) : undefined;
 
-    if (mysqlPool) {
-      await initTablesIfRealDb();
-      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
-        "SELECT * FROM `sessions` WHERE id = ? AND expires_at > ? LIMIT 1",
-        [token, now]
-      );
-      const session = rows[0];
-      if (session) {
-        mysqlPool.execute(
-          "UPDATE `sessions` SET expires_at = ?, last_active_at = ? WHERE id = ?",
-          [rollingExpiresAt, now, token]
-        ).catch(() => {});
-        mysqlPool.execute("UPDATE `users` SET updated_at = ? WHERE id = ?", [now, session.user_id]).catch(() => {});
-        return {
-          id: session.id,
-          user_id: session.user_id,
-          expires_at: rollingExpiresAt,
-          last_active_at: now,
-          created_at: new Date(session.created_at),
-        };
+    const withMeta = (session: SessionRecord): SessionRecord => ({
+      ...session,
+      expires_at: rollingExpiresAt,
+      last_active_at: now,
+      user_snapshot: snapshot || session.user_snapshot,
+    });
+
+    try {
+      if (mysqlPool) {
+        await initTablesIfRealDb();
+        const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+          "SELECT * FROM `sessions` WHERE id = ? AND expires_at > ? LIMIT 1",
+          [lookupId, now]
+        );
+        const session = rows[0];
+        if (session) {
+          mysqlPool.execute(
+            "UPDATE `sessions` SET expires_at = ?, last_active_at = ? WHERE id = ?",
+            [rollingExpiresAt, now, lookupId]
+          ).catch(() => {});
+          mysqlPool.execute("UPDATE `users` SET updated_at = ? WHERE id = ?", [now, session.user_id]).catch(() => {});
+          return withMeta({
+            id: session.id,
+            user_id: session.user_id,
+            device_type: session.device_type,
+            expires_at: rollingExpiresAt,
+            last_active_at: now,
+            created_at: new Date(session.created_at),
+          });
+        }
+        if (parsed && requireStoredSessionLookup()) return null;
+        if (parsed) return sessionRecordFromPayload(parsed, now, rollingExpiresAt);
+        return null;
       }
+
+      if (pgPool) {
+        await initTablesIfRealDb();
+        const res = await pgPool.query(
+          "SELECT * FROM sessions WHERE id = $1 AND expires_at > $2 LIMIT 1",
+          [lookupId, now]
+        );
+        const session = res.rows[0];
+        if (session) {
+          pgPool.query(
+            "UPDATE sessions SET expires_at = $1, last_active_at = $2 WHERE id = $3",
+            [rollingExpiresAt, now, lookupId]
+          ).catch(() => {});
+          pgPool.query("UPDATE users SET updated_at = $1 WHERE id = $2", [now, session.user_id]).catch(() => {});
+          return withMeta({
+            id: session.id,
+            user_id: session.user_id,
+            device_type: session.device_type,
+            expires_at: rollingExpiresAt,
+            last_active_at: now,
+            created_at: new Date(session.created_at),
+          });
+        }
+        if (parsed && requireStoredSessionLookup()) return null;
+        if (parsed) return sessionRecordFromPayload(parsed, now, rollingExpiresAt);
+        return null;
+      }
+    } catch (err) {
+      console.warn("[NexSport DB] findSession store failed:", err);
+      if (parsed) return sessionRecordFromPayload(parsed, now, rollingExpiresAt);
       return null;
     }
 
-    if (pgPool) {
-      await initTablesIfRealDb();
-      const res = await pgPool.query(
-        "SELECT * FROM sessions WHERE id = $1 AND expires_at > $2 LIMIT 1",
-        [token, now]
-      );
-      const session = res.rows[0];
-      if (session) {
-        pgPool.query(
-          "UPDATE sessions SET expires_at = $1, last_active_at = $2 WHERE id = $3",
-          [rollingExpiresAt, now, token]
-        ).catch(() => {});
-        pgPool.query("UPDATE users SET updated_at = $1 WHERE id = $2", [now, session.user_id]).catch(() => {});
-        session.expires_at = rollingExpiresAt;
-        session.last_active_at = now;
-        return session;
-      }
-      return null;
-    }
-
-    const s = memoryStore.sessions.get(token);
+    const s = memoryStore.sessions.get(lookupId) || memoryStore.sessions.get(token);
     if (s && s.expires_at > now) {
       s.expires_at = rollingExpiresAt;
       s.last_active_at = now;
-      return s;
+      if (snapshot) s.user_snapshot = snapshot;
+      return withMeta(s);
+    }
+    if (parsed && !requireStoredSessionLookup()) {
+      return sessionRecordFromPayload(parsed, now, rollingExpiresAt);
     }
     return null;
   },
 
   async deleteSession(token: string): Promise<void> {
-    if (mysqlPool) {
-      await initTablesIfRealDb();
-      await mysqlPool.execute("DELETE FROM `sessions` WHERE id = ?", [token]);
-      return;
-    }
+    const parsed = parseSessionToken(token);
+    const ids = Array.from(new Set([token, parsed?.sid].filter(Boolean) as string[]));
+    try {
+      if (mysqlPool) {
+        await initTablesIfRealDb();
+        for (const id of ids) {
+          await mysqlPool.execute("DELETE FROM `sessions` WHERE id = ?", [id]).catch(() => {});
+        }
+        return;
+      }
 
-    if (pgPool) {
-      await initTablesIfRealDb();
-      await pgPool.query("DELETE FROM sessions WHERE id = $1", [token]);
-      return;
+      if (pgPool) {
+        await initTablesIfRealDb();
+        for (const id of ids) {
+          await pgPool.query("DELETE FROM sessions WHERE id = $1", [id]).catch(() => {});
+        }
+        return;
+      }
+    } catch (err) {
+      console.warn("[NexSport DB] deleteSession failed:", err);
     }
-    memoryStore.sessions.delete(token);
+    for (const id of ids) {
+      memoryStore.sessions.delete(id);
+    }
   },
 
   /* --- Password Reset Operations --- */

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { generateVerificationCode, sendVerificationEmail } from "@/lib/auth/email";
 import { cleanEmailAddress, cleanMobileNumber, toEnglishDigits } from "@/lib/auth/utils";
+import { sessionCookieOptions, SESSION_COOKIE_NAME, SESSION_HOURS } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
 
@@ -75,8 +76,12 @@ export async function POST(req: NextRequest) {
       ? clientDevice
       : (isMobileUa ? "mobile" : "desktop");
 
-    // Check Dual-Device Policy: check for active session on the SAME device type
-    const existingSession = await db.findActiveSessionByDevice(user.id, deviceType);
+    // Dual-device only when sessions are in a shared store (MySQL/Postgres).
+    // On Vercel memory, instances don't share RAM so the check is skipped.
+    let existingSession = null;
+    if (db.hasSharedSessionStore()) {
+      existingSession = await db.findActiveSessionByDevice(user.id, deviceType);
+    }
 
     if (existingSession && !forceKick) {
       const deviceLabel = deviceType === "mobile" ? "تلفن همراه" : "رایانه / لپ‌تاپ";
@@ -94,8 +99,7 @@ export async function POST(req: NextRequest) {
       await db.deleteSessionsByDevice(user.id, deviceType);
     }
 
-    // Create rolling 48-hour session token for this device
-    const token = await db.createSession(user.id, 48, deviceType);
+    const token = await db.createSession(user.id, SESSION_HOURS, deviceType);
 
     const response = NextResponse.json({
       success: true,
@@ -110,13 +114,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    response.cookies.set("nexsport_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 48 * 60 * 60, // 48 hours rolling
-    });
+    response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
 
     return response;
   } catch (err: any) {

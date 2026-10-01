@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { cleanEmailAddress } from "@/lib/auth/utils";
+import { resolveSessionUser } from "@/lib/auth/sessionGuard";
 
 export async function verifyAdminRequest(req: NextRequest) {
   const token =
@@ -16,7 +17,7 @@ export async function verifyAdminRequest(req: NextRequest) {
     return { error: "نشست شما منقضی شده است. لطفاً مجدداً وارد شوید.", status: 401, expired: true as const };
   }
 
-  const user = await db.findUserById(session.user_id);
+  const user = await resolveSessionUser(session);
   if (!user) {
     return { error: "کاربر یافت نشد.", status: 401, expired: true as const };
   }

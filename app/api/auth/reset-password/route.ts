@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { cleanEmailAddress, toEnglishDigits, hasPersianLetters } from "@/lib/auth/utils";
+import { sessionCookieOptions, SESSION_COOKIE_NAME, SESSION_HOURS } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
 
@@ -56,8 +57,7 @@ export async function POST(req: NextRequest) {
     await db.updateUserPassword(user.id, newHash);
     await db.deletePasswordResetCodesForUser(user.id);
 
-    // Create session to automatically log user in
-    const token = await db.createSession(user.id, 30);
+    const token = await db.createSession(user.id, SESSION_HOURS);
 
     const response = NextResponse.json({
       success: true,
@@ -72,13 +72,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    response.cookies.set("nexsport_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60,
-    });
+    response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
 
     return response;
   } catch (err: any) {

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sessionCookieOptions, SESSION_COOKIE_NAME } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.cookies.get("nexsport_token")?.value;
+    const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
     if (token) {
       await db.deleteSession(token);
     }
@@ -15,13 +16,7 @@ export async function POST(req: NextRequest) {
       message: "با موفقیت خارج شدید.",
     });
 
-    response.cookies.set("nexsport_token", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0,
-    });
+    response.cookies.set(SESSION_COOKIE_NAME, "", sessionCookieOptions(0));
 
     return response;
   } catch (err: any) {

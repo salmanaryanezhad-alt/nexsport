@@ -3,6 +3,7 @@ import { hashPassword, verifyPassword } from "./password";
 import { generateVerificationCode } from "./email";
 import { cleanMobileNumber, toEnglishDigits, hasPersianLetters } from "./utils";
 import { paymentService } from "../payment";
+import { isSignedSessionToken } from "./sessionToken";
 
 type TestFn = () => Promise<void> | void;
 
@@ -187,6 +188,31 @@ async function run() {
     assertEqual(refreshedSession?.user_id, user.id, "شناسه کاربر باید تطابق داشته باشد.");
   });
 
+  await test("نشست امضاشده سرورلس: هویت بدون حافظه مشترک باقی می‌ماند", async () => {
+    const user = await db.createUser({
+      name: "کاربر سرورلس",
+      email: "serverless-session@nexsport.ir",
+      mobile: "09120001122",
+      password_hash: hashPassword("pass"),
+      is_verified: true,
+    });
+
+    const prevVercel = process.env.VERCEL;
+    process.env.VERCEL = "1";
+    try {
+      const token = await db.createSession(user.id, 48, "desktop");
+      assert(isSignedSessionToken(token), "توکن باید امضای HMAC داشته باشد.");
+      await db.deleteSession(token);
+      const recovered = await db.findSession(token);
+      assert(Boolean(recovered), "روی Vercel توکن امضاشده بدون حافظه مشترک باید معتبر بماند.");
+      assertEqual(recovered?.user_id, user.id, "شناسه کاربر باید از کوکی امضاشده خوانده شود.");
+      assertEqual(recovered?.user_snapshot?.email, user.email, "ایمیل کاربر باید در نمای کوکی باشد.");
+    } finally {
+      if (prevVercel === undefined) delete process.env.VERCEL;
+      else process.env.VERCEL = prevVercel;
+    }
+  });
+
   await test("نرمال‌سازی ارقام فارسی: تبدیل کیبورد موبایل به انگلیسی و پاکسازی شماره", () => {
     const persianDigits = "۰۹۱۲۳۴۵۶۷۸۹";
     const englishDigits = "09123456789";
@@ -363,15 +389,19 @@ async function run() {
     const desktopToken1 = await db.createSession(user.id, 48, "desktop");
     const activeDesktop1 = await db.findActiveSessionByDevice(user.id, "desktop");
     assert(Boolean(activeDesktop1), "باید نشست فعال رایانه وجود داشته باشد.");
-    assertEqual(activeDesktop1?.id, desktopToken1, "نشست فعال رایانه باید برابر با توکن ثبت شده باشد.");
+    assertEqual(activeDesktop1?.user_id, user.id, "نشست فعال رایانه باید متعلق به همان کاربر باشد.");
     assertEqual(activeDesktop1?.device_type, "desktop", "نوع دستگاه باید desktop باشد.");
+    const desktopLookup1 = await db.findSession(desktopToken1);
+    assertEqual(desktopLookup1?.id, activeDesktop1?.id, "توکن رایانه باید به همان نشست ذخیره‌شده برسد.");
 
     // 2. کاربر همزمان روی گوشی همراه (Mobile) وارد می‌شود
     const mobileToken1 = await db.createSession(user.id, 48, "mobile");
     const activeMobile1 = await db.findActiveSessionByDevice(user.id, "mobile");
     assert(Boolean(activeMobile1), "باید نشست فعال موبایل همزمان وجود داشته باشد.");
-    assertEqual(activeMobile1?.id, mobileToken1, "نشست فعال موبایل باید برابر با توکن موبایل باشد.");
+    assertEqual(activeMobile1?.user_id, user.id, "نشست فعال موبایل باید متعلق به همان کاربر باشد.");
     assertEqual(activeMobile1?.device_type, "mobile", "نوع دستگاه باید mobile باشد.");
+    const mobileLookup1 = await db.findSession(mobileToken1);
+    assertEqual(mobileLookup1?.id, activeMobile1?.id, "توکن موبایل باید به همان نشست ذخیره‌شده برسد.");
 
     // هر دو نشست همزمان معتبر هستند (۱ رایانه + ۱ موبایل)
     const validDesktop = await db.findSession(desktopToken1);

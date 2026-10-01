@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cleanEmailAddress, toEnglishDigits } from "@/lib/auth/utils";
+import { sessionCookieOptions, SESSION_COOKIE_NAME, SESSION_HOURS } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
 
@@ -47,10 +48,11 @@ export async function POST(req: NextRequest) {
     const isMobileUa = /(android|iphone|ipad|ipod|blackberry|mobile|touch)/i.test(userAgent);
     const reqDevice = body?.deviceType === "mobile" || body?.deviceType === "desktop" ? body.deviceType : (isMobileUa ? "mobile" : "desktop");
 
-    await db.deleteSessionsByDevice(user.id, reqDevice);
+    if (db.hasSharedSessionStore()) {
+      await db.deleteSessionsByDevice(user.id, reqDevice);
+    }
 
-    // Create rolling 48-hour session token
-    const token = await db.createSession(user.id, 48, reqDevice);
+    const token = await db.createSession(user.id, SESSION_HOURS, reqDevice);
 
     const response = NextResponse.json({
       success: true,
@@ -65,13 +67,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    response.cookies.set("nexsport_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 48 * 60 * 60, // 48 hours rolling
-    });
+    response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
 
     return response;
   } catch (err: any) {
