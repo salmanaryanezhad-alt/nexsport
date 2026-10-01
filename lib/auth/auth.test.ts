@@ -1122,6 +1122,9 @@ async function run() {
     assertEqual(defaults.creditDiscountPercent, 1, "درصد پیش‌فرض هر پله ۱٪ است.");
     assertEqual(defaults.creditDiscountMaxPercent, 20, "سقف تخفیف پیش‌فرض ۲۰٪ است.");
     assertEqual(defaults.vipMonthlyTomans, 350000, "مبلغ ماهانه VIP پیش‌فرض ۳۵۰ هزار تومان است.");
+    assertEqual(defaults.vipDiscount3mPercent, 20, "تخفیف پیش‌فرض ۳ ماهه VIP ۲۰٪ است.");
+    assertEqual(defaults.vipDiscount6mPercent, 25, "تخفیف پیش‌فرض ۶ ماهه VIP ۲۵٪ است.");
+    assertEqual(defaults.vipDiscount12mPercent, 30, "تخفیف پیش‌فرض سالانه VIP ۳۰٪ است.");
     assertEqual(defaults.linkPriceTomans, 150000, "تعرفه لینک پیش‌فرض ۱۵۰ هزار تومان است.");
 
     const saved = await db.savePricingSettings({
@@ -1163,8 +1166,8 @@ async function run() {
       creditDiscountMaxPercent: 20,
       vipMonthlyTomans: 350000,
       vipDiscount3mPercent: 20,
-      vipDiscount6mPercent: 30,
-      vipDiscount12mPercent: 40,
+      vipDiscount6mPercent: 25,
+      vipDiscount12mPercent: 30,
       linkPriceTomans: 150000,
     });
   });

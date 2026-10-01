@@ -3,7 +3,7 @@
  *
  * Admin-configurable defaults (editable from the financial plans panel):
  * 1. Credit packages: 50,000 Tomans per tournament. 1% extra discount for every 5 credits.
- * 2. VIP: 350,000 Tomans / month with 20% (3m), 30% (6m), 40% (1y) discounts.
+ * 2. VIP: 350,000 Tomans / month with 20% (3m), 25% (6m), 30% (1y) discounts.
  * 3. Dedicated spectator link: 150,000 Tomans.
  */
 
@@ -76,8 +76,8 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   creditDiscountMaxPercent: 20,
   vipMonthlyTomans: 350_000,
   vipDiscount3mPercent: 20,
-  vipDiscount6mPercent: 30,
-  vipDiscount12mPercent: 40,
+  vipDiscount6mPercent: 25,
+  vipDiscount12mPercent: 30,
   linkPriceTomans: 150_000,
 };
 
