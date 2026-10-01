@@ -846,14 +846,37 @@ async function run() {
     assertEqual(extra.success, false, "برنامه‌ریزی بیش از ۵ مسابقه بدون خرید باید رد شود.");
     assertEqual(extra.remainingCredits, 0, "اعتبار باقی‌مانده ۰ است.");
 
-    // خرید بسته اعتباری ۱۰ تایی
+    // خرید بسته اعتباری ۱۰ تایی روی موجودی ۰ → باید ۱۰ شود (جمع، نه جایگزینی روی عدد دیگر)
     await db.addPlanningCredits(registeredUser.id, 10);
     const afterBuyQuota = await db.getUserQuota(registeredUser.id);
-    assertEqual(afterBuyQuota.planningCredits, 10, "پس از خرید ۱۰ اعتبار باید موجودی ۱۰ شود.");
+    assertEqual(afterBuyQuota.planningCredits, 10, "پس از خرید ۱۰ اعتبار روی موجودی ۰ باید ۱۰ شود.");
 
     const afterBuyConsume = await db.consumePlanningCredit(registeredUser.id);
     assertEqual(afterBuyConsume.success, true, "پس از شارژ اعتبار باید بتواند مسابقه ایجاد کند.");
     assertEqual(afterBuyConsume.remainingCredits, 9, "موجودی باید ۹ شود.");
+  });
+
+  await test("خرید بسته اعتباری به موجودی قبلی اضافه می‌شود نه جایگزین", async () => {
+    const buyer = await db.createUser({
+      name: "خریدار بسته اعتباری",
+      email: "credit-stack@nexsport.ir",
+      mobile: "09120001122",
+      passwordHash: hashPassword("Secret123"),
+      isVerified: true,
+    });
+
+    const start = await db.getUserQuota(buyer.id);
+    assertEqual(start.planningCredits, 5, "موجودی اولیه باید ۵ باشد.");
+
+    const afterTen = await db.addPlanningCredits(buyer.id, 10);
+    assertEqual(afterTen, 15, "۵ موجودی + بسته ۱۰ تایی باید ۱۵ شود، نه ۱۰.");
+    const quotaAfterTen = await db.getUserQuota(buyer.id);
+    assertEqual(quotaAfterTen.planningCredits, 15, "موجودی ذخیره‌شده باید ۱۵ باشد.");
+
+    const afterFiveMore = await db.addPlanningCredits(buyer.id, 5);
+    assertEqual(afterFiveMore, 20, "۱۵ + بسته ۵ تایی باید ۲۰ شود.");
+    const quotaAfterFive = await db.getUserQuota(buyer.id);
+    assertEqual(quotaAfterFive.planningCredits, 20, "موجودی ذخیره‌شده باید ۲۰ باشد.");
   });
 
   await test("فرمول محاسبات تخفیف بسته‌های اعتباری مسابقه (هر ۵ عدد ۱ درصد)", async () => {

@@ -226,10 +226,14 @@ export function StoreModal({
         return;
       }
 
+      const added = Number(data.addedCredits) > 0 ? Number(data.addedCredits) : creditPricing.count;
+      const previous =
+        typeof quota?.planningCredits === "number" ? quota.planningCredits : 5;
+      const reportedTotal = Number(data.newTotalCredits);
       setSuccessInfo({
         type: "credits",
-        count: creditPricing.count,
-        totalCredits: data.newTotalCredits || creditPricing.count,
+        count: added,
+        totalCredits: reportedTotal > 0 ? reportedTotal : previous + added,
         amount: creditFinalPay,
         refId: data.refId,
       });

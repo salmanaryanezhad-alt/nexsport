@@ -2097,26 +2097,54 @@ export const db = {
   },
 
   async addPlanningCredits(userId: string, count: number): Promise<number> {
-    const user = await this.findUserById(userId);
-    if (!user) return 0;
-    const currentCredits = user.planning_credits !== undefined ? Number(user.planning_credits) : 5;
-    const newCredits = currentCredits + Math.max(1, count);
+    const add = Math.max(1, Math.floor(Number(count) || 0));
+    // Always ADD to the current balance — never replace it with the pack size.
     if (mysqlPool) {
       await initTablesIfRealDb();
-      await mysqlPool.execute("UPDATE `users` SET planning_credits = ? WHERE id = ?", [
-        newCredits,
-        userId,
-      ]);
+      const [result] = await mysqlPool.execute<any>(
+        "UPDATE `users` SET planning_credits = COALESCE(planning_credits, 5) + ? WHERE id = ?",
+        [add, userId]
+      );
+      if (result?.affectedRows) {
+        const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+          "SELECT planning_credits FROM `users` WHERE id = ? LIMIT 1",
+          [userId]
+        );
+        if (rows[0]) {
+          const total = Number(rows[0].planning_credits);
+          const mem = memoryStore.users.get(userId);
+          if (mem) {
+            mem.planning_credits = total;
+            memoryStore.users.set(userId, mem);
+          }
+          return total;
+        }
+      }
     } else if (pgPool) {
       await initTablesIfRealDb();
-      await pgPool.query("UPDATE users SET planning_credits = $1 WHERE id = $2", [
-        newCredits,
-        userId,
-      ]);
-    } else {
-      user.planning_credits = newCredits;
-      memoryStore.users.set(userId, user);
+      const res = await pgPool.query(
+        "UPDATE users SET planning_credits = COALESCE(planning_credits, 5) + $1 WHERE id = $2 RETURNING planning_credits",
+        [add, userId]
+      );
+      if (res.rows[0]) {
+        const total = Number(res.rows[0].planning_credits);
+        const mem = memoryStore.users.get(userId);
+        if (mem) {
+          mem.planning_credits = total;
+          memoryStore.users.set(userId, mem);
+        }
+        return total;
+      }
     }
+    const user = await this.findUserById(userId);
+    if (!user) return 0;
+    const currentCredits =
+      user.planning_credits !== undefined && user.planning_credits !== null
+        ? Number(user.planning_credits)
+        : 5;
+    const newCredits = currentCredits + add;
+    user.planning_credits = newCredits;
+    memoryStore.users.set(userId, user);
     return newCredits;
   },
 
