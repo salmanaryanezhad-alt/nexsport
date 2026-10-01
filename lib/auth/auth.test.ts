@@ -3,7 +3,7 @@ import { hashPassword, verifyPassword } from "./password";
 import { generateVerificationCode } from "./email";
 import { cleanMobileNumber, toEnglishDigits, hasPersianLetters } from "./utils";
 import { paymentService, MockGateway } from "../payment";
-import { isSignedSessionToken } from "./sessionToken";
+import { isSignedSessionToken, getRequestToken, createSignedSessionToken } from "./sessionToken";
 
 type TestFn = () => Promise<void> | void;
 
@@ -211,6 +211,25 @@ async function run() {
       if (prevVercel === undefined) delete process.env.VERCEL;
       else process.env.VERCEL = prevVercel;
     }
+  });
+
+  await test("خواندن توکن نشست از کوکی کلاینت و هدر Bearer", () => {
+    const { token } = createSignedSessionToken({ userId: "u-bearer", email: "b@nexsport.ir" });
+    const fromClient = getRequestToken({
+      cookies: {
+        get: (name: string) => (name === "nexsport_client_token" ? { value: token } : undefined),
+      },
+      headers: { get: () => null },
+    });
+    assertEqual(fromClient, token, "توکن کوکی کلاینت باید خوانده شود.");
+
+    const fromHeader = getRequestToken({
+      cookies: { get: () => undefined },
+      headers: {
+        get: (name: string) => (name.toLowerCase() === "authorization" ? `Bearer ${token}` : null),
+      },
+    });
+    assertEqual(fromHeader, token, "توکن Authorization Bearer باید خوانده شود.");
   });
 
   await test("نرمال‌سازی ارقام فارسی: تبدیل کیبورد موبایل به انگلیسی و پاکسازی شماره", () => {

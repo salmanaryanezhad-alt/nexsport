@@ -1,7 +1,9 @@
 import crypto from "crypto";
 
-export const SESSION_HOURS = 48;
+export const SESSION_HOURS = 30 * 24;
 export const SESSION_COOKIE_NAME = "nexsport_token";
+export const CLIENT_SESSION_COOKIE_NAME = "nexsport_client_token";
+export const CLIENT_SESSION_STORAGE_KEY = "nexsport_session";
 const TOKEN_PREFIX = "ns1";
 
 export type SessionUserSnapshot = {
@@ -116,4 +118,23 @@ export function sessionCookieOptions(maxAgeSeconds = SESSION_HOURS * 60 * 60) {
     path: "/",
     maxAge: maxAgeSeconds,
   };
+}
+
+export function getRequestToken(req: { cookies: { get: (name: string) => { value: string } | undefined }; headers: { get: (name: string) => string | null } }): string | undefined {
+  const fromHttpOnly = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const fromClient = req.cookies.get(CLIENT_SESSION_COOKIE_NAME)?.value;
+  const fromHeader = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || undefined;
+  return fromHttpOnly || fromClient || fromHeader || undefined;
+}
+
+export function applySessionCookies(res: { cookies: { set: (name: string, value: string, options: Record<string, unknown>) => unknown } }, token: string, maxAgeSeconds = SESSION_HOURS * 60 * 60) {
+  const base = sessionCookieOptions(maxAgeSeconds);
+  res.cookies.set(SESSION_COOKIE_NAME, token, base);
+  res.cookies.set(CLIENT_SESSION_COOKIE_NAME, token, { ...base, httpOnly: false });
+}
+
+export function clearSessionCookies(res: { cookies: { set: (name: string, value: string, options: Record<string, unknown>) => unknown } }) {
+  const cleared = sessionCookieOptions(0);
+  res.cookies.set(SESSION_COOKIE_NAME, "", cleared);
+  res.cookies.set(CLIENT_SESSION_COOKIE_NAME, "", { ...cleared, httpOnly: false });
 }

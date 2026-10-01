@@ -3,8 +3,11 @@ import { db } from "@/lib/db";
 import { resolveSessionUser } from "@/lib/auth/sessionGuard";
 import {
   refreshSignedSessionToken,
-  sessionCookieOptions,
-  SESSION_COOKIE_NAME,
+  applySessionCookies,
+  clearSessionCookies,
+  getRequestToken,
+  parseSessionToken,
+  snapshotFromPayload,
   SESSION_HOURS,
 } from "@/lib/auth/sessionToken";
 
@@ -12,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const token = getRequestToken(req);
 
     if (!token) {
       return NextResponse.json({ user: null });
@@ -20,18 +23,36 @@ export async function GET(req: NextRequest) {
 
     const session = await db.findSession(token);
     if (!session) {
+      const parsed = parseSessionToken(token);
+      if (parsed) {
+        const snap = snapshotFromPayload(parsed);
+        const response = NextResponse.json({ user: snap, token });
+        applySessionCookies(response, token);
+        return response;
+      }
       const response = NextResponse.json({ user: null, expired: true });
-      response.cookies.set(SESSION_COOKIE_NAME, "", sessionCookieOptions(0));
+      clearSessionCookies(response);
       return response;
     }
 
     const user = await resolveSessionUser(session);
     if (!user) {
-      const response = NextResponse.json({ user: null, expired: true });
-      response.cookies.set(SESSION_COOKIE_NAME, "", sessionCookieOptions(0));
+      const response = NextResponse.json({
+        user: {
+          id: session.user_id,
+          name: session.user_snapshot?.name || "",
+          email: session.user_snapshot?.email || "",
+          mobile: session.user_snapshot?.mobile || "",
+          is_verified: session.user_snapshot?.is_verified ?? true,
+          role: session.user_snapshot?.role || "user",
+        },
+        token,
+      });
+      applySessionCookies(response, token);
       return response;
     }
 
+    const refreshed = refreshSignedSessionToken(token, SESSION_HOURS) || token;
     const response = NextResponse.json({
       user: {
         id: user.id,
@@ -41,11 +62,9 @@ export async function GET(req: NextRequest) {
         is_verified: user.is_verified,
         role: user.role,
       },
+      token: refreshed,
     });
-
-    const refreshed = refreshSignedSessionToken(token, SESSION_HOURS) || token;
-    response.cookies.set(SESSION_COOKIE_NAME, refreshed, sessionCookieOptions());
-
+    applySessionCookies(response, refreshed);
     return response;
   } catch (err: any) {
     console.error("[Me Error]", err);

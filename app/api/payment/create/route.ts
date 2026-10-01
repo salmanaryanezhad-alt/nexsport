@@ -4,12 +4,13 @@ import { paymentService } from "@/lib/payment";
 import { resolveSessionUser } from "@/lib/auth/sessionGuard";
 import { hasUnlimitedPlanning } from "@/lib/auth/utils";
 import { readDiscountCatalogCookie } from "@/lib/auth/discountCatalog";
+import { getRequestToken } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.cookies.get("nexsport_token")?.value;
+    const token = getRequestToken(req);
     if (!token) {
       return NextResponse.json(
         { error: "جهت انجام پرداخت، لطفاً ابتدا وارد حساب کاربری خود شوید.", expired: true },

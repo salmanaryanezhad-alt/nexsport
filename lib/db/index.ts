@@ -604,9 +604,10 @@ async function initTablesIfRealDb() {
 }
 
 function requireStoredSessionLookup(): boolean {
-  if (mysqlPool || pgPool) return true;
-  // Vercel memory is per-instance; signed cookies must stand alone.
-  return !process.env.VERCEL;
+  // Vercel instances (and any half-connected remote DB) cannot share RAM.
+  // A valid HMAC cookie must keep the user signed in even if MySQL lookup misses.
+  if (process.env.VERCEL) return false;
+  return true;
 }
 
 function sessionRecordFromPayload(

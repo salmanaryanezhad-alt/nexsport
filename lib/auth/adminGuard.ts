@@ -2,11 +2,10 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { cleanEmailAddress } from "@/lib/auth/utils";
 import { resolveSessionUser } from "@/lib/auth/sessionGuard";
+import { getRequestToken } from "@/lib/auth/sessionToken";
 
 export async function verifyAdminRequest(req: NextRequest) {
-  const token =
-    req.cookies.get("nexsport_token")?.value ||
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  const token = getRequestToken(req);
 
   if (!token) {
     return { error: "ابتدا وارد حساب کاربری شوید.", status: 401, expired: true as const };

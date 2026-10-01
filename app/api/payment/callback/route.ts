@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { paymentService } from "@/lib/payment";
+import { getRequestToken } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Authenticate user session
-    const token = req.cookies.get("nexsport_token")?.value;
+    const token = getRequestToken(req);
     if (!token) {
       return NextResponse.redirect(`${baseUrl}/planner?payment_status=login_required`);
     }

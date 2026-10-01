@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { clearSessionCookies, getRequestToken } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export async function GET(
     const resolvedParams = await Promise.resolve(params);
     const id = resolvedParams.id;
 
-    const token = req.cookies.get("nexsport_token")?.value;
+    const token = getRequestToken(req);
     if (!token) {
       return NextResponse.json({ error: "ابتدا وارد حساب کاربری شوید.", expired: true }, { status: 401 });
     }
@@ -22,13 +23,7 @@ export async function GET(
         { error: "نشست شما منقضی شده است. لطفاً مجدداً وارد شوید.", expired: true },
         { status: 401 }
       );
-      response.cookies.set("nexsport_token", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 0,
-      });
+      clearSessionCookies(response);
       return response;
     }
 
@@ -52,7 +47,7 @@ export async function DELETE(
     const resolvedParams = await Promise.resolve(params);
     const id = resolvedParams.id;
 
-    const token = req.cookies.get("nexsport_token")?.value;
+    const token = getRequestToken(req);
     if (!token) {
       return NextResponse.json({ error: "ابتدا وارد حساب کاربری شوید.", expired: true }, { status: 401 });
     }
@@ -63,13 +58,7 @@ export async function DELETE(
         { error: "نشست شما منقضی شده است. لطفاً مجدداً وارد شوید.", expired: true },
         { status: 401 }
       );
-      response.cookies.set("nexsport_token", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 0,
-      });
+      clearSessionCookies(response);
       return response;
     }
 

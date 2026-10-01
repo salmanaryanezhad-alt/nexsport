@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { GUEST_MAX_TOURNAMENTS } from "@/lib/payment/pricing";
 import { resolveSessionUser } from "@/lib/auth/sessionGuard";
 import { hasUnlimitedPlanning } from "@/lib/auth/utils";
+import { getRequestToken } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ function getClientIp(req: NextRequest): string {
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.cookies.get("nexsport_token")?.value;
+    const token = getRequestToken(req);
     if (token) {
       const session = await db.findSession(token);
       if (session) {
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.cookies.get("nexsport_token")?.value;
+    const token = getRequestToken(req);
     if (token) {
       const session = await db.findSession(token);
       if (session) {

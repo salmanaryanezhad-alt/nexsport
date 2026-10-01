@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cleanEmailAddress, toEnglishDigits } from "@/lib/auth/utils";
-import { sessionCookieOptions, SESSION_COOKIE_NAME, SESSION_HOURS } from "@/lib/auth/sessionToken";
+import { applySessionCookies, SESSION_HOURS } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({
       success: true,
       message: "ایمیل شما با موفقیت تایید شد و وارد شدید.",
+      token,
       user: {
         id: user.id,
         name: user.name,
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
+    applySessionCookies(response, token);
 
     return response;
   } catch (err: any) {

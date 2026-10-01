@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cleanEmailAddress } from "@/lib/auth/utils";
+import { clearSessionCookies, getRequestToken } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
 
 async function verifyAdmin(req: NextRequest) {
   const token =
-    req.cookies.get("nexsport_token")?.value ||
+    getRequestToken(req) ||
     req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
 
   if (!token) {
@@ -42,13 +43,7 @@ export async function GET(req: NextRequest) {
         { status: auth.status }
       );
       if (auth.expired) {
-        response.cookies.set("nexsport_token", "", {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 0,
-        });
+        clearSessionCookies(response);
       }
       return response;
     }

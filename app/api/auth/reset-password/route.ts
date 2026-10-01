@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { cleanEmailAddress, toEnglishDigits, hasPersianLetters } from "@/lib/auth/utils";
-import { sessionCookieOptions, SESSION_COOKIE_NAME, SESSION_HOURS } from "@/lib/auth/sessionToken";
+import { applySessionCookies, SESSION_HOURS } from "@/lib/auth/sessionToken";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({
       success: true,
       message: "رمز عبور با موفقیت تغییر کرد و وارد حساب شدید.",
+      token,
       user: {
         id: user.id,
         name: user.name,
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
+    applySessionCookies(response, token);
 
     return response;
   } catch (err: any) {

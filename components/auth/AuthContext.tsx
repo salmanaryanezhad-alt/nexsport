@@ -2,6 +2,31 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 
+const CLIENT_SESSION_KEY = "nexsport_session";
+
+function saveClientSession(token?: string | null) {
+  try {
+    if (typeof window === "undefined") return;
+    if (token) localStorage.setItem(CLIENT_SESSION_KEY, token);
+    else localStorage.removeItem(CLIENT_SESSION_KEY);
+  } catch {}
+}
+
+function readClientSession(): string | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const fromLs = localStorage.getItem(CLIENT_SESSION_KEY);
+    if (fromLs) return fromLs;
+    const match = document.cookie.match(/(?:^|; )nexsport_client_token=([^;]*)/);
+    const fromCookie = match ? decodeURIComponent(match[1]) : "";
+    if (fromCookie) {
+      localStorage.setItem(CLIENT_SESSION_KEY, fromCookie);
+      return fromCookie;
+    }
+  } catch {}
+  return null;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -111,12 +136,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   function handleSessionExpired() {
+    saveClientSession(null);
     syncUser(null);
     setIsProfileModalOpen(false);
     try {
-      fetch("/api/auth/logout", { method: "POST" });
+      fetch("/api/auth/logout/", { method: "POST", credentials: "same-origin" });
     } catch {}
   }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const orig = window.fetch.bind(window);
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      try {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+            ? input.toString()
+            : (input as Request).url;
+        if (url && (url.startsWith("/api/") || url.includes("/api/"))) {
+          const headers = new Headers(init?.headers);
+          const token = readClientSession();
+          if (token && !headers.has("Authorization")) {
+            headers.set("Authorization", `Bearer ${token}`);
+          }
+          return orig(input, { ...init, headers, credentials: init?.credentials || "same-origin" });
+        }
+      } catch {}
+      return orig(input, init);
+    };
+    return () => {
+      window.fetch = orig;
+    };
+  }, []);
 
   // Restore cached user immediately on mount for zero-delay rendering
   useEffect(() => {
@@ -134,17 +187,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function checkMe() {
       try {
-        const res = await fetch("/api/auth/me");
+        const res = await fetch("/api/auth/me/", { credentials: "same-origin" });
         if (!res.ok) {
           // Transient 5xx on serverless must not wipe a cached login.
           return;
         }
         const data = await res.json();
         if (data && data.user) {
+          if (data.token) saveClientSession(data.token);
           syncUser(data.user);
-        } else {
+        } else if (data && data.expired) {
+          saveClientSession(null);
           syncUser(null);
         }
+        // No user and not expired: keep the cached login (cookie may be late).
       } catch (err) {
         console.error("Auth check failed:", err);
       }
@@ -324,6 +380,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
+      if (data.token) saveClientSession(data.token);
       syncUser(data.user);
       closeAuthModal();
       return { success: true };
@@ -382,6 +439,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || "کد نامعتبر است" };
       }
 
+      if (data.token) saveClientSession(data.token);
       syncUser(data.user);
       closeAuthModal();
       return { success: true };
@@ -461,6 +519,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.error || "کد بازیابی نامعتبر است" };
       }
 
+      if (data.token) saveClientSession(data.token);
       syncUser(data.user);
       closeAuthModal();
       return { success: true };
@@ -520,8 +579,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/auth/logout/", { method: "POST", credentials: "same-origin" });
     } finally {
+      saveClientSession(null);
       syncUser(null);
       setTicketUnreadCount(0);
       setTicketUnansweredCount(0);
