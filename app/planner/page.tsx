@@ -615,6 +615,7 @@ function PlannerWizard() {
   const needsGroupRules = format === "groups" || format === "groups-knockout";
   const needsSeedRules = format === "knockout" || format === "double-knockout" || needsGroupRules;
   const supportsThirdPlace = format === "knockout" || format === "groups-knockout";
+  const scheduleAlreadyDrawn = Boolean(result);
 
   // Knocout structure math for groups-knockout
   const baseQualifiers = numGroups * qualifiersPerGroup;
@@ -991,6 +992,25 @@ function PlannerWizard() {
           : "خطایی رخ داد. لطفاً دوباره تلاش کنید."
       );
     }
+  }
+
+  function applyPostDrawSettings() {
+    if (!result) return;
+    const trimmedMetadata: TournamentMetadata = {
+      ...result.metadata,
+      title: metadata.title?.trim() || undefined,
+      venue: metadata.venue?.trim() || undefined,
+      pointsRule,
+    };
+    setMetadata({
+      title: trimmedMetadata.title || "",
+      venue: trimmedMetadata.venue || "",
+      pointsRule,
+    });
+    setResult({ ...result, metadata: trimmedMetadata });
+    setStep(4);
+    setInfoMessage("نام مسابقه، محل برگزاری و سیستم امتیازدهی به‌روزرسانی شد. قرعه‌کشی و برنامه بازی‌ها بدون تغییر باقی ماند.");
+    setTimeout(() => setInfoMessage(null), 4000);
   }
 
   function handleCeremonyComplete() {
@@ -2114,9 +2134,13 @@ function PlannerWizard() {
       {step === 3 && format && (
         <section className="animate-fade-in space-y-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">تنظیمات و قوانین مسابقه</h1>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">
+              {scheduleAlreadyDrawn ? "تنظیمات مسابقه" : "تنظیمات و قوانین مسابقه"}
+            </h1>
             <p className="text-xs sm:text-sm text-slate-600">
-              این بخش کاملاً اختیاری است؛ در صورت عدم انتخاب، همه‌چیز استاندارد و عادلانه اجرا می‌شود.
+              {scheduleAlreadyDrawn
+                ? "پس از تولید برنامه، فقط نام مسابقه، محل برگزاری و سیستم امتیازدهی قابل تغییر است. قرعه‌کشی و جدول بازی‌ها بدون تغییر می‌ماند."
+                : "این بخش کاملاً اختیاری است؛ در صورت عدم انتخاب، همه‌چیز استاندارد و عادلانه اجرا می‌شود."}
             </p>
           </div>
 
@@ -2476,7 +2500,7 @@ function PlannerWizard() {
           )}
 
           {/* Group Rules */}
-          {needsGroupRules && (
+          {!scheduleAlreadyDrawn && needsGroupRules && (
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-5">
               <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
                 <span className="text-base text-emerald-600">⚽</span>
@@ -2680,7 +2704,7 @@ function PlannerWizard() {
           )}
 
           {/* Advance Best 3rd-Place Teams Option (Euro / World Cup Style) */}
-          {format === "groups-knockout" && canUseBestThirds && (
+          {!scheduleAlreadyDrawn && format === "groups-knockout" && canUseBestThirds && (
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -2760,7 +2784,7 @@ function PlannerWizard() {
           )}
 
           {/* Avoidance Rule (Section 12 of spec) */}
-          {needsGroupRules && numGroups > 1 && (
+          {!scheduleAlreadyDrawn && needsGroupRules && numGroups > 1 && (
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
@@ -2836,7 +2860,7 @@ function PlannerWizard() {
           )}
 
           {/* Double League Round Style */}
-          {format === "double-league" && (
+          {!scheduleAlreadyDrawn && format === "double-league" && (
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4">
               <div>
                 <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
@@ -2911,7 +2935,7 @@ function PlannerWizard() {
           )}
 
           {/* Third Place Playoff Option */}
-          {supportsThirdPlace && (
+          {!scheduleAlreadyDrawn && supportsThirdPlace && (
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -2934,7 +2958,7 @@ function PlannerWizard() {
           )}
 
           {/* Double Knockout Options (Bracket Reset) */}
-          {format === "double-knockout" && (
+          {!scheduleAlreadyDrawn && format === "double-knockout" && (
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card space-y-3">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
@@ -2957,7 +2981,7 @@ function PlannerWizard() {
           )}
 
           {/* Seeded Teams Selection for Knockout and Double Knockout */}
-          {(format === "knockout" || format === "double-knockout") && (
+          {!scheduleAlreadyDrawn && (format === "knockout" || format === "double-knockout") && (
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-3">
               <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
                 <span className="text-base text-amber-500">🌟</span>
@@ -2992,7 +3016,7 @@ function PlannerWizard() {
           )}
 
           {/* Multi-Pot Seeding for Group Stages (Pots 1, 2, 3, 4) */}
-          {needsGroupRules && (
+          {!scheduleAlreadyDrawn && needsGroupRules && (
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -3183,12 +3207,25 @@ function PlannerWizard() {
           )}
 
           <div className="flex gap-3 pt-2">
-            <button className={btnGhost} onClick={() => setStep(2)}>
-              مرحله قبل
-            </button>
-            <button className={btnPrimary} onClick={() => handleGenerate(false)}>
-              تولید برنامه مسابقات
-            </button>
+            {scheduleAlreadyDrawn ? (
+              <>
+                <button className={btnGhost} onClick={() => setStep(4)}>
+                  بازگشت به برنامه مسابقات
+                </button>
+                <button className={btnPrimary} onClick={applyPostDrawSettings}>
+                  اعمال تنظیمات
+                </button>
+              </>
+            ) : (
+              <>
+                <button className={btnGhost} onClick={() => setStep(2)}>
+                  مرحله قبل
+                </button>
+                <button className={btnPrimary} onClick={() => handleGenerate(false)}>
+                  تولید برنامه مسابقات
+                </button>
+              </>
+            )}
           </div>
         </section>
       )}
@@ -3253,7 +3290,7 @@ function PlannerWizard() {
               <button
                 className={btnGhost}
                 onClick={() => setStep(3)}
-                title="تغییر گروه‌ها، سرگروه‌ها یا تنظیمات"
+                title="تغییر نام مسابقه، محل برگزاری و سیستم امتیازدهی"
               >
                 <span>⚙️</span>
                 <span>تنظیمات</span>
