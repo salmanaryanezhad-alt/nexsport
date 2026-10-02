@@ -15,6 +15,7 @@ export type TeamItem = {
   player_count?: number;
   owner_name?: string;
   owner_email?: string;
+  is_public?: boolean;
 };
 
 export type PlayerItem = {

@@ -10,6 +10,7 @@ import { toPersianDigits } from "@/lib/digits";
 import { ShareTournamentModal } from "@/components/planner/ShareTournamentModal";
 import { decodeTournamentPayload, encodeTournamentPayload } from "@/lib/tournamentCodec";
 import { useAuth } from "@/components/auth/AuthContext";
+import { FollowButton } from "@/components/community/FollowButton";
 
 export interface PublicTournamentData {
   id: string;
@@ -544,6 +545,7 @@ export function PublicTournamentViewer({
               <span className="hidden sm:inline">به‌روزرسانی نتایج</span>
             </button>
 
+            {isPaid && <FollowButton tournamentId={tournament.id} compact />}
             {isPaid && (
             <button
               type="button"

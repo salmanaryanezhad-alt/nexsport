@@ -237,14 +237,14 @@ export default function HomePage() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100/70 p-1 rounded-xl border border-slate-200/60">
+            <Link href="/explore" className="px-3 py-1.5 rounded-lg hover:bg-white hover:text-pitch transition-all">
+              جامعه ورزشی
+            </Link>
+            <Link href="/services" className="px-3 py-1.5 rounded-lg hover:bg-white hover:text-pitch transition-all">
+              خدمات
+            </Link>
             <a href="#formats" className="px-3 py-1.5 rounded-lg hover:bg-white hover:text-pitch transition-all">
               فرمت‌های مسابقات
-            </a>
-            <a href="#features" className="px-3 py-1.5 rounded-lg hover:bg-white hover:text-pitch transition-all">
-              امکانات کلیدی
-            </a>
-            <a href="#how-it-works" className="px-3 py-1.5 rounded-lg hover:bg-white hover:text-pitch transition-all">
-              نحوه کار
             </a>
             <a href="#faq" className="px-3 py-1.5 rounded-lg hover:bg-white hover:text-pitch transition-all">
               سوالات متداول
@@ -603,6 +603,34 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className="bg-white border-t border-slate-200/80 py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-2xl mx-auto space-y-3 mb-10">
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900">جامعه و خدمات ورزشی</h2>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                صفحات عمومی تیم و بازیکن، جست‌وجوی مسابقات و باشگاه‌ها، دنبال‌کردن نتایج، و خدمات مربی، آموزش و تبلیغ مسابقه.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                { href: "/explore", title: "جست‌وجوی جامعه", desc: "مسابقات، تیم‌ها، باشگاه‌ها و بازیکنان عمومی را پیدا کنید.", icon: "🔍" },
+                { href: "/services", title: "خدمات NexSport", desc: "تبلیغ مسابقه، معرفی باشگاه، آموزش، مربی، مشاور و خدمات مرتبط.", icon: "🛠️" },
+                { href: "/planner", title: "برگزاری مسابقه", desc: "جدول بسازید، لینک تماشاگر بدهید و نتایج را زنده به‌روز کنید.", icon: "⚡" },
+              ].map((card) => (
+                <Link
+                  key={card.href}
+                  href={card.href}
+                  className="rounded-3xl border border-slate-200 bg-slate-50/70 p-5 hover:border-emerald-300 hover:bg-white transition-colors text-right space-y-2"
+                >
+                  <div className="text-2xl">{card.icon}</div>
+                  <h3 className="font-black text-slate-900">{card.title}</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">{card.desc}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* FAQ SECTION */}
         <section id="faq" className="bg-slate-50 border-t border-slate-200/80 py-20 scroll-mt-20">
           <div className="mx-auto max-w-4xl px-4 sm:px-6">
@@ -675,6 +703,16 @@ export default function HomePage() {
             <div className="md:col-span-3 space-y-2 text-right">
               <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400">دسترسی سریع</h4>
               <ul className="space-y-1.5 text-xs text-slate-400">
+                <li>
+                  <Link href="/explore" className="hover:text-emerald-300 transition-colors">
+                    جامعه ورزشی
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/services" className="hover:text-emerald-300 transition-colors">
+                    خدمات
+                  </Link>
+                </li>
                 <li>
                   <Link href="/planner" className="hover:text-emerald-300 transition-colors">
                     برنامه‌ریز مسابقات

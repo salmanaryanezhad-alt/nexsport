@@ -139,6 +139,7 @@ export interface TeamRecord {
   player_count?: number;
   owner_name?: string;
   owner_email?: string;
+  is_public?: boolean;
 }
 
 export interface PlayerRecord {
@@ -350,6 +351,31 @@ const memoryStore = {
   clubCoaches: new Map<string, ClubCoachRecord>(),
   clubTeams: new Map<string, { club_id: string; team_id: string }>(),
   clubTournaments: new Map<string, { club_id: string; tournament_id: string }>(),
+  follows: new Map<string, { user_id: string; tournament_id: string; created_at: Date }>(),
+  notifications: new Map<string, {
+    id: string;
+    user_id: string;
+    type: string;
+    title: string;
+    body: string;
+    link: string;
+    is_read: boolean;
+    created_at: Date;
+  }>(),
+  serviceListings: new Map<string, {
+    id: string;
+    user_id: string;
+    category: string;
+    title: string;
+    body: string;
+    city: string;
+    sport: string;
+    contact_name: string;
+    mobile: string;
+    is_active: boolean;
+    created_at: Date;
+    updated_at: Date;
+  }>(),
 };
 
 function normalizeDiscountRow(row: any): DiscountCodeRecord {
@@ -737,6 +763,51 @@ async function initTablesIfRealDb() {
           PRIMARY KEY (\`club_id\`, \`tournament_id\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
+      try {
+        await mysqlPool.query("ALTER TABLE `teams` ADD COLUMN `is_public` TINYINT(1) DEFAULT 0");
+      } catch {}
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`tournament_follows\` (
+          \`user_id\` VARCHAR(36) NOT NULL,
+          \`tournament_id\` VARCHAR(36) NOT NULL,
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`user_id\`, \`tournament_id\`),
+          KEY \`idx_follows_tournament\` (\`tournament_id\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`notifications\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`user_id\` VARCHAR(36) NOT NULL,
+          \`type\` VARCHAR(40) DEFAULT 'info',
+          \`title\` VARCHAR(200) NOT NULL,
+          \`body\` VARCHAR(500) DEFAULT '',
+          \`link\` VARCHAR(200) DEFAULT '',
+          \`is_read\` TINYINT(1) DEFAULT 0,
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_notifications_user\` (\`user_id\`, \`is_read\`, \`created_at\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`service_listings\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`user_id\` VARCHAR(36) NOT NULL,
+          \`category\` VARCHAR(40) NOT NULL,
+          \`title\` VARCHAR(80) NOT NULL,
+          \`body\` TEXT,
+          \`city\` VARCHAR(60) DEFAULT '',
+          \`sport\` VARCHAR(40) DEFAULT '',
+          \`contact_name\` VARCHAR(80) DEFAULT '',
+          \`mobile\` VARCHAR(20) DEFAULT '',
+          \`is_active\` TINYINT(1) DEFAULT 1,
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_services_cat\` (\`category\`, \`is_active\`),
+          KEY \`idx_services_user\` (\`user_id\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
 
       tablesInitialized = true;
     } catch (err) {
@@ -988,6 +1059,44 @@ async function initTablesIfRealDb() {
           tournament_id VARCHAR(36) NOT NULL,
           PRIMARY KEY (club_id, tournament_id)
         );
+        ALTER TABLE teams ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE;
+
+        CREATE TABLE IF NOT EXISTS tournament_follows (
+          user_id VARCHAR(36) NOT NULL,
+          tournament_id VARCHAR(36) NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (user_id, tournament_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_follows_tournament ON tournament_follows(tournament_id);
+
+        CREATE TABLE IF NOT EXISTS notifications (
+          id VARCHAR(36) PRIMARY KEY,
+          user_id VARCHAR(36) NOT NULL,
+          type VARCHAR(40) DEFAULT 'info',
+          title VARCHAR(200) NOT NULL,
+          body VARCHAR(500) DEFAULT '',
+          link VARCHAR(200) DEFAULT '',
+          is_read BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at);
+
+        CREATE TABLE IF NOT EXISTS service_listings (
+          id VARCHAR(36) PRIMARY KEY,
+          user_id VARCHAR(36) NOT NULL,
+          category VARCHAR(40) NOT NULL,
+          title VARCHAR(80) NOT NULL,
+          body TEXT,
+          city VARCHAR(60) DEFAULT '',
+          sport VARCHAR(40) DEFAULT '',
+          contact_name VARCHAR(80) DEFAULT '',
+          mobile VARCHAR(20) DEFAULT '',
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_services_cat ON service_listings(category, is_active);
+        CREATE INDEX IF NOT EXISTS idx_services_user ON service_listings(user_id);
       `);
       tablesInitialized = true;
     } catch (err) {
@@ -3568,6 +3677,7 @@ export const db = {
       id: crypto.randomUUID(),
       user_id: userId,
       ...data,
+      is_public: Boolean((data as TeamRecord).is_public),
       created_at: now,
       updated_at: now,
       player_count: 0,
@@ -4300,7 +4410,639 @@ export const db = {
     memoryStore.clubTournaments.delete(`${clubId}:${tournamentId}`);
     return true;
   },
+
+  async setTeamPublic(id: string, isPublic: boolean): Promise<TeamRecord | null> {
+    const existing = await this.getTeam(id);
+    if (!existing) return null;
+    const now = new Date();
+    const flag = Boolean(isPublic);
+    if (mysqlPool) {
+      await mysqlPool.execute("UPDATE `teams` SET is_public = ?, updated_at = ? WHERE id = ?", [flag ? 1 : 0, now, id]);
+    } else if (pgPool) {
+      await pgPool.query("UPDATE teams SET is_public = $1, updated_at = $2 WHERE id = $3", [flag, now, id]);
+    }
+    const updated = { ...existing, is_public: flag, updated_at: now };
+    memoryStore.teams.set(id, updated);
+    return updated;
+  },
+
+  async isTeamPubliclyVisible(teamId: string): Promise<boolean> {
+    const team = await this.getTeam(teamId);
+    if (!team) return false;
+    if (team.is_public) return true;
+    const clubIds = await this.listClubIdsForTeam(teamId);
+    for (const cid of clubIds) {
+      const club = await this.getClub(cid);
+      if (club?.page_paid) return true;
+    }
+    return false;
+  },
+
+  async listPublicClubs(query = "", limit = 40): Promise<ClubRecord[]> {
+    await initTablesIfRealDb();
+    const q = query.trim();
+    const cap = Math.min(80, Math.max(1, limit));
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `clubs` WHERE page_paid = 1 ORDER BY updated_at DESC LIMIT 120"
+      );
+      return rows.map(normalizeClubRow).filter((c) => clubMatchesQuery(c, q)).slice(0, cap);
+    }
+    if (pgPool) {
+      const res = await pgPool.query("SELECT * FROM clubs WHERE page_paid = TRUE ORDER BY updated_at DESC LIMIT 120");
+      return res.rows.map(normalizeClubRow).filter((c) => clubMatchesQuery(c, q)).slice(0, cap);
+    }
+    return Array.from(memoryStore.clubs.values())
+      .filter((c) => c.page_paid)
+      .filter((c) => clubMatchesQuery(c, q))
+      .sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime())
+      .slice(0, cap);
+  },
+
+  async listPublicTeams(query = "", limit = 40): Promise<TeamRecord[]> {
+    await initTablesIfRealDb();
+    const q = query.trim();
+    const cap = Math.min(80, Math.max(1, limit));
+    let teams: TeamRecord[] = [];
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT t.*, (SELECT COUNT(*) FROM \`players\` p WHERE p.team_id = t.id) AS player_count
+         FROM \`teams\` t
+         WHERE t.is_public = 1
+            OR t.id IN (
+              SELECT ct.team_id FROM \`club_teams\` ct
+              INNER JOIN \`clubs\` c ON c.id = ct.club_id
+              WHERE c.page_paid = 1
+            )
+         ORDER BY t.updated_at DESC LIMIT 200`
+      );
+      teams = rows.map(normalizeTeamRow);
+    } else if (pgPool) {
+      const res = await pgPool.query(
+        `SELECT t.*, (SELECT COUNT(*)::int FROM players p WHERE p.team_id = t.id) AS player_count
+         FROM teams t
+         WHERE t.is_public = TRUE
+            OR t.id IN (
+              SELECT ct.team_id FROM club_teams ct
+              INNER JOIN clubs c ON c.id = ct.club_id
+              WHERE c.page_paid = TRUE
+            )
+         ORDER BY t.updated_at DESC LIMIT 200`
+      );
+      teams = res.rows.map(normalizeTeamRow);
+    } else {
+      const paidClubIds = new Set(
+        Array.from(memoryStore.clubs.values()).filter((c) => c.page_paid).map((c) => c.id)
+      );
+      const publicTeamIds = new Set<string>();
+      for (const x of memoryStore.clubTeams.values()) {
+        if (paidClubIds.has(x.club_id)) publicTeamIds.add(x.team_id);
+      }
+      teams = Array.from(memoryStore.teams.values())
+        .filter((t) => t.is_public || publicTeamIds.has(t.id))
+        .map((t) => ({
+          ...t,
+          player_count: Array.from(memoryStore.players.values()).filter((p) => p.team_id === t.id).length,
+        }));
+    }
+    return teams.filter((t) => teamMatchesQuery(t, q)).slice(0, cap);
+  },
+
+  async listPublicTournaments(query = "", limit = 40): Promise<
+    { id: string; title: string; format: string; sport: string | null; team_count: number; updated_at: Date }[]
+  > {
+    await initTablesIfRealDb();
+    const q = query.trim();
+    const cap = Math.min(80, Math.max(1, limit));
+    const parseState = (raw: any) => {
+      if (!raw) return {};
+      if (typeof raw === "string") {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return {};
+        }
+      }
+      return raw;
+    };
+    let rows: any[] = [];
+    if (mysqlPool) {
+      const [r] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT id, title, format, sport, team_count, state, updated_at FROM `tournaments` ORDER BY updated_at DESC LIMIT 300"
+      );
+      rows = r;
+    } else if (pgPool) {
+      const res = await pgPool.query(
+        "SELECT id, title, format, sport, team_count, state, updated_at FROM tournaments ORDER BY updated_at DESC LIMIT 300"
+      );
+      rows = res.rows;
+    } else {
+      rows = Array.from(memoryStore.tournaments.values());
+    }
+    const out = [];
+    for (const row of rows) {
+      const state = parseState(row.state);
+      if (!state?.payment?.isPaid) continue;
+      const item = {
+        id: String(row.id),
+        title: String(row.title || ""),
+        format: String(row.format || ""),
+        sport: row.sport || null,
+        team_count: Number(row.team_count || 0),
+        updated_at: row.updated_at instanceof Date ? row.updated_at : new Date(row.updated_at),
+      };
+      if (q) {
+        const hay = `${item.title} ${item.sport || ""} ${item.format}`.toLowerCase();
+        if (!hay.includes(q.toLowerCase())) continue;
+      }
+      out.push(item);
+      if (out.length >= cap) break;
+    }
+    return out;
+  },
+
+  async searchPublicPlayers(query = "", limit = 40): Promise<
+    { id: string; team_id: string; name: string; jersey_number: string; position: string; status: string; team_name: string }[]
+  > {
+    const teams = await this.listPublicTeams("", 120);
+    const teamMap = new Map(teams.map((t) => [t.id, t]));
+    const q = query.trim().toLowerCase();
+    const cap = Math.min(80, Math.max(1, limit));
+    const out: {
+      id: string;
+      team_id: string;
+      name: string;
+      jersey_number: string;
+      position: string;
+      status: string;
+      team_name: string;
+    }[] = [];
+    for (const team of teams) {
+      const players = await this.listPlayers(team.id);
+      for (const p of players) {
+        if (q && !`${p.name} ${p.position} ${team.name}`.toLowerCase().includes(q)) continue;
+        out.push({
+          id: p.id,
+          team_id: p.team_id,
+          name: p.name,
+          jersey_number: p.jersey_number || "",
+          position: p.position || "",
+          status: p.status || "active",
+          team_name: teamMap.get(p.team_id)?.name || team.name,
+        });
+        if (out.length >= cap) return out;
+      }
+    }
+    return out;
+  },
+
+  async followTournament(userId: string, tournamentId: string): Promise<{ ok: true } | { error: string }> {
+    if (!userId || !tournamentId) return { error: "شناسه نامعتبر است." };
+    const existing = await this.isFollowingTournament(userId, tournamentId);
+    if (existing) return { ok: true };
+    const now = new Date();
+    try {
+      if (mysqlPool) {
+        await initTablesIfRealDb();
+        await mysqlPool.execute(
+          "INSERT INTO `tournament_follows` (user_id, tournament_id, created_at) VALUES (?, ?, ?)",
+          [userId, tournamentId, now]
+        );
+      } else if (pgPool) {
+        await initTablesIfRealDb();
+        await pgPool.query(
+          "INSERT INTO tournament_follows (user_id, tournament_id, created_at) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+          [userId, tournamentId, now]
+        );
+      }
+    } catch (err) {
+      console.warn("[NexSport DB] followTournament:", err);
+    }
+    memoryStore.follows.set(`${userId}:${tournamentId}`, { user_id: userId, tournament_id: tournamentId, created_at: now });
+    return { ok: true };
+  },
+
+  async unfollowTournament(userId: string, tournamentId: string): Promise<boolean> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute("DELETE FROM `tournament_follows` WHERE user_id = ? AND tournament_id = ?", [
+        userId,
+        tournamentId,
+      ]);
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query("DELETE FROM tournament_follows WHERE user_id = $1 AND tournament_id = $2", [
+        userId,
+        tournamentId,
+      ]);
+    }
+    memoryStore.follows.delete(`${userId}:${tournamentId}`);
+    return true;
+  },
+
+  async isFollowingTournament(userId: string, tournamentId: string): Promise<boolean> {
+    if (!userId || !tournamentId) return false;
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT user_id FROM `tournament_follows` WHERE user_id = ? AND tournament_id = ? LIMIT 1",
+        [userId, tournamentId]
+      );
+      return Boolean(rows[0]);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT user_id FROM tournament_follows WHERE user_id = $1 AND tournament_id = $2 LIMIT 1",
+        [userId, tournamentId]
+      );
+      return Boolean(res.rows[0]);
+    }
+    return memoryStore.follows.has(`${userId}:${tournamentId}`);
+  },
+
+  async listTournamentFollowerIds(tournamentId: string): Promise<string[]> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT user_id FROM `tournament_follows` WHERE tournament_id = ?",
+        [tournamentId]
+      );
+      return rows.map((r) => String(r.user_id));
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query("SELECT user_id FROM tournament_follows WHERE tournament_id = $1", [tournamentId]);
+      return res.rows.map((r) => String(r.user_id));
+    }
+    return Array.from(memoryStore.follows.values())
+      .filter((f) => f.tournament_id === tournamentId)
+      .map((f) => f.user_id);
+  },
+
+  async listFollowedTournaments(userId: string): Promise<string[]> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT tournament_id FROM `tournament_follows` WHERE user_id = ? ORDER BY created_at DESC",
+        [userId]
+      );
+      return rows.map((r) => String(r.tournament_id));
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT tournament_id FROM tournament_follows WHERE user_id = $1 ORDER BY created_at DESC",
+        [userId]
+      );
+      return res.rows.map((r) => String(r.tournament_id));
+    }
+    return Array.from(memoryStore.follows.values())
+      .filter((f) => f.user_id === userId)
+      .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
+      .map((f) => f.tournament_id);
+  },
+
+  async createNotification(data: {
+    userId: string;
+    type: string;
+    title: string;
+    body?: string;
+    link?: string;
+  }): Promise<void> {
+    const id = crypto.randomUUID();
+    const now = new Date();
+    const rec = {
+      id,
+      user_id: data.userId,
+      type: data.type || "info",
+      title: String(data.title || "").slice(0, 200),
+      body: String(data.body || "").slice(0, 500),
+      link: String(data.link || "").slice(0, 200),
+      is_read: false,
+      created_at: now,
+    };
+    try {
+      if (mysqlPool) {
+        await initTablesIfRealDb();
+        await mysqlPool.execute(
+          "INSERT INTO `notifications` (id, user_id, type, title, body, link, is_read, created_at) VALUES (?,?,?,?,?,?,0,?)",
+          [rec.id, rec.user_id, rec.type, rec.title, rec.body, rec.link, now]
+        );
+      } else if (pgPool) {
+        await initTablesIfRealDb();
+        await pgPool.query(
+          "INSERT INTO notifications (id, user_id, type, title, body, link, is_read, created_at) VALUES ($1,$2,$3,$4,$5,$6,FALSE,$7)",
+          [rec.id, rec.user_id, rec.type, rec.title, rec.body, rec.link, now]
+        );
+      }
+    } catch (err) {
+      console.warn("[NexSport DB] createNotification:", err);
+    }
+    memoryStore.notifications.set(id, rec);
+  },
+
+  async notifyTournamentFollowers(tournamentId: string, title: string, body: string): Promise<number> {
+    const ids = await this.listTournamentFollowerIds(tournamentId);
+    const link = `/t/${tournamentId}`;
+    const cutoff = Date.now() - 15 * 60 * 1000;
+    let sent = 0;
+    for (const userId of ids) {
+      const recent = await this.listNotifications(userId, 8);
+      const dup = recent.find(
+        (n) => n.link === link && n.type === "result" && n.created_at.getTime() > cutoff
+      );
+      if (dup) continue;
+      await this.createNotification({ userId, type: "result", title, body, link });
+      sent += 1;
+    }
+    return sent;
+  },
+
+  async listNotifications(userId: string, limit = 30): Promise<{
+    id: string;
+    user_id: string;
+    type: string;
+    title: string;
+    body: string;
+    link: string;
+    is_read: boolean;
+    created_at: Date;
+  }[]> {
+    const cap = Math.min(80, Math.max(1, limit));
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `notifications` WHERE user_id = ? ORDER BY created_at DESC LIMIT 80",
+        [userId]
+      );
+      return rows.map(normalizeNotificationRow).slice(0, cap);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 80",
+        [userId]
+      );
+      return res.rows.map(normalizeNotificationRow).slice(0, cap);
+    }
+    return Array.from(memoryStore.notifications.values())
+      .filter((n) => n.user_id === userId)
+      .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
+      .slice(0, cap);
+  },
+
+  async countUnreadNotifications(userId: string): Promise<number> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT COUNT(*) AS c FROM `notifications` WHERE user_id = ? AND is_read = 0",
+        [userId]
+      );
+      return Number(rows[0]?.c || 0);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT COUNT(*)::int AS c FROM notifications WHERE user_id = $1 AND is_read = FALSE",
+        [userId]
+      );
+      return Number(res.rows[0]?.c || 0);
+    }
+    return Array.from(memoryStore.notifications.values()).filter((n) => n.user_id === userId && !n.is_read).length;
+  },
+
+  async markNotificationsRead(userId: string, ids?: string[]): Promise<void> {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      if (ids && ids.length) {
+        const placeholders = ids.map(() => "?").join(",");
+        await mysqlPool.execute(
+          `UPDATE \`notifications\` SET is_read = 1 WHERE user_id = ? AND id IN (${placeholders})`,
+          [userId, ...ids]
+        );
+      } else {
+        await mysqlPool.execute("UPDATE `notifications` SET is_read = 1 WHERE user_id = ?", [userId]);
+      }
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      if (ids && ids.length) {
+        await pgPool.query(
+          "UPDATE notifications SET is_read = TRUE WHERE user_id = $1 AND id = ANY($2::varchar[])",
+          [userId, ids]
+        );
+      } else {
+        await pgPool.query("UPDATE notifications SET is_read = TRUE WHERE user_id = $1", [userId]);
+      }
+    }
+    for (const n of memoryStore.notifications.values()) {
+      if (n.user_id !== userId) continue;
+      if (!ids || ids.includes(n.id)) n.is_read = true;
+    }
+  },
+
+  async createServiceListing(userId: string, data: {
+    category: string;
+    title: string;
+    body: string;
+    city: string;
+    sport: string;
+    contact_name: string;
+    mobile: string;
+  }) {
+    const id = crypto.randomUUID();
+    const now = new Date();
+    const rec = {
+      id,
+      user_id: userId,
+      category: data.category,
+      title: data.title,
+      body: data.body,
+      city: data.city || "",
+      sport: data.sport || "",
+      contact_name: data.contact_name || "",
+      mobile: data.mobile || "",
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    };
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute(
+        `INSERT INTO \`service_listings\` (id, user_id, category, title, body, city, sport, contact_name, mobile, is_active, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,1,?,?)`,
+        [id, userId, rec.category, rec.title, rec.body, rec.city, rec.sport, rec.contact_name, rec.mobile, now, now]
+      );
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query(
+        `INSERT INTO service_listings (id, user_id, category, title, body, city, sport, contact_name, mobile, is_active, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,$10,$11)`,
+        [id, userId, rec.category, rec.title, rec.body, rec.city, rec.sport, rec.contact_name, rec.mobile, now, now]
+      );
+    }
+    memoryStore.serviceListings.set(id, rec);
+    return rec;
+  },
+
+  async updateServiceListing(
+    id: string,
+    userId: string,
+    patch: Partial<{
+      category: string;
+      title: string;
+      body: string;
+      city: string;
+      sport: string;
+      contact_name: string;
+      mobile: string;
+      is_active: boolean;
+    }>,
+    isAdmin = false
+  ) {
+    const existing = await this.getServiceListing(id);
+    if (!existing) return null;
+    if (existing.user_id !== userId && !isAdmin) return null;
+    const now = new Date();
+    const updated = { ...existing, ...patch, updated_at: now };
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        `UPDATE \`service_listings\` SET category=?, title=?, body=?, city=?, sport=?, contact_name=?, mobile=?, is_active=?, updated_at=? WHERE id=?`,
+        [
+          updated.category,
+          updated.title,
+          updated.body,
+          updated.city,
+          updated.sport,
+          updated.contact_name,
+          updated.mobile,
+          updated.is_active ? 1 : 0,
+          now,
+          id,
+        ]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        `UPDATE service_listings SET category=$1, title=$2, body=$3, city=$4, sport=$5, contact_name=$6, mobile=$7, is_active=$8, updated_at=$9 WHERE id=$10`,
+        [
+          updated.category,
+          updated.title,
+          updated.body,
+          updated.city,
+          updated.sport,
+          updated.contact_name,
+          updated.mobile,
+          updated.is_active,
+          now,
+          id,
+        ]
+      );
+    }
+    memoryStore.serviceListings.set(id, updated);
+    return updated;
+  },
+
+  async getServiceListing(id: string) {
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT s.*, u.name AS owner_name FROM \`service_listings\` s LEFT JOIN \`users\` u ON u.id = s.user_id WHERE s.id = ? LIMIT 1`,
+        [id]
+      );
+      return rows[0] ? normalizeServiceRow(rows[0]) : null;
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        `SELECT s.*, u.name AS owner_name FROM service_listings s LEFT JOIN users u ON u.id = s.user_id WHERE s.id = $1 LIMIT 1`,
+        [id]
+      );
+      return res.rows[0] ? normalizeServiceRow(res.rows[0]) : null;
+    }
+    const rec = memoryStore.serviceListings.get(id);
+    if (!rec) return null;
+    const owner = memoryStore.users.get(rec.user_id);
+    return { ...rec, owner_name: owner?.name || "" };
+  },
+
+  async listServiceListings(opts: { query?: string; category?: string; userId?: string; includeInactive?: boolean; limit?: number } = {}) {
+    await initTablesIfRealDb();
+    const q = (opts.query || "").trim().toLowerCase();
+    const cap = Math.min(80, Math.max(1, opts.limit || 40));
+    let rows: any[] = [];
+    if (mysqlPool) {
+      const [r] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT s.*, u.name AS owner_name FROM \`service_listings\` s LEFT JOIN \`users\` u ON u.id = s.user_id ORDER BY s.updated_at DESC LIMIT 200`
+      );
+      rows = r;
+    } else if (pgPool) {
+      const res = await pgPool.query(
+        `SELECT s.*, u.name AS owner_name FROM service_listings s LEFT JOIN users u ON u.id = s.user_id ORDER BY s.updated_at DESC LIMIT 200`
+      );
+      rows = res.rows;
+    } else {
+      rows = Array.from(memoryStore.serviceListings.values()).map((s) => ({
+        ...s,
+        owner_name: memoryStore.users.get(s.user_id)?.name || "",
+      }));
+    }
+    return rows
+      .map(normalizeServiceRow)
+      .filter((s) => {
+        if (opts.userId && s.user_id !== opts.userId) return false;
+        if (!opts.includeInactive && !s.is_active) return false;
+        if (opts.category && s.category !== opts.category) return false;
+        if (q && !`${s.title} ${s.body} ${s.city} ${s.sport} ${s.contact_name}`.toLowerCase().includes(q)) return false;
+        return true;
+      })
+      .slice(0, cap);
+  },
+
 };
+
+
+function clubMatchesQuery(c: ClubRecord, q: string) {
+  if (!q) return true;
+  const hay = `${c.name} ${c.city} ${c.sport} ${c.short_name}`.toLowerCase();
+  return hay.includes(q.toLowerCase());
+}
+
+function teamMatchesQuery(t: TeamRecord, q: string) {
+  if (!q) return true;
+  const hay = `${t.name} ${t.city} ${t.sport} ${t.coach} ${t.short_name}`.toLowerCase();
+  return hay.includes(q.toLowerCase());
+}
+
+function normalizeNotificationRow(row: any) {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    type: row.type || "info",
+    title: row.title || "",
+    body: row.body || "",
+    link: row.link || "",
+    is_read: Boolean(row.is_read),
+    created_at: row.created_at instanceof Date ? row.created_at : new Date(row.created_at),
+  };
+}
+
+function normalizeServiceRow(row: any) {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    category: row.category,
+    title: row.title || "",
+    body: row.body || "",
+    city: row.city || "",
+    sport: row.sport || "",
+    contact_name: row.contact_name || "",
+    mobile: row.mobile || "",
+    is_active: Boolean(row.is_active),
+    created_at: row.created_at instanceof Date ? row.created_at : new Date(row.created_at),
+    updated_at: row.updated_at instanceof Date ? row.updated_at : new Date(row.updated_at),
+    owner_name: row.owner_name || "",
+  };
+}
 
 function normalizeTeamRow(row: any): TeamRecord {
   return {
@@ -4320,6 +5062,7 @@ function normalizeTeamRow(row: any): TeamRecord {
     player_count: Number(row.player_count || 0),
     owner_name: row.owner_name,
     owner_email: row.owner_email,
+    is_public: Boolean(row.is_public),
   };
 }
 

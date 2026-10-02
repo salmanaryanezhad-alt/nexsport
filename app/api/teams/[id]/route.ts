@@ -45,6 +45,10 @@ export async function PATCH(
       return NextResponse.json({ error: "دسترسی به این تیم مجاز نیست." }, { status: 403 });
     }
     const body = await req.json();
+    if (typeof body?.is_public === "boolean" && Object.keys(body).filter((k) => body[k] !== undefined).length === 1) {
+      const updated = await db.setTeamPublic(id, body.is_public);
+      return NextResponse.json({ success: true, team: updated });
+    }
     const parsed = sanitizeTeamInput(body || {});
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
     const updated = await db.updateTeam(id, parsed.data);

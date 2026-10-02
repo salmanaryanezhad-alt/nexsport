@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "./AuthContext";
+import { NotificationsModal } from "@/components/community/NotificationsModal";
 
 export function AuthHeaderNav() {
   const {
@@ -22,6 +23,8 @@ export function AuthHeaderNav() {
     logout,
   } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -108,21 +111,70 @@ export function AuthHeaderNav() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    function loadBadge() {
+      fetch("/api/notifications/badge/", { credentials: "same-origin" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d && setNotifCount(Number(d.unreadCount || 0)))
+        .catch(() => {});
+    }
+    loadBadge();
+    const t = window.setInterval(loadBadge, 45000);
+    return () => window.clearInterval(t);
+  }, [user]);
+
   if (!user) {
     return (
-      <button
-        type="button"
-        onClick={() => openAuthModal("login")}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/20 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-bold text-pitch shadow-2xs hover:bg-pitch hover:text-white transition-all cursor-pointer shrink-0"
-      >
-        <span>👤</span>
-        <span>ورود / ثبت‌نام</span>
-      </button>
+      <div className="flex items-center gap-1.5">
+        <Link
+          href="/explore"
+          className="hidden sm:inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:border-emerald-400 hover:text-emerald-800"
+        >
+          جامعه
+        </Link>
+        <button
+          type="button"
+          onClick={() => openAuthModal("login")}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-pitch/20 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-bold text-pitch shadow-2xs hover:bg-pitch hover:text-white transition-all cursor-pointer shrink-0"
+        >
+          <span>👤</span>
+          <span>ورود / ثبت‌نام</span>
+        </button>
+      </div>
     );
   }
 
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
+      <Link
+        href="/explore"
+        className="hidden md:inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:border-emerald-400 hover:text-emerald-800"
+      >
+        جامعه
+      </Link>
+      <Link
+        href="/services"
+        className="hidden lg:inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:border-amber-400 hover:text-amber-800"
+      >
+        خدمات
+      </Link>
+      <button
+        type="button"
+        onClick={() => setNotifOpen(true)}
+        className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm hover:border-emerald-400 cursor-pointer"
+        title="اعلان‌های مسابقات"
+      >
+        🔔
+        {notifCount > 0 && (
+          <span className="absolute -top-0.5 -left-0.5 h-2.5 w-2.5 rounded-full bg-rose-600 ring-2 ring-white" />
+        )}
+      </button>
+      <NotificationsModal
+        open={notifOpen}
+        onClose={() => setNotifOpen(false)}
+        onChanged={() => setNotifCount(0)}
+      />
       <div className="relative inline-block text-right" ref={dropdownRef}>
         {/* Trigger Button */}
         <button

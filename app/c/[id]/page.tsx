@@ -74,13 +74,13 @@ export default function PublicClubPage() {
             {(!data.teams || data.teams.length === 0) && <p className="text-sm text-slate-500">هنوز تیمی متصل نشده است.</p>}
             <div className="grid gap-3 sm:grid-cols-2">
               {(data.teams || []).map((t: any) => (
-                <div key={t.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <Link key={t.id} href={`/tm/${t.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 hover:border-emerald-300 block">
                   <div className="font-black">{t.name}</div>
                   <p className="text-[11px] text-slate-500 mt-1">
                     {t.sport} {t.city ? `• ${t.city}` : ""} • {toPersianDigits(t.player_count || 0)} بازیکن
                     {t.coach ? ` • مربی: ${t.coach}` : ""}
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
           </section>
@@ -101,7 +101,9 @@ export default function PublicClubPage() {
                   <tbody>
                     {data.players.map((p: any) => (
                       <tr key={p.id} className="border-t border-slate-100">
-                        <td className="px-3 py-2 font-black">{p.name}</td>
+                        <td className="px-3 py-2 font-black">
+                          <Link href={`/p/${p.id}`} className="hover:text-emerald-800">{p.name}</Link>
+                        </td>
                         <td className="px-3 py-2">{p.team_name}</td>
                         <td className="px-3 py-2">{p.jersey_number ? toPersianDigits(p.jersey_number) : "—"}</td>
                         <td className="px-3 py-2">{p.position || "—"}</td>

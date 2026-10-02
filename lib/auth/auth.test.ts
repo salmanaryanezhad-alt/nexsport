@@ -1800,6 +1800,88 @@ async function run() {
     assertEqual(parsed?.d, 10, "روز ۱۰");
   });
 
+  await test("جامعه و خدمات: صفحه عمومی تیم، دنبال‌کردن مسابقه، اعلان نتایج و آگهی خدمت", async () => {
+    const { sanitizeTeamInput, sanitizePlayerInput } = await import("../teams/validate");
+    const { sanitizeServiceListingInput } = await import("../community/validate");
+    const { SERVICE_CATEGORIES } = await import("../community/catalog");
+    assert(SERVICE_CATEGORIES.length >= 6, "شش دسته خدمات فاز ۹.");
+
+    const owner = await db.createUser({
+      name: "مالک جامعه",
+      email: "community.owner@nexsport.ir",
+      mobile: "09128880001",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: true,
+    });
+    const fan = await db.createUser({
+      name: "هوادار",
+      email: "fan.community@nexsport.ir",
+      mobile: "09128880002",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: true,
+    });
+
+    const tIn = sanitizeTeamInput({ name: "شاهین تهران", city: "تهران", sport: "فوتبال" });
+    assert(tIn.ok, "تیم جامعه معتبر.");
+    if (!tIn.ok) return;
+    const team = await db.createTeam(owner.id, tIn.data);
+    assertEqual(Boolean(team.is_public), false, "تیم پیش‌فرض خصوصی است.");
+    assertEqual(await db.isTeamPubliclyVisible(team.id), false, "قبل از انتشار دیده نشود.");
+    await db.setTeamPublic(team.id, true);
+    assertEqual(await db.isTeamPubliclyVisible(team.id), true, "پس از انتشار عمومی شود.");
+
+    const pIn = sanitizePlayerInput({ name: "علی رضایی", jersey_number: "9" });
+    assert(pIn.ok, "بازیکن جامعه معتبر.");
+    if (!pIn.ok) return;
+    const player = await db.createPlayer(team.id, pIn.data);
+    assert(!("error" in player), "بازیکن ساخته شود.");
+    if ("error" in player) return;
+
+    const publicTeams = await db.listPublicTeams("شاهین");
+    assert(publicTeams.some((t) => t.id === team.id), "تیم در جست‌وجوی عمومی باشد.");
+    const publicPlayers = await db.searchPublicPlayers("علی");
+    assert(publicPlayers.some((p) => p.id === player.id), "بازیکن در جست‌وجوی عمومی باشد.");
+
+    const tournament = await db.saveTournament({
+      userId: owner.id,
+      title: "جام جامعه",
+      format: "league",
+      teamCount: 4,
+      state: { step: 4, payment: { isPaid: true } },
+    });
+    const pubs = await db.listPublicTournaments("جام جامعه");
+    assert(pubs.some((t) => t.id === tournament.id), "مسابقه با لینک تماشاگر در جست‌وجو باشد.");
+
+    await db.followTournament(fan.id, tournament.id);
+    assertEqual(await db.isFollowingTournament(fan.id, tournament.id), true, "هوادار مسابقه را دنبال کند.");
+    const notified = await db.notifyTournamentFollowers(tournament.id, "نتایج به‌روز شد", "گل ثبت شد.");
+    assertEqual(notified, 1, "یک اعلان برای دنبال‌کننده.");
+    const notes = await db.listNotifications(fan.id);
+    assert(notes.length >= 1, "اعلان در صندوق هوادار.");
+    await db.markNotificationsRead(fan.id);
+    assertEqual(await db.countUnreadNotifications(fan.id), 0, "پس از خواندن صفر شود.");
+
+    const badService = sanitizeServiceListingInput({ category: "x", title: "ab", body: "short" });
+    assertEqual(badService.ok, false, "آگهی نامعتبر رد شود.");
+    const okService = sanitizeServiceListingInput({
+      category: "coach",
+      title: "مربی بدنساز نوجوانان",
+      body: "برنامه تمرینی اختصاصی برای رده نوجوانان فوتبال.",
+      city: "تهران",
+      sport: "فوتبال",
+      contact_name: "رضا",
+      mobile: "09123334455",
+    });
+    assert(okService.ok, "آگهی مربی معتبر.");
+    if (!okService.ok) return;
+    const listing = await db.createServiceListing(owner.id, okService.data);
+    const listed = await db.listServiceListings({ category: "coach", query: "بدنساز" });
+    assert(listed.some((s) => s.id === listing.id), "آگهی در فهرست خدمات باشد.");
+    await db.updateServiceListing(listing.id, owner.id, { is_active: false });
+    const after = await db.listServiceListings({ category: "coach" });
+    assert(!after.some((s) => s.id === listing.id), "آگهی غیرفعال در فهرست عمومی نباشد.");
+  });
+
   console.log("\n======================================");
   console.log(`تست‌های موفق: ${passed}`);
   console.log(`تست‌های ناموفق: ${failed}`);

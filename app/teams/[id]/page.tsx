@@ -191,9 +191,40 @@ export default function TeamDetailPage() {
           </Link>
           <h1 className="text-2xl font-black text-slate-900 mt-1">{team?.name || "تیم"}</h1>
         </div>
-        <button type="button" onClick={deleteTeam} className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-100">
-          حذف تیم
-        </button>
+        <div className="flex items-center gap-2">
+          {team && (
+            <button
+              type="button"
+              onClick={async () => {
+                const res = await fetch(`/api/teams/${id}/`, {
+                  method: "PATCH",
+                  credentials: "same-origin",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ is_public: !team.is_public }),
+                });
+                if (res.ok) {
+                  setTeam({ ...team, is_public: !team.is_public });
+                  setMessage(!team.is_public ? "صفحه عمومی تیم منتشر شد." : "صفحه عمومی تیم برداشته شد.");
+                }
+              }}
+              className={`rounded-xl px-3 py-1.5 text-xs font-black border ${
+                team.is_public
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-slate-200 bg-white text-slate-700"
+              }`}
+            >
+              {team.is_public ? "صفحه عمومی فعال است" : "انتشار صفحه عمومی"}
+            </button>
+          )}
+          {team?.is_public && (
+            <Link href={`/tm/${id}`} className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-black text-sky-800">
+              مشاهده صفحه
+            </Link>
+          )}
+          <button type="button" onClick={deleteTeam} className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-100">
+            حذف تیم
+          </button>
+        </div>
       </div>
 
       {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-800">{error}</div>}

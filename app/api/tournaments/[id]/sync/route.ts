@@ -80,6 +80,18 @@ export async function POST(
       state: updatedState,
     });
 
+    try {
+      if (saved.state?.payment?.isPaid) {
+        await db.notifyTournamentFollowers(
+          saved.id,
+          `نتایج «${saved.title}» به‌روز شد`,
+          "نتایج یا وضعیت مسابقه‌ای که دنبال می‌کنید تغییر کرده است."
+        );
+      }
+    } catch (err) {
+      console.warn("[Tournament Sync] notify followers:", err);
+    }
+
     const res = NextResponse.json({
       success: true,
       message: "نتایج مسابقه با موفقیت همگام‌سازی شد.",
