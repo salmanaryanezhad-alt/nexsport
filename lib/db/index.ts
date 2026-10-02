@@ -182,6 +182,51 @@ export interface RegistrationRecord {
   updated_at: Date;
 }
 
+export type ClubMemberRole = "owner" | "manager" | "coach" | "member";
+export type ClubMemberStatus = "pending" | "active";
+
+export interface ClubRecord {
+  id: string;
+  owner_id: string;
+  name: string;
+  short_name: string;
+  sport: string;
+  city: string;
+  founded_year: string;
+  venue: string;
+  description: string;
+  contact_name: string;
+  mobile: string;
+  created_at: Date;
+  updated_at: Date;
+  member_count?: number;
+  team_count?: number;
+  my_role?: ClubMemberRole;
+  my_status?: ClubMemberStatus;
+}
+
+export interface ClubMemberRecord {
+  id: string;
+  club_id: string;
+  user_id: string;
+  role: ClubMemberRole;
+  status: ClubMemberStatus;
+  created_at: Date;
+  name?: string;
+  email?: string;
+  mobile?: string;
+}
+
+export interface ClubCoachRecord {
+  id: string;
+  club_id: string;
+  name: string;
+  title: string;
+  mobile: string;
+  notes: string;
+  created_at: Date;
+}
+
 export interface AdminTournamentListItem {
   id: string;
   user_id: string;
@@ -296,6 +341,11 @@ const memoryStore = {
   teams: new Map<string, TeamRecord>(),
   players: new Map<string, PlayerRecord>(),
   registrations: new Map<string, RegistrationRecord>(),
+  clubs: new Map<string, ClubRecord>(),
+  clubMembers: new Map<string, ClubMemberRecord>(),
+  clubCoaches: new Map<string, ClubCoachRecord>(),
+  clubTeams: new Map<string, { club_id: string; team_id: string }>(),
+  clubTournaments: new Map<string, { club_id: string; tournament_id: string }>(),
 };
 
 function normalizeDiscountRow(row: any): DiscountCodeRecord {
@@ -606,6 +656,66 @@ async function initTablesIfRealDb() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`clubs\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`owner_id\` VARCHAR(36) NOT NULL,
+          \`name\` VARCHAR(80) NOT NULL,
+          \`short_name\` VARCHAR(16) DEFAULT '',
+          \`sport\` VARCHAR(40) DEFAULT 'فوتبال',
+          \`city\` VARCHAR(60) DEFAULT '',
+          \`founded_year\` VARCHAR(4) DEFAULT '',
+          \`venue\` VARCHAR(80) DEFAULT '',
+          \`description\` VARCHAR(500) DEFAULT '',
+          \`contact_name\` VARCHAR(80) DEFAULT '',
+          \`mobile\` VARCHAR(20) DEFAULT '',
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_clubs_owner\` (\`owner_id\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`club_members\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`club_id\` VARCHAR(36) NOT NULL,
+          \`user_id\` VARCHAR(36) NOT NULL,
+          \`role\` VARCHAR(20) DEFAULT 'member',
+          \`status\` VARCHAR(20) DEFAULT 'pending',
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          UNIQUE KEY \`uniq_club_user\` (\`club_id\`, \`user_id\`),
+          KEY \`idx_club_members_user\` (\`user_id\`, \`status\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`club_coaches\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`club_id\` VARCHAR(36) NOT NULL,
+          \`name\` VARCHAR(80) NOT NULL,
+          \`title\` VARCHAR(40) DEFAULT '',
+          \`mobile\` VARCHAR(20) DEFAULT '',
+          \`notes\` VARCHAR(300) DEFAULT '',
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_club_coaches_club\` (\`club_id\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`club_teams\` (
+          \`club_id\` VARCHAR(36) NOT NULL,
+          \`team_id\` VARCHAR(36) NOT NULL,
+          PRIMARY KEY (\`club_id\`, \`team_id\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`club_tournaments\` (
+          \`club_id\` VARCHAR(36) NOT NULL,
+          \`tournament_id\` VARCHAR(36) NOT NULL,
+          PRIMARY KEY (\`club_id\`, \`tournament_id\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       tablesInitialized = true;
     } catch (err) {
       console.warn("[NexSport DB] MySQL table auto-init warning:", err);
@@ -799,6 +909,56 @@ async function initTablesIfRealDb() {
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_registrations_tournament ON registrations(tournament_id, status);
+
+        CREATE TABLE IF NOT EXISTS clubs (
+          id VARCHAR(36) PRIMARY KEY,
+          owner_id VARCHAR(36) NOT NULL,
+          name VARCHAR(80) NOT NULL,
+          short_name VARCHAR(16) DEFAULT '',
+          sport VARCHAR(40) DEFAULT 'فوتبال',
+          city VARCHAR(60) DEFAULT '',
+          founded_year VARCHAR(4) DEFAULT '',
+          venue VARCHAR(80) DEFAULT '',
+          description VARCHAR(500) DEFAULT '',
+          contact_name VARCHAR(80) DEFAULT '',
+          mobile VARCHAR(20) DEFAULT '',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_clubs_owner ON clubs(owner_id);
+
+        CREATE TABLE IF NOT EXISTS club_members (
+          id VARCHAR(36) PRIMARY KEY,
+          club_id VARCHAR(36) NOT NULL,
+          user_id VARCHAR(36) NOT NULL,
+          role VARCHAR(20) DEFAULT 'member',
+          status VARCHAR(20) DEFAULT 'pending',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (club_id, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_club_members_user ON club_members(user_id, status);
+
+        CREATE TABLE IF NOT EXISTS club_coaches (
+          id VARCHAR(36) PRIMARY KEY,
+          club_id VARCHAR(36) NOT NULL,
+          name VARCHAR(80) NOT NULL,
+          title VARCHAR(40) DEFAULT '',
+          mobile VARCHAR(20) DEFAULT '',
+          notes VARCHAR(300) DEFAULT '',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_club_coaches_club ON club_coaches(club_id);
+
+        CREATE TABLE IF NOT EXISTS club_teams (
+          club_id VARCHAR(36) NOT NULL,
+          team_id VARCHAR(36) NOT NULL,
+          PRIMARY KEY (club_id, team_id)
+        );
+        CREATE TABLE IF NOT EXISTS club_tournaments (
+          club_id VARCHAR(36) NOT NULL,
+          tournament_id VARCHAR(36) NOT NULL,
+          PRIMARY KEY (club_id, tournament_id)
+        );
       `);
       tablesInitialized = true;
     } catch (err) {
@@ -3593,6 +3753,395 @@ export const db = {
     memoryStore.registrations.set(id, updated);
     return updated;
   },
+
+  async getClub(id: string): Promise<ClubRecord | null> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>("SELECT * FROM `clubs` WHERE id = ? LIMIT 1", [id]);
+      return rows[0] ? normalizeClubRow(rows[0]) : null;
+    }
+    if (pgPool) {
+      const res = await pgPool.query("SELECT * FROM clubs WHERE id = $1 LIMIT 1", [id]);
+      return res.rows[0] ? normalizeClubRow(res.rows[0]) : null;
+    }
+    return memoryStore.clubs.get(id) || null;
+  },
+
+  async listClubsForUser(userId: string): Promise<ClubRecord[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT c.*, m.role AS my_role, m.status AS my_status
+         FROM \`clubs\` c INNER JOIN \`club_members\` m ON m.club_id = c.id
+         WHERE m.user_id = ? AND m.status = 'active'
+         ORDER BY c.updated_at DESC`,
+        [userId]
+      );
+      return rows.map(normalizeClubRow);
+    }
+    if (pgPool) {
+      const res = await pgPool.query(
+        `SELECT c.*, m.role AS my_role, m.status AS my_status
+         FROM clubs c INNER JOIN club_members m ON m.club_id = c.id
+         WHERE m.user_id = $1 AND m.status = 'active'
+         ORDER BY c.updated_at DESC`,
+        [userId]
+      );
+      return res.rows.map(normalizeClubRow);
+    }
+    const out: ClubRecord[] = [];
+    for (const m of memoryStore.clubMembers.values()) {
+      if (m.user_id !== userId || m.status !== "active") continue;
+      const c = memoryStore.clubs.get(m.club_id);
+      if (c) out.push({ ...c, my_role: m.role, my_status: m.status });
+    }
+    return out.sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
+  },
+
+  async listClubInvites(userId: string): Promise<ClubRecord[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT c.*, m.role AS my_role, m.status AS my_status
+         FROM \`clubs\` c INNER JOIN \`club_members\` m ON m.club_id = c.id
+         WHERE m.user_id = ? AND m.status = 'pending'
+         ORDER BY m.created_at DESC`,
+        [userId]
+      );
+      return rows.map(normalizeClubRow);
+    }
+    if (pgPool) {
+      const res = await pgPool.query(
+        `SELECT c.*, m.role AS my_role, m.status AS my_status
+         FROM clubs c INNER JOIN club_members m ON m.club_id = c.id
+         WHERE m.user_id = $1 AND m.status = 'pending'
+         ORDER BY m.created_at DESC`,
+        [userId]
+      );
+      return res.rows.map(normalizeClubRow);
+    }
+    const out: ClubRecord[] = [];
+    for (const m of memoryStore.clubMembers.values()) {
+      if (m.user_id !== userId || m.status !== "pending") continue;
+      const c = memoryStore.clubs.get(m.club_id);
+      if (c) out.push({ ...c, my_role: m.role, my_status: m.status });
+    }
+    return out;
+  },
+
+  async createClub(
+    ownerId: string,
+    data: Omit<ClubRecord, "id" | "owner_id" | "created_at" | "updated_at" | "member_count" | "team_count" | "my_role" | "my_status">
+  ): Promise<ClubRecord> {
+    await initTablesIfRealDb();
+    let id = generateShortId(8);
+    for (let i = 0; i < 6; i++) {
+      if (!(await this.getClub(id))) break;
+      id = generateShortId(8);
+    }
+    const now = new Date();
+    const club: ClubRecord = { id, owner_id: ownerId, ...data, created_at: now, updated_at: now };
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        `INSERT INTO \`clubs\` (id, owner_id, name, short_name, sport, city, founded_year, venue, description, contact_name, mobile, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, ownerId, club.name, club.short_name, club.sport, club.city, club.founded_year, club.venue, club.description, club.contact_name, club.mobile, now, now]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        `INSERT INTO clubs (id, owner_id, name, short_name, sport, city, founded_year, venue, description, contact_name, mobile, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [id, ownerId, club.name, club.short_name, club.sport, club.city, club.founded_year, club.venue, club.description, club.contact_name, club.mobile, now, now]
+      );
+    }
+    memoryStore.clubs.set(id, club);
+    await this.addClubMember(id, ownerId, "owner", "active");
+    return { ...club, my_role: "owner", my_status: "active" };
+  },
+
+  async updateClub(
+    id: string,
+    data: Omit<ClubRecord, "id" | "owner_id" | "created_at" | "updated_at" | "member_count" | "team_count" | "my_role" | "my_status">
+  ): Promise<ClubRecord | null> {
+    const existing = await this.getClub(id);
+    if (!existing) return null;
+    const now = new Date();
+    const updated: ClubRecord = { ...existing, ...data, updated_at: now };
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        `UPDATE \`clubs\` SET name=?, short_name=?, sport=?, city=?, founded_year=?, venue=?, description=?, contact_name=?, mobile=?, updated_at=? WHERE id=?`,
+        [updated.name, updated.short_name, updated.sport, updated.city, updated.founded_year, updated.venue, updated.description, updated.contact_name, updated.mobile, now, id]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        `UPDATE clubs SET name=$1, short_name=$2, sport=$3, city=$4, founded_year=$5, venue=$6, description=$7, contact_name=$8, mobile=$9, updated_at=$10 WHERE id=$11`,
+        [updated.name, updated.short_name, updated.sport, updated.city, updated.founded_year, updated.venue, updated.description, updated.contact_name, updated.mobile, now, id]
+      );
+    }
+    memoryStore.clubs.set(id, updated);
+    return updated;
+  },
+
+  async deleteClub(id: string): Promise<boolean> {
+    const existing = await this.getClub(id);
+    if (!existing) return false;
+    if (mysqlPool) {
+      await mysqlPool.execute("DELETE FROM `club_members` WHERE club_id = ?", [id]);
+      await mysqlPool.execute("DELETE FROM `club_coaches` WHERE club_id = ?", [id]);
+      await mysqlPool.execute("DELETE FROM `club_teams` WHERE club_id = ?", [id]);
+      await mysqlPool.execute("DELETE FROM `club_tournaments` WHERE club_id = ?", [id]);
+      await mysqlPool.execute("DELETE FROM `clubs` WHERE id = ?", [id]);
+    } else if (pgPool) {
+      await pgPool.query("DELETE FROM club_members WHERE club_id = $1", [id]);
+      await pgPool.query("DELETE FROM club_coaches WHERE club_id = $1", [id]);
+      await pgPool.query("DELETE FROM club_teams WHERE club_id = $1", [id]);
+      await pgPool.query("DELETE FROM club_tournaments WHERE club_id = $1", [id]);
+      await pgPool.query("DELETE FROM clubs WHERE id = $1", [id]);
+    }
+    for (const [k, m] of memoryStore.clubMembers) if (m.club_id === id) memoryStore.clubMembers.delete(k);
+    for (const [k, m] of memoryStore.clubCoaches) if (m.club_id === id) memoryStore.clubCoaches.delete(k);
+    for (const [k, m] of memoryStore.clubTeams) if (m.club_id === id) memoryStore.clubTeams.delete(k);
+    for (const [k, m] of memoryStore.clubTournaments) if (m.club_id === id) memoryStore.clubTournaments.delete(k);
+    memoryStore.clubs.delete(id);
+    return true;
+  },
+
+  async getClubMembership(clubId: string, userId: string): Promise<ClubMemberRecord | null> {
+    const members = await this.listClubMembers(clubId);
+    return members.find((m) => m.user_id === userId) || null;
+  },
+
+  async listClubMembers(clubId: string): Promise<ClubMemberRecord[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT m.*, u.name, u.email, u.mobile FROM \`club_members\` m
+         LEFT JOIN \`users\` u ON u.id = m.user_id WHERE m.club_id = ? ORDER BY m.created_at ASC`,
+        [clubId]
+      );
+      return rows.map(normalizeClubMemberRow);
+    }
+    if (pgPool) {
+      const res = await pgPool.query(
+        `SELECT m.*, u.name, u.email, u.mobile FROM club_members m
+         LEFT JOIN users u ON u.id = m.user_id WHERE m.club_id = $1 ORDER BY m.created_at ASC`,
+        [clubId]
+      );
+      return res.rows.map(normalizeClubMemberRow);
+    }
+    return Array.from(memoryStore.clubMembers.values())
+      .filter((m) => m.club_id === clubId)
+      .map((m) => {
+        const u = memoryStore.users.get(m.user_id);
+        return { ...m, name: u?.name, email: u?.email, mobile: u?.mobile };
+      })
+      .sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+  },
+
+  async addClubMember(
+    clubId: string,
+    userId: string,
+    role: ClubMemberRole,
+    status: ClubMemberStatus
+  ): Promise<ClubMemberRecord | { error: string }> {
+    const existing = await this.getClubMembership(clubId, userId);
+    if (existing) {
+      if (existing.status === "active") return { error: "این کاربر هم‌اکنون عضو باشگاه است." };
+      return { error: "دعوت قبلی برای این کاربر هنوز پاسخ داده نشده است." };
+    }
+    const now = new Date();
+    const rec: ClubMemberRecord = { id: crypto.randomUUID(), club_id: clubId, user_id: userId, role, status, created_at: now };
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        "INSERT INTO `club_members` (id, club_id, user_id, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        [rec.id, clubId, userId, role, status, now]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        "INSERT INTO club_members (id, club_id, user_id, role, status, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
+        [rec.id, clubId, userId, role, status, now]
+      );
+    }
+    memoryStore.clubMembers.set(rec.id, rec);
+    return rec;
+  },
+
+  async updateClubMember(
+    id: string,
+    patch: { role?: ClubMemberRole; status?: ClubMemberStatus }
+  ): Promise<ClubMemberRecord | null> {
+    await initTablesIfRealDb();
+    let current: ClubMemberRecord | null = null;
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>("SELECT * FROM `club_members` WHERE id = ? LIMIT 1", [id]);
+      current = rows[0] ? normalizeClubMemberRow(rows[0]) : null;
+    } else if (pgPool) {
+      const res = await pgPool.query("SELECT * FROM club_members WHERE id = $1 LIMIT 1", [id]);
+      current = res.rows[0] ? normalizeClubMemberRow(res.rows[0]) : null;
+    } else {
+      current = memoryStore.clubMembers.get(id) || null;
+    }
+    if (!current) return null;
+    const updated: ClubMemberRecord = { ...current, role: patch.role || current.role, status: patch.status || current.status };
+    if (mysqlPool) {
+      await mysqlPool.execute("UPDATE `club_members` SET role=?, status=? WHERE id=?", [updated.role, updated.status, id]);
+    } else if (pgPool) {
+      await pgPool.query("UPDATE club_members SET role=$1, status=$2 WHERE id=$3", [updated.role, updated.status, id]);
+    }
+    memoryStore.clubMembers.set(id, updated);
+    return updated;
+  },
+
+  async removeClubMember(id: string): Promise<boolean> {
+    if (mysqlPool) await mysqlPool.execute("DELETE FROM `club_members` WHERE id = ?", [id]);
+    else if (pgPool) await pgPool.query("DELETE FROM club_members WHERE id = $1", [id]);
+    return memoryStore.clubMembers.delete(id) || true;
+  },
+
+  async listClubCoaches(clubId: string): Promise<ClubCoachRecord[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `club_coaches` WHERE club_id = ? ORDER BY created_at ASC",
+        [clubId]
+      );
+      return rows.map(normalizeClubCoachRow);
+    }
+    if (pgPool) {
+      const res = await pgPool.query("SELECT * FROM club_coaches WHERE club_id = $1 ORDER BY created_at ASC", [clubId]);
+      return res.rows.map(normalizeClubCoachRow);
+    }
+    return Array.from(memoryStore.clubCoaches.values())
+      .filter((c) => c.club_id === clubId)
+      .sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+  },
+
+  async addClubCoach(
+    clubId: string,
+    data: { name: string; title: string; mobile: string; notes: string }
+  ): Promise<ClubCoachRecord> {
+    const now = new Date();
+    const rec: ClubCoachRecord = { id: crypto.randomUUID(), club_id: clubId, ...data, created_at: now };
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        "INSERT INTO `club_coaches` (id, club_id, name, title, mobile, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [rec.id, clubId, rec.name, rec.title, rec.mobile, rec.notes, now]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        "INSERT INTO club_coaches (id, club_id, name, title, mobile, notes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+        [rec.id, clubId, rec.name, rec.title, rec.mobile, rec.notes, now]
+      );
+    }
+    memoryStore.clubCoaches.set(rec.id, rec);
+    return rec;
+  },
+
+  async updateClubCoach(
+    id: string,
+    data: { name: string; title: string; mobile: string; notes: string }
+  ): Promise<ClubCoachRecord | null> {
+    const list = Array.from(memoryStore.clubCoaches.values());
+    let current = list.find((c) => c.id === id) || null;
+    if (!current) {
+      const all = mysqlPool || pgPool ? await (async () => {
+        if (mysqlPool) {
+          const [rows] = await mysqlPool.execute<RowDataPacket[]>("SELECT * FROM `club_coaches` WHERE id = ? LIMIT 1", [id]);
+          return rows[0] ? normalizeClubCoachRow(rows[0]) : null;
+        }
+        const res = await pgPool!.query("SELECT * FROM club_coaches WHERE id = $1 LIMIT 1", [id]);
+        return res.rows[0] ? normalizeClubCoachRow(res.rows[0]) : null;
+      })() : null;
+      current = all;
+    }
+    if (!current) return null;
+    const updated = { ...current, ...data };
+    if (mysqlPool) {
+      await mysqlPool.execute("UPDATE `club_coaches` SET name=?, title=?, mobile=?, notes=? WHERE id=?", [
+        updated.name, updated.title, updated.mobile, updated.notes, id,
+      ]);
+    } else if (pgPool) {
+      await pgPool.query("UPDATE club_coaches SET name=$1, title=$2, mobile=$3, notes=$4 WHERE id=$5", [
+        updated.name, updated.title, updated.mobile, updated.notes, id,
+      ]);
+    }
+    memoryStore.clubCoaches.set(id, updated);
+    return updated;
+  },
+
+  async deleteClubCoach(id: string): Promise<boolean> {
+    if (mysqlPool) await mysqlPool.execute("DELETE FROM `club_coaches` WHERE id = ?", [id]);
+    else if (pgPool) await pgPool.query("DELETE FROM club_coaches WHERE id = $1", [id]);
+    memoryStore.clubCoaches.delete(id);
+    return true;
+  },
+
+  async listClubTeamIds(clubId: string): Promise<string[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>("SELECT team_id FROM `club_teams` WHERE club_id = ?", [clubId]);
+      return rows.map((r) => String(r.team_id));
+    }
+    if (pgPool) {
+      const res = await pgPool.query("SELECT team_id FROM club_teams WHERE club_id = $1", [clubId]);
+      return res.rows.map((r) => String(r.team_id));
+    }
+    return Array.from(memoryStore.clubTeams.values()).filter((x) => x.club_id === clubId).map((x) => x.team_id);
+  },
+
+  async attachClubTeam(clubId: string, teamId: string): Promise<{ ok: true } | { error: string }> {
+    const ids = await this.listClubTeamIds(clubId);
+    if (ids.includes(teamId)) return { error: "این تیم قبلاً به باشگاه متصل شده است." };
+    if (mysqlPool) await mysqlPool.execute("INSERT INTO `club_teams` (club_id, team_id) VALUES (?, ?)", [clubId, teamId]);
+    else if (pgPool) await pgPool.query("INSERT INTO club_teams (club_id, team_id) VALUES ($1,$2)", [clubId, teamId]);
+    memoryStore.clubTeams.set(`${clubId}:${teamId}`, { club_id: clubId, team_id: teamId });
+    return { ok: true };
+  },
+
+  async detachClubTeam(clubId: string, teamId: string): Promise<boolean> {
+    if (mysqlPool) await mysqlPool.execute("DELETE FROM `club_teams` WHERE club_id = ? AND team_id = ?", [clubId, teamId]);
+    else if (pgPool) await pgPool.query("DELETE FROM club_teams WHERE club_id = $1 AND team_id = $2", [clubId, teamId]);
+    memoryStore.clubTeams.delete(`${clubId}:${teamId}`);
+    return true;
+  },
+
+  async listClubTournamentIds(clubId: string): Promise<string[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT tournament_id FROM `club_tournaments` WHERE club_id = ?",
+        [clubId]
+      );
+      return rows.map((r) => String(r.tournament_id));
+    }
+    if (pgPool) {
+      const res = await pgPool.query("SELECT tournament_id FROM club_tournaments WHERE club_id = $1", [clubId]);
+      return res.rows.map((r) => String(r.tournament_id));
+    }
+    return Array.from(memoryStore.clubTournaments.values()).filter((x) => x.club_id === clubId).map((x) => x.tournament_id);
+  },
+
+  async attachClubTournament(clubId: string, tournamentId: string): Promise<{ ok: true } | { error: string }> {
+    const ids = await this.listClubTournamentIds(clubId);
+    if (ids.includes(tournamentId)) return { error: "این مسابقه قبلاً به باشگاه متصل شده است." };
+    if (mysqlPool) {
+      await mysqlPool.execute("INSERT INTO `club_tournaments` (club_id, tournament_id) VALUES (?, ?)", [clubId, tournamentId]);
+    } else if (pgPool) {
+      await pgPool.query("INSERT INTO club_tournaments (club_id, tournament_id) VALUES ($1,$2)", [clubId, tournamentId]);
+    }
+    memoryStore.clubTournaments.set(`${clubId}:${tournamentId}`, { club_id: clubId, tournament_id: tournamentId });
+    return { ok: true };
+  },
+
+  async detachClubTournament(clubId: string, tournamentId: string): Promise<boolean> {
+    if (mysqlPool) {
+      await mysqlPool.execute("DELETE FROM `club_tournaments` WHERE club_id = ? AND tournament_id = ?", [clubId, tournamentId]);
+    } else if (pgPool) {
+      await pgPool.query("DELETE FROM club_tournaments WHERE club_id = $1 AND tournament_id = $2", [clubId, tournamentId]);
+    }
+    memoryStore.clubTournaments.delete(`${clubId}:${tournamentId}`);
+    return true;
+  },
 };
 
 function normalizeTeamRow(row: any): TeamRecord {
@@ -3673,5 +4222,61 @@ function normalizeRegistrationRow(row: any): RegistrationRecord {
     roster: parseRoster(row.roster),
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
+  };
+}
+
+function normalizeClubRow(row: any): ClubRecord {
+  const roleRaw = String(row.my_role || "");
+  const my_role: ClubMemberRole | undefined =
+    roleRaw === "owner" || roleRaw === "manager" || roleRaw === "coach" || roleRaw === "member" ? roleRaw : undefined;
+  const statusRaw = String(row.my_status || "");
+  const my_status: ClubMemberStatus | undefined =
+    statusRaw === "pending" || statusRaw === "active" ? statusRaw : undefined;
+  return {
+    id: row.id,
+    owner_id: row.owner_id,
+    name: row.name,
+    short_name: row.short_name || "",
+    sport: row.sport || "فوتبال",
+    city: row.city || "",
+    founded_year: row.founded_year || "",
+    venue: row.venue || "",
+    description: row.description || "",
+    contact_name: row.contact_name || "",
+    mobile: row.mobile || "",
+    created_at: new Date(row.created_at),
+    updated_at: new Date(row.updated_at),
+    my_role,
+    my_status,
+  };
+}
+
+function normalizeClubMemberRow(row: any): ClubMemberRecord {
+  const roleRaw = String(row.role || "member");
+  const role: ClubMemberRole =
+    roleRaw === "owner" || roleRaw === "manager" || roleRaw === "coach" || roleRaw === "member" ? roleRaw : "member";
+  const status: ClubMemberStatus = String(row.status) === "active" ? "active" : "pending";
+  return {
+    id: row.id,
+    club_id: row.club_id,
+    user_id: row.user_id,
+    role,
+    status,
+    created_at: new Date(row.created_at),
+    name: row.name || "",
+    email: row.email || "",
+    mobile: row.mobile || "",
+  };
+}
+
+function normalizeClubCoachRow(row: any): ClubCoachRecord {
+  return {
+    id: row.id,
+    club_id: row.club_id,
+    name: row.name,
+    title: row.title || "",
+    mobile: row.mobile || "",
+    notes: row.notes || "",
+    created_at: new Date(row.created_at),
   };
 }

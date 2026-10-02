@@ -72,6 +72,7 @@ if (!htaccessContent.includes('X-Robots-Tag')) {
   SetEnvIf Request_URI "^/r/" is_tournament_page
   SetEnvIf Request_URI "^/teams" is_tournament_page
   SetEnvIf Request_URI "^/panel" is_tournament_page
+  SetEnvIf Request_URI "^/c/" is_tournament_page
 </IfModule>
 <IfModule mod_headers.c>
   Header set X-Robots-Tag "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" env=!is_tournament_page

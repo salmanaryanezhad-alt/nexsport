@@ -168,6 +168,58 @@ function ensure_tables_exist_mysql($pdo) {
         PRIMARY KEY (`id`),
         KEY `idx_registrations_tournament` (`tournament_id`, `status`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS `clubs` (
+        `id` VARCHAR(36) NOT NULL,
+        `owner_id` VARCHAR(36) NOT NULL,
+        `name` VARCHAR(80) NOT NULL,
+        `short_name` VARCHAR(16) DEFAULT '',
+        `sport` VARCHAR(40) DEFAULT 'فوتبال',
+        `city` VARCHAR(60) DEFAULT '',
+        `founded_year` VARCHAR(4) DEFAULT '',
+        `venue` VARCHAR(80) DEFAULT '',
+        `description` VARCHAR(500) DEFAULT '',
+        `contact_name` VARCHAR(80) DEFAULT '',
+        `mobile` VARCHAR(20) DEFAULT '',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        KEY `idx_clubs_owner` (`owner_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS `club_members` (
+        `id` VARCHAR(36) NOT NULL,
+        `club_id` VARCHAR(36) NOT NULL,
+        `user_id` VARCHAR(36) NOT NULL,
+        `role` VARCHAR(20) DEFAULT 'member',
+        `status` VARCHAR(20) DEFAULT 'pending',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uniq_club_user` (`club_id`, `user_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS `club_coaches` (
+        `id` VARCHAR(36) NOT NULL,
+        `club_id` VARCHAR(36) NOT NULL,
+        `name` VARCHAR(80) NOT NULL,
+        `title` VARCHAR(40) DEFAULT '',
+        `mobile` VARCHAR(20) DEFAULT '',
+        `notes` VARCHAR(300) DEFAULT '',
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS `club_teams` (
+        `club_id` VARCHAR(36) NOT NULL,
+        `team_id` VARCHAR(36) NOT NULL,
+        PRIMARY KEY (`club_id`, `team_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS `club_tournaments` (
+        `club_id` VARCHAR(36) NOT NULL,
+        `tournament_id` VARCHAR(36) NOT NULL,
+        PRIMARY KEY (`club_id`, `tournament_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ";
 
     try {
@@ -291,6 +343,49 @@ function ensure_tables_exist_sqlite($pdo) {
         roster TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS clubs (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        short_name TEXT DEFAULT '',
+        sport TEXT DEFAULT 'فوتبال',
+        city TEXT DEFAULT '',
+        founded_year TEXT DEFAULT '',
+        venue TEXT DEFAULT '',
+        description TEXT DEFAULT '',
+        contact_name TEXT DEFAULT '',
+        mobile TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS club_members (
+        id TEXT PRIMARY KEY,
+        club_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        role TEXT DEFAULT 'member',
+        status TEXT DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS club_coaches (
+        id TEXT PRIMARY KEY,
+        club_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        title TEXT DEFAULT '',
+        mobile TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS club_teams (
+        club_id TEXT NOT NULL,
+        team_id TEXT NOT NULL,
+        PRIMARY KEY (club_id, team_id)
+    );
+    CREATE TABLE IF NOT EXISTS club_tournaments (
+        club_id TEXT NOT NULL,
+        tournament_id TEXT NOT NULL,
+        PRIMARY KEY (club_id, tournament_id)
     );
     ";
     $pdo->exec($sql);
@@ -1093,4 +1188,88 @@ function db_list_registrations_by_user($pdo, $userId) {
         $out[] = $rec;
     }
     return $out;
+}
+
+function db_get_club($pdo, $id) {
+    $stmt = $pdo->prepare("SELECT * FROM clubs WHERE id = ? LIMIT 1");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: null;
+}
+
+function db_list_clubs_for_user($pdo, $userId, $status = 'active') {
+    $stmt = $pdo->prepare("SELECT c.*, m.role AS my_role, m.status AS my_status FROM clubs c INNER JOIN club_members m ON m.club_id = c.id WHERE m.user_id = ? AND m.status = ? ORDER BY c.updated_at DESC");
+    $stmt->execute([$userId, $status]);
+    return $stmt->fetchAll() ?: [];
+}
+
+function db_create_club($pdo, $ownerId, $data) {
+    $id = substr(bin2hex(random_bytes(8)), 0, 8);
+    $stmt = $pdo->prepare("INSERT INTO clubs (id, owner_id, name, short_name, sport, city, founded_year, venue, description, contact_name, mobile, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+    $stmt->execute([
+        $id, $ownerId, $data['name'], $data['short_name'] ?? '', $data['sport'] ?? 'فوتبال',
+        $data['city'] ?? '', $data['founded_year'] ?? '', $data['venue'] ?? '', $data['description'] ?? '',
+        $data['contact_name'] ?? '', $data['mobile'] ?? ''
+    ]);
+    $mid = generate_uuid();
+    $ins = $pdo->prepare("INSERT INTO club_members (id, club_id, user_id, role, status, created_at) VALUES (?, ?, ?, 'owner', 'active', CURRENT_TIMESTAMP)");
+    $ins->execute([$mid, $id, $ownerId]);
+    return db_get_club($pdo, $id);
+}
+
+function db_update_club($pdo, $id, $data) {
+    $stmt = $pdo->prepare("UPDATE clubs SET name=?, short_name=?, sport=?, city=?, founded_year=?, venue=?, description=?, contact_name=?, mobile=?, updated_at=CURRENT_TIMESTAMP WHERE id=?");
+    $stmt->execute([
+        $data['name'], $data['short_name'] ?? '', $data['sport'] ?? 'فوتبال', $data['city'] ?? '',
+        $data['founded_year'] ?? '', $data['venue'] ?? '', $data['description'] ?? '',
+        $data['contact_name'] ?? '', $data['mobile'] ?? '', $id
+    ]);
+    return db_get_club($pdo, $id);
+}
+
+function db_delete_club($pdo, $id) {
+    $pdo->prepare("DELETE FROM club_members WHERE club_id=?")->execute([$id]);
+    $pdo->prepare("DELETE FROM club_coaches WHERE club_id=?")->execute([$id]);
+    $pdo->prepare("DELETE FROM club_teams WHERE club_id=?")->execute([$id]);
+    $pdo->prepare("DELETE FROM club_tournaments WHERE club_id=?")->execute([$id]);
+    $pdo->prepare("DELETE FROM clubs WHERE id=?")->execute([$id]);
+    return true;
+}
+
+function db_club_membership($pdo, $clubId, $userId) {
+    $stmt = $pdo->prepare("SELECT * FROM club_members WHERE club_id=? AND user_id=? LIMIT 1");
+    $stmt->execute([$clubId, $userId]);
+    return $stmt->fetch() ?: null;
+}
+
+function db_list_club_members($pdo, $clubId) {
+    $stmt = $pdo->prepare("SELECT m.*, u.name, u.email, u.mobile FROM club_members m LEFT JOIN users u ON u.id = m.user_id WHERE m.club_id=? ORDER BY m.created_at ASC");
+    $stmt->execute([$clubId]);
+    return $stmt->fetchAll() ?: [];
+}
+
+function db_add_club_member($pdo, $clubId, $userId, $role, $status) {
+    $existing = db_club_membership($pdo, $clubId, $userId);
+    if ($existing) return ['error' => 'این کاربر قبلاً دعوت شده یا عضو است.'];
+    $id = generate_uuid();
+    $stmt = $pdo->prepare("INSERT INTO club_members (id, club_id, user_id, role, status, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
+    $stmt->execute([$id, $clubId, $userId, $role, $status]);
+    return db_club_membership($pdo, $clubId, $userId);
+}
+
+function db_list_club_coaches($pdo, $clubId) {
+    $stmt = $pdo->prepare("SELECT * FROM club_coaches WHERE club_id=? ORDER BY created_at ASC");
+    $stmt->execute([$clubId]);
+    return $stmt->fetchAll() ?: [];
+}
+
+function db_list_club_team_ids($pdo, $clubId) {
+    $stmt = $pdo->prepare("SELECT team_id FROM club_teams WHERE club_id=?");
+    $stmt->execute([$clubId]);
+    return array_map(function ($r) { return $r['team_id']; }, $stmt->fetchAll() ?: []);
+}
+
+function db_list_club_tournament_ids($pdo, $clubId) {
+    $stmt = $pdo->prepare("SELECT tournament_id FROM club_tournaments WHERE club_id=?");
+    $stmt->execute([$clubId]);
+    return array_map(function ($r) { return $r['tournament_id']; }, $stmt->fetchAll() ?: []);
 }

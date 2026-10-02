@@ -1241,6 +1241,157 @@ if ($path === 'admin/teams' && $method === 'GET') {
     json_response(['success' => true, 'teams' => db_list_all_teams($pdo)]);
 }
 
+if ($path === 'clubs' && $method === 'GET') {
+    list($session) = require_auth($pdo);
+    json_response([
+        'clubs' => db_list_clubs_for_user($pdo, $session['user_id'], 'active'),
+        'invites' => db_list_clubs_for_user($pdo, $session['user_id'], 'pending'),
+    ]);
+}
+
+if ($path === 'clubs' && $method === 'POST') {
+    list($session) = require_auth($pdo);
+    $body = get_json_input();
+    $name = trim((string)($body['name'] ?? ''));
+    if ($name === '') json_response(['error' => 'نام باشگاه را وارد نمایید.'], 400);
+    $club = db_create_club($pdo, $session['user_id'], [
+        'name' => mb_substr($name, 0, 80),
+        'short_name' => mb_substr(trim((string)($body['short_name'] ?? '')), 0, 16),
+        'sport' => $body['sport'] ?? 'فوتبال',
+        'city' => mb_substr(trim((string)($body['city'] ?? '')), 0, 60),
+        'founded_year' => $body['founded_year'] ?? '',
+        'venue' => mb_substr(trim((string)($body['venue'] ?? '')), 0, 80),
+        'description' => mb_substr(trim((string)($body['description'] ?? '')), 0, 500),
+        'contact_name' => mb_substr(trim((string)($body['contact_name'] ?? '')), 0, 80),
+        'mobile' => $body['mobile'] ?? '',
+    ]);
+    $club['my_role'] = 'owner';
+    json_response(['success' => true, 'club' => $club]);
+}
+
+if (preg_match('#^clubs/([^/]+)$#', $path, $matches) && $method === 'GET') {
+    $club = db_get_club($pdo, $matches[1]);
+    if (!$club) json_response(['error' => 'باشگاه یافت نشد.'], 404);
+    $teamIds = db_list_club_team_ids($pdo, $club['id']);
+    $teams = [];
+    $players = [];
+    foreach ($teamIds as $tid) {
+        $team = db_get_team($pdo, $tid);
+        if (!$team) continue;
+        $roster = db_list_players($pdo, $tid);
+        $teams[] = ['id' => $team['id'], 'name' => $team['name'], 'sport' => $team['sport'] ?? '', 'city' => $team['city'] ?? '', 'coach' => $team['coach'] ?? '', 'player_count' => count($roster)];
+        foreach ($roster as $p) {
+            $players[] = ['id' => $p['id'], 'team_id' => $tid, 'team_name' => $team['name'], 'name' => $p['name'], 'jersey_number' => $p['jersey_number'] ?? '', 'position' => $p['position'] ?? '', 'status' => $p['status'] ?? 'active'];
+        }
+    }
+    $tids = db_list_club_tournament_ids($pdo, $club['id']);
+    $tournaments = [];
+    foreach ($tids as $tid) {
+        $t = db_get_public_tournament($pdo, $tid);
+        if (!$t) continue;
+        $state = is_array($t['state'] ?? null) ? $t['state'] : [];
+        $tournaments[] = [
+            'id' => $t['id'], 'title' => $t['title'], 'format' => $t['format'],
+            'teamCount' => (int)$t['team_count'],
+            'spectatorPaid' => !empty($state['payment']['isPaid']),
+            'registrationPaid' => !empty($state['registrationPayment']['isPaid']),
+        ];
+    }
+    $myRole = null; $canEdit = false;
+    $token = get_auth_token();
+    if ($token) {
+        $session = db_find_session($pdo, $token);
+        if ($session) {
+            $m = db_club_membership($pdo, $club['id'], $session['user_id']);
+            if ($m && ($m['status'] ?? '') === 'active') {
+                $myRole = $m['role'];
+                $canEdit = in_array($myRole, ['owner', 'manager'], true);
+            }
+        }
+    }
+    json_response([
+        'club' => $club,
+        'teams' => $teams,
+        'players' => $players,
+        'coaches' => db_list_club_coaches($pdo, $club['id']),
+        'tournaments' => $tournaments,
+        'myRole' => $myRole,
+        'canEdit' => $canEdit,
+    ]);
+}
+
+if (preg_match('#^clubs/([^/]+)$#', $path, $matches) && $method === 'PATCH') {
+    list($session) = require_auth($pdo);
+    $club = db_get_club($pdo, $matches[1]);
+    if (!$club) json_response(['error' => 'باشگاه یافت نشد.'], 404);
+    $m = db_club_membership($pdo, $club['id'], $session['user_id']);
+    if (!$m || !in_array($m['role'] ?? '', ['owner', 'manager'], true) || ($m['status'] ?? '') !== 'active') {
+        json_response(['error' => 'برای این کار باید مدیر یا مالک باشگاه باشید.'], 403);
+    }
+    $body = get_json_input();
+    $name = trim((string)($body['name'] ?? ''));
+    if ($name === '') json_response(['error' => 'نام باشگاه را وارد نمایید.'], 400);
+    json_response(['success' => true, 'club' => db_update_club($pdo, $club['id'], array_merge($club, $body, ['name' => $name]))]);
+}
+
+if (preg_match('#^clubs/([^/]+)$#', $path, $matches) && $method === 'DELETE') {
+    list($session) = require_auth($pdo);
+    $club = db_get_club($pdo, $matches[1]);
+    if (!$club) json_response(['error' => 'باشگاه یافت نشد.'], 404);
+    if (($club['owner_id'] ?? '') !== $session['user_id']) json_response(['error' => 'فقط مالک باشگاه می‌تواند آن را حذف کند.'], 403);
+    db_delete_club($pdo, $club['id']);
+    json_response(['success' => true]);
+}
+
+if (preg_match('#^clubs/([^/]+)/teams$#', $path, $matches) && $method === 'POST') {
+    list($session) = require_auth($pdo);
+    $club = db_get_club($pdo, $matches[1]);
+    if (!$club) json_response(['error' => 'باشگاه یافت نشد.'], 404);
+    $m = db_club_membership($pdo, $club['id'], $session['user_id']);
+    if (!$m || !in_array($m['role'] ?? '', ['owner', 'manager'], true)) json_response(['error' => 'دسترسی کافی نیست.'], 403);
+    $teamId = trim((string)(get_json_input()['teamId'] ?? ''));
+    $team = db_get_team($pdo, $teamId);
+    if (!$team || $team['user_id'] !== $session['user_id']) json_response(['error' => 'تیم یافت نشد یا متعلق به شما نیست.'], 403);
+    try {
+        $pdo->prepare("INSERT INTO club_teams (club_id, team_id) VALUES (?, ?)")->execute([$club['id'], $teamId]);
+    } catch (\Throwable $e) {
+        json_response(['error' => 'این تیم قبلاً متصل شده است.'], 409);
+    }
+    json_response(['success' => true]);
+}
+
+if (preg_match('#^clubs/([^/]+)/members$#', $path, $matches) && $method === 'POST') {
+    list($session) = require_auth($pdo);
+    $club = db_get_club($pdo, $matches[1]);
+    if (!$club) json_response(['error' => 'باشگاه یافت نشد.'], 404);
+    $m = db_club_membership($pdo, $club['id'], $session['user_id']);
+    if (!$m || !in_array($m['role'] ?? '', ['owner', 'manager'], true)) json_response(['error' => 'دسترسی کافی نیست.'], 403);
+    $body = get_json_input();
+    $identifier = trim((string)($body['identifier'] ?? $body['email'] ?? $body['mobile'] ?? ''));
+    $target = db_find_user_by_email($pdo, $identifier) ?: db_find_user_by_mobile($pdo, $identifier);
+    if (!$target) json_response(['error' => 'کاربری با این ایمیل یا موبایل یافت نشد.'], 404);
+    $role = in_array($body['role'] ?? '', ['manager', 'coach', 'member'], true) ? $body['role'] : 'member';
+    $added = db_add_club_member($pdo, $club['id'], $target['id'], $role, 'pending');
+    if (isset($added['error'])) json_response(['error' => $added['error']], 409);
+    json_response(['success' => true, 'message' => "دعوت برای «{$target['name']}» ارسال شد."]);
+}
+
+if (preg_match('#^clubs/([^/]+)/members$#', $path, $matches) && $method === 'PATCH') {
+    list($session) = require_auth($pdo);
+    $body = get_json_input();
+    $action = (string)($body['action'] ?? '');
+    $mem = db_club_membership($pdo, $matches[1], $session['user_id']);
+    if ($action === 'accept' && $mem && ($mem['status'] ?? '') === 'pending') {
+        $pdo->prepare("UPDATE club_members SET status='active' WHERE id=?")->execute([$mem['id']]);
+        json_response(['success' => true, 'accepted' => true]);
+    }
+    if ($action === 'decline' && $mem && ($mem['status'] ?? '') === 'pending') {
+        $pdo->prepare("DELETE FROM club_members WHERE id=?")->execute([$mem['id']]);
+        json_response(['success' => true, 'declined' => true]);
+    }
+    json_response(['error' => 'عملیات نامعتبر است.'], 400);
+}
+
 // 404 Route Not Found
 json_response([
     'error' => 'مسیر درخواستی در سامانه یافت نشد.',

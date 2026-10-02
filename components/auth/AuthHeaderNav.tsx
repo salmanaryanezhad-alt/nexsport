@@ -336,6 +336,15 @@ export function AuthHeaderNav() {
               <span>🛡️</span>
             </button>
 
+            <Link
+              href="/panel?tab=clubs"
+              onClick={() => setDropdownOpen(false)}
+              className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-semibold text-ink hover:bg-chalk transition-colors flex items-center justify-between cursor-pointer mb-1"
+            >
+              <span>باشگاه‌های من</span>
+              <span>🏟️</span>
+            </Link>
+
             <button
               type="button"
               onClick={() => {

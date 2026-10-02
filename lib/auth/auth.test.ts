@@ -1672,6 +1672,76 @@ async function run() {
     assert(Boolean(full[0]?.state?.payment?.isPaid), "لیست کامل شامل وضعیت پرداخت است.");
   });
 
+  await test("باشگاه: ایجاد، تیم و مربی، دعوت عضو و صفحه عمومی", async () => {
+    const { sanitizeClubInput, sanitizeCoachInput } = await import("../clubs/validate");
+    const { canEditClub, clubRoleLabel } = await import("../clubs/roles");
+    const { clubPublicSnapshot } = await import("../clubs/snapshot");
+
+    assertEqual(clubRoleLabel("owner"), "مالک", "برچسب مالک.");
+    assertEqual(canEditClub("manager"), true, "مدیر باشگاه ویرایش دارد.");
+    assertEqual(canEditClub("member"), false, "عضو عادی ویرایش ندارد.");
+
+    const bad = sanitizeClubInput({ name: "" });
+    assertEqual(bad.ok, false, "باشگاه بدون نام رد شود.");
+    const okClub = sanitizeClubInput({ name: "باشگاه استقلال", city: "تهران", founded_year: "1324" });
+    assert(okClub.ok, "باشگاه معتبر.");
+    if (!okClub.ok) return;
+
+    const owner = await db.createUser({
+      name: "مالک باشگاه",
+      email: "club.owner@nexsport.ir",
+      mobile: "09127770001",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: true,
+    });
+    const invitee = await db.createUser({
+      name: "عضو باشگاه",
+      email: "club.member@nexsport.ir",
+      mobile: "09127770002",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: true,
+    });
+
+    const club = await db.createClub(owner.id, okClub.data);
+    assert(Boolean(club.id), "شناسه باشگاه ساخته شود.");
+    const membership = await db.getClubMembership(club.id, owner.id);
+    assertEqual(membership?.role, "owner", "سازنده مالک فعال باشد.");
+    assertEqual(membership?.status, "active", "مالک فعال است.");
+
+    const listed = await db.listClubsForUser(owner.id);
+    assertEqual(listed.length, 1, "باشگاه در فهرست مالک باشد.");
+
+    const teamIn = await import("../teams/validate").then((m) => m.sanitizeTeamInput({ name: "امید استقلال" }));
+    assert(teamIn.ok, "تیم باشگاه معتبر.");
+    if (!teamIn.ok) return;
+    const team = await db.createTeam(owner.id, teamIn.data);
+    const attached = await db.attachClubTeam(club.id, team.id);
+    assert(!("error" in attached), "اتصال تیم موفق.");
+    const dupTeam = await db.attachClubTeam(club.id, team.id);
+    assert("error" in dupTeam, "اتصال تکراری تیم رد شود.");
+
+    const coachIn = sanitizeCoachInput({ name: "فرهاد", title: "سرمربی" });
+    assert(coachIn.ok, "مربی معتبر.");
+    if (!coachIn.ok) return;
+    await db.addClubCoach(club.id, coachIn.data);
+
+    const invited = await db.addClubMember(club.id, invitee.id, "member", "pending");
+    assert(!("error" in invited), "دعوت عضو ثبت شود.");
+    const invites = await db.listClubInvites(invitee.id);
+    assertEqual(invites.length, 1, "دعوت در فهرست مدعو.");
+    if (!("error" in invited)) {
+      await db.updateClubMember(invited.id, { status: "active" });
+    }
+    const after = await db.listClubsForUser(invitee.id);
+    assertEqual(after.length, 1, "پس از پذیرش، باشگاه در فهرست عضو.");
+
+    const snap = await clubPublicSnapshot(club.id);
+    assertEqual(snap?.club.name, "باشگاه استقلال", "صفحه عمومی نام باشگاه.");
+    assertEqual(snap?.teams.length, 1, "تیم در صفحه عمومی.");
+    assertEqual(snap?.coaches.length, 1, "مربی در صفحه عمومی.");
+    assertEqual((snap?.coaches[0] as any).mobile, undefined, "موبایل مربی در صفحه عمومی نباشد.");
+  });
+
   await test("تبدیل تقویم شمسی و میلادی", async () => {
     const { gregorianToJalali, jalaliToGregorian, parseJalaliInput } = await import("../jalali");
     const j = gregorianToJalali(2026, 3, 21);

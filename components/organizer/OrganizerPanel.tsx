@@ -9,8 +9,10 @@ import { formatDateJalali } from "@/lib/jalali";
 import { hasPersianLetters } from "@/lib/auth/utils";
 import { TeamFields } from "@/components/teams/TeamFields";
 import { emptyTeamForm, TeamItem } from "@/components/teams/teamTypes";
+import { TEAM_SPORTS } from "@/lib/teams/catalog";
+import { clubRoleLabel } from "@/lib/clubs/roles";
 
-type TabId = "dashboard" | "tournaments" | "teams" | "registrations" | "reports" | "profile";
+type TabId = "dashboard" | "tournaments" | "teams" | "clubs" | "registrations" | "reports" | "profile";
 
 type Overview = {
   profile: { name: string; email: string; mobile: string; role: string; createdAt?: string };
@@ -70,6 +72,7 @@ const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "dashboard", label: "داشبورد", icon: "📊" },
   { id: "tournaments", label: "مسابقات", icon: "🏆" },
   { id: "teams", label: "تیم‌ها و بازیکنان", icon: "🛡️" },
+  { id: "clubs", label: "باشگاه‌ها", icon: "🏟️" },
   { id: "registrations", label: "ثبت‌نام‌ها", icon: "📝" },
   { id: "reports", label: "گزارش و آمار", icon: "📈" },
   { id: "profile", label: "پروفایل برگزارکننده", icon: "👤" },
@@ -101,6 +104,10 @@ export function OrganizerPanel() {
   const [error, setError] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
   const [teams, setTeams] = useState<TeamItem[]>([]);
+  const [clubs, setClubs] = useState<any[]>([]);
+  const [clubInvites, setClubInvites] = useState<any[]>([]);
+  const [showCreateClub, setShowCreateClub] = useState(false);
+  const [clubForm, setClubForm] = useState({ name: "", city: "", sport: "فوتبال" });
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [teamForm, setTeamForm] = useState(emptyTeamForm);
   const [expandedReg, setExpandedReg] = useState<string | null>(null);
@@ -145,13 +152,23 @@ export function OrganizerPanel() {
     if (res.ok) setTeams(Array.isArray(json.teams) ? json.teams : []);
   }, []);
 
+  const loadClubs = useCallback(async () => {
+    const res = await fetch("/api/clubs/", { credentials: "same-origin" });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setClubs(Array.isArray(json.clubs) ? json.clubs : []);
+      setClubInvites(Array.isArray(json.invites) ? json.invites : []);
+    }
+  }, []);
+
   useEffect(() => {
     if (user) {
       load();
       loadTeams();
+      loadClubs();
       setName(user.name);
     }
-  }, [user, load, loadTeams]);
+  }, [user, load, loadTeams, loadClubs]);
 
   const pendingRegs = useMemo(
     () => (data?.registrations || []).filter((r) => r.status === "pending"),
@@ -277,6 +294,7 @@ export function OrganizerPanel() {
             {[
               { label: "مسابقات", value: stats.tournamentCount, href: "?tab=tournaments" },
               { label: "تیم‌های کتابخانه", value: stats.teamCount, href: "?tab=teams" },
+              { label: "باشگاه‌ها", value: clubs.length, href: "?tab=clubs" },
               { label: "بازیکنان", value: stats.playerCount, href: "?tab=teams" },
               { label: "ثبت‌نام در انتظار", value: stats.pendingRegistrations, href: "?tab=registrations" },
               { label: "لینک تماشاگران", value: stats.spectatorLinks, href: "?tab=tournaments" },
@@ -387,6 +405,101 @@ export function OrganizerPanel() {
                 </p>
                 <p className="text-[11px] font-bold text-emerald-800 mt-2">مدیریت بازیکنان ←</p>
               </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === "clubs" && (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <h2 className="font-black">باشگاه‌های من</h2>
+            <button type="button" onClick={() => setShowCreateClub((v) => !v)} className="rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-black text-white">
+              {showCreateClub ? "انصراف" : "＋ ایجاد باشگاه"}
+            </button>
+          </div>
+          {showCreateClub && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 grid gap-2 sm:grid-cols-3">
+              <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="نام باشگاه" value={clubForm.name} onChange={(e) => setClubForm({ ...clubForm, name: e.target.value })} />
+              <input className="rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="شهر" value={clubForm.city} onChange={(e) => setClubForm({ ...clubForm, city: e.target.value })} />
+              <select className="rounded-xl border border-slate-200 px-3 py-2 text-sm" value={clubForm.sport} onChange={(e) => setClubForm({ ...clubForm, sport: e.target.value })}>
+                {TEAM_SPORTS.map((s) => <option key={s}>{s}</option>)}
+              </select>
+              <button
+                type="button"
+                className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white"
+                onClick={async () => {
+                  const res = await fetch("/api/clubs/", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(clubForm),
+                  });
+                  const json = await res.json().catch(() => ({}));
+                  if (!res.ok) { setError(json.error || "ایجاد باشگاه ناموفق."); return; }
+                  setClubForm({ name: "", city: "", sport: "فوتبال" });
+                  setShowCreateClub(false);
+                  await loadClubs();
+                  if (json.club?.id) window.location.href = `/c/${json.club.id}/manage`;
+                }}
+              >
+                ایجاد و ادامه
+              </button>
+            </div>
+          )}
+          {clubInvites.length > 0 && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+              <h3 className="font-black text-amber-950">دعوت‌های در انتظار</h3>
+              {clubInvites.map((c) => (
+                <div key={c.id} className="flex flex-wrap justify-between gap-2 text-sm">
+                  <span className="font-bold">{c.name} — {clubRoleLabel(c.my_role)}</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg bg-emerald-700 px-2 py-1 text-xs font-black text-white"
+                      onClick={async () => {
+                        await fetch(`/api/clubs/${c.id}/members/`, {
+                          method: "PATCH",
+                          credentials: "same-origin",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "accept" }),
+                        });
+                        await loadClubs();
+                      }}
+                    >
+                      پذیرش
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg bg-white px-2 py-1 text-xs font-black text-rose-700 border border-rose-200"
+                      onClick={async () => {
+                        await fetch(`/api/clubs/${c.id}/members/`, {
+                          method: "PATCH",
+                          credentials: "same-origin",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "decline" }),
+                        });
+                        await loadClubs();
+                      }}
+                    >
+                      رد
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {clubs.length === 0 && <p className="text-sm text-slate-500">باشگاهی ندارید. یکی بسازید یا دعوت را بپذیرید.</p>}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {clubs.map((c) => (
+              <div key={c.id} className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
+                <div className="font-black">{c.name}</div>
+                <p className="text-[11px] text-slate-500">{c.sport} {c.city ? `• ${c.city}` : ""} • {clubRoleLabel(c.my_role)}</p>
+                <div className="flex gap-2 text-xs">
+                  <Link href={`/c/${c.id}`} className="rounded-xl border border-slate-200 px-3 py-1.5 font-black">صفحه باشگاه</Link>
+                  <Link href={`/c/${c.id}/manage`} className="rounded-xl bg-emerald-700 px-3 py-1.5 font-black text-white">مدیریت</Link>
+                </div>
+              </div>
             ))}
           </div>
         </div>
