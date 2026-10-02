@@ -817,6 +817,22 @@ function PlannerWizard() {
     });
   }
 
+  function hasCustomTeamNames() {
+    return Array.from({ length: teamCount }).some((_, i) => {
+      const n = String(teamNames[i] || "").trim();
+      if (!n) return false;
+      if (n === `تیم ${toPersianDigits(i + 1)}`) return false;
+      return !/^تیم\s*[0-9۰-۹٠-٩]+$/.test(n);
+    });
+  }
+
+  function confirmReplaceTeamNames(actionLabel: string) {
+    if (!hasCustomTeamNames()) return true;
+    return window.confirm(
+      `با «${actionLabel}» همه نام‌هایی که وارد کرده‌اید جایگزین می‌شود. ادامه می‌دهید؟`
+    );
+  }
+
   function toggleSeed(team: string) {
     setSeededTeams((prev) =>
       prev.includes(team) ? prev.filter((t) => t !== team) : [...prev, team]
@@ -2170,6 +2186,7 @@ function PlannerWizard() {
               <button
                 type="button"
                 onClick={() => {
+                  if (!confirmReplaceTeamNames("لیگ برتر ایران")) return;
                   const sample = PRESET_IRAN_LEAGUE.slice(0, teamCount);
                   const next = [...sample];
                   while (next.length < teamCount) next.push(`تیم ${toPersianDigits(next.length + 1)}`);
@@ -2183,6 +2200,7 @@ function PlannerWizard() {
               <button
                 type="button"
                 onClick={() => {
+                  if (!confirmReplaceTeamNames("باشگاه‌های اروپا")) return;
                   const sample = PRESET_EUROPE.slice(0, teamCount);
                   const next = [...sample];
                   while (next.length < teamCount) next.push(`تیم ${toPersianDigits(next.length + 1)}`);
@@ -2192,16 +2210,6 @@ function PlannerWizard() {
                 className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer"
               >
                 ⚽ باشگاه‌های اروپا
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTeamNames(Array.from({ length: teamCount }).map((_, i) => `تیم ${toPersianDigits(i + 1)}`));
-                  setLibraryTeamIds([]);
-                }}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer"
-              >
-                🔢 تیم ۱ تا {toPersianDigits(teamCount)}
               </button>
             </div>
 
@@ -2231,9 +2239,9 @@ function PlannerWizard() {
                 setLibraryTeamIds([]);
               }}
               className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-500 hover:border-slate-400 hover:text-slate-800 transition-colors cursor-pointer"
-              title="بازنشانی همه اسامی به نام پیش‌فرض تیم ۱، تیم ۲، …"
+              title="بازنشانی اسامی"
             >
-              بازنشانی اسامی به تیم ۱ …
+              بازنشانی
             </button>
           </div>
 
