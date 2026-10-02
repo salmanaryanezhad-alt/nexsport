@@ -148,6 +148,26 @@ function ensure_tables_exist_mysql($pdo) {
         PRIMARY KEY (`id`),
         KEY `idx_players_team` (`team_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS `registrations` (
+        `id` VARCHAR(36) NOT NULL,
+        `tournament_id` VARCHAR(36) NOT NULL,
+        `team_name` VARCHAR(80) NOT NULL,
+        `short_name` VARCHAR(16) DEFAULT '',
+        `city` VARCHAR(60) DEFAULT '',
+        `coach` VARCHAR(80) DEFAULT '',
+        `contact_name` VARCHAR(80) DEFAULT '',
+        `mobile` VARCHAR(20) DEFAULT '',
+        `notes` VARCHAR(500) DEFAULT '',
+        `status` VARCHAR(20) DEFAULT 'pending',
+        `library_team_id` VARCHAR(36) DEFAULT '',
+        `reject_reason` VARCHAR(300) DEFAULT '',
+        `roster` LONGTEXT,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        KEY `idx_registrations_tournament` (`tournament_id`, `status`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ";
 
     try {
@@ -251,6 +271,24 @@ function ensure_tables_exist_sqlite($pdo) {
         mobile TEXT DEFAULT '',
         national_id TEXT DEFAULT '',
         status TEXT DEFAULT 'active',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS registrations (
+        id TEXT PRIMARY KEY,
+        tournament_id TEXT NOT NULL,
+        team_name TEXT NOT NULL,
+        short_name TEXT DEFAULT '',
+        city TEXT DEFAULT '',
+        coach TEXT DEFAULT '',
+        contact_name TEXT DEFAULT '',
+        mobile TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        status TEXT DEFAULT 'pending',
+        library_team_id TEXT DEFAULT '',
+        reject_reason TEXT DEFAULT '',
+        roster TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -644,13 +682,21 @@ function db_list_tournaments($pdo, $userId) {
 }
 
 function db_save_tournament($pdo, $id, $userId, $title, $format, $sport, $teamCount, $state) {
-    $stateStr = is_string($state) ? $state : json_encode($state, JSON_UNESCAPED_UNICODE);
     $targetId = $id ?: generate_uuid();
 
     // Check if tournament exists for this user
     $check = $pdo->prepare("SELECT id FROM tournaments WHERE id = ? AND user_id = ? LIMIT 1");
     $check->execute([$targetId, $userId]);
     $exists = $check->fetch();
+
+    if ($exists && is_array($state)) {
+        $existing = db_get_tournament($pdo, $targetId, $userId);
+        $old = is_array($existing['state'] ?? null) ? $existing['state'] : [];
+        if (!empty($old['payment']) && empty($state['payment'])) $state['payment'] = $old['payment'];
+        if (!empty($old['registrationPayment']) && empty($state['registrationPayment'])) $state['registrationPayment'] = $old['registrationPayment'];
+        if (!empty($old['registration']) && empty($state['registration'])) $state['registration'] = $old['registration'];
+    }
+    $stateStr = is_string($state) ? $state : json_encode($state, JSON_UNESCAPED_UNICODE);
 
     if ($exists) {
         $stmt = $pdo->prepare("
@@ -928,4 +974,75 @@ function db_list_linked_tournaments($pdo, $userId, $teamId, $teamName) {
         }
     }
     return $out;
+}
+
+function db_parse_roster($raw) {
+    if (is_array($raw)) return $raw;
+    $decoded = json_decode((string)$raw, true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function db_normalize_registration_row($row) {
+    if (!$row) return null;
+    $status = $row['status'] ?? 'pending';
+    if (!in_array($status, ['pending', 'approved', 'rejected'], true)) $status = 'pending';
+    return [
+        'id' => $row['id'],
+        'tournament_id' => $row['tournament_id'],
+        'team_name' => $row['team_name'],
+        'short_name' => $row['short_name'] ?? '',
+        'city' => $row['city'] ?? '',
+        'coach' => $row['coach'] ?? '',
+        'contact_name' => $row['contact_name'] ?? '',
+        'mobile' => $row['mobile'] ?? '',
+        'notes' => $row['notes'] ?? '',
+        'status' => $status,
+        'library_team_id' => $row['library_team_id'] ?? '',
+        'reject_reason' => $row['reject_reason'] ?? '',
+        'roster' => db_parse_roster($row['roster'] ?? '[]'),
+        'created_at' => $row['created_at'] ?? null,
+        'updated_at' => $row['updated_at'] ?? null,
+    ];
+}
+
+function db_list_registrations($pdo, $tournamentId) {
+    $stmt = $pdo->prepare("SELECT * FROM registrations WHERE tournament_id = ? ORDER BY created_at ASC");
+    $stmt->execute([$tournamentId]);
+    return array_map('db_normalize_registration_row', $stmt->fetchAll() ?: []);
+}
+
+function db_get_registration($pdo, $id) {
+    $stmt = $pdo->prepare("SELECT * FROM registrations WHERE id = ? LIMIT 1");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    return $row ? db_normalize_registration_row($row) : null;
+}
+
+function db_create_registration($pdo, $tournamentId, $data) {
+    $list = db_list_registrations($pdo, $tournamentId);
+    $name = trim((string)($data['team_name'] ?? ''));
+    foreach ($list as $r) {
+        if (($r['status'] ?? '') !== 'rejected' && trim((string)$r['team_name']) === $name) {
+            return ['error' => 'تیمی با این نام قبلاً برای این مسابقه ثبت شده است.'];
+        }
+    }
+    $id = generate_uuid();
+    $stmt = $pdo->prepare("
+        INSERT INTO registrations (id, tournament_id, team_name, short_name, city, coach, contact_name, mobile, notes, status, library_team_id, reject_reason, roster, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, '', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ");
+    $stmt->execute([
+        $id, $tournamentId, $name,
+        $data['short_name'] ?? '', $data['city'] ?? '', $data['coach'] ?? '',
+        $data['contact_name'] ?? '', $data['mobile'] ?? '', $data['notes'] ?? '',
+        $data['library_team_id'] ?? '', json_encode($data['roster'] ?? [], JSON_UNESCAPED_UNICODE)
+    ]);
+    return db_get_registration($pdo, $id);
+}
+
+function db_update_registration_status($pdo, $id, $status, $reason = '') {
+    $reason = $status === 'rejected' ? mb_substr(trim((string)$reason), 0, 300) : '';
+    $stmt = $pdo->prepare("UPDATE registrations SET status=?, reject_reason=?, updated_at=CURRENT_TIMESTAMP WHERE id=?");
+    $stmt->execute([$status, $reason, $id]);
+    return db_get_registration($pdo, $id);
 }

@@ -153,6 +153,35 @@ export interface PlayerRecord {
   updated_at: Date;
 }
 
+export type RegistrationStatus = "pending" | "approved" | "rejected";
+
+export interface RegistrationPlayerSnapshot {
+  name: string;
+  jersey_number: string;
+  position: string;
+  birth_date: string;
+  mobile: string;
+  national_id: string;
+}
+
+export interface RegistrationRecord {
+  id: string;
+  tournament_id: string;
+  team_name: string;
+  short_name: string;
+  city: string;
+  coach: string;
+  contact_name: string;
+  mobile: string;
+  notes: string;
+  status: RegistrationStatus;
+  library_team_id: string;
+  reject_reason: string;
+  roster: RegistrationPlayerSnapshot[];
+  created_at: Date;
+  updated_at: Date;
+}
+
 export interface AdminTournamentListItem {
   id: string;
   user_id: string;
@@ -266,6 +295,7 @@ const memoryStore = {
   ticketMessages: new Map<string, TicketMessageRecord>(),
   teams: new Map<string, TeamRecord>(),
   players: new Map<string, PlayerRecord>(),
+  registrations: new Map<string, RegistrationRecord>(),
 };
 
 function normalizeDiscountRow(row: any): DiscountCodeRecord {
@@ -554,6 +584,28 @@ async function initTablesIfRealDb() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`registrations\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`tournament_id\` VARCHAR(36) NOT NULL,
+          \`team_name\` VARCHAR(80) NOT NULL,
+          \`short_name\` VARCHAR(16) DEFAULT '',
+          \`city\` VARCHAR(60) DEFAULT '',
+          \`coach\` VARCHAR(80) DEFAULT '',
+          \`contact_name\` VARCHAR(80) DEFAULT '',
+          \`mobile\` VARCHAR(20) DEFAULT '',
+          \`notes\` VARCHAR(500) DEFAULT '',
+          \`status\` VARCHAR(20) DEFAULT 'pending',
+          \`library_team_id\` VARCHAR(36) DEFAULT '',
+          \`reject_reason\` VARCHAR(300) DEFAULT '',
+          \`roster\` LONGTEXT,
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_registrations_tournament\` (\`tournament_id\`, \`status\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       tablesInitialized = true;
     } catch (err) {
       console.warn("[NexSport DB] MySQL table auto-init warning:", err);
@@ -728,6 +780,25 @@ async function initTablesIfRealDb() {
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_players_team ON players(team_id);
+
+        CREATE TABLE IF NOT EXISTS registrations (
+          id VARCHAR(36) PRIMARY KEY,
+          tournament_id VARCHAR(36) NOT NULL,
+          team_name VARCHAR(80) NOT NULL,
+          short_name VARCHAR(16) DEFAULT '',
+          city VARCHAR(60) DEFAULT '',
+          coach VARCHAR(80) DEFAULT '',
+          contact_name VARCHAR(80) DEFAULT '',
+          mobile VARCHAR(20) DEFAULT '',
+          notes VARCHAR(500) DEFAULT '',
+          status VARCHAR(20) DEFAULT 'pending',
+          library_team_id VARCHAR(36) DEFAULT '',
+          reject_reason VARCHAR(300) DEFAULT '',
+          roster TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_registrations_tournament ON registrations(tournament_id, status);
       `);
       tablesInitialized = true;
     } catch (err) {
@@ -1692,13 +1763,25 @@ export const db = {
 
     // Preserve existing payment status if client didn't supply it
     let mergedState = data.state;
-    if (data.id && (!mergedState || !mergedState.payment)) {
+    if (data.id && (!mergedState || !mergedState.payment || !mergedState.registrationPayment || !mergedState.registration)) {
       try {
         const existing = await this.getTournament(data.id, data.userId);
-        if (existing?.state?.payment) {
+        if (existing?.state?.payment && !mergedState?.payment) {
           mergedState = {
             ...mergedState,
             payment: existing.state.payment,
+          };
+        }
+        if (existing?.state?.registrationPayment && !mergedState?.registrationPayment) {
+          mergedState = {
+            ...mergedState,
+            registrationPayment: existing.state.registrationPayment,
+          };
+        }
+        if (existing?.state?.registration && !mergedState?.registration) {
+          mergedState = {
+            ...mergedState,
+            registration: existing.state.registration,
           };
         }
       } catch {
@@ -3276,6 +3359,151 @@ export const db = {
     memoryStore.players.delete(playerId);
     return true;
   },
+
+  async listRegistrations(tournamentId: string): Promise<RegistrationRecord[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `registrations` WHERE tournament_id = ? ORDER BY created_at ASC",
+        [tournamentId]
+      );
+      return rows.map(normalizeRegistrationRow);
+    }
+    if (pgPool) {
+      const res = await pgPool.query(
+        "SELECT * FROM registrations WHERE tournament_id = $1 ORDER BY created_at ASC",
+        [tournamentId]
+      );
+      return res.rows.map(normalizeRegistrationRow);
+    }
+    return Array.from(memoryStore.registrations.values())
+      .filter((r) => r.tournament_id === tournamentId)
+      .sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+  },
+
+  async getRegistration(id: string): Promise<RegistrationRecord | null> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `registrations` WHERE id = ? LIMIT 1",
+        [id]
+      );
+      return rows[0] ? normalizeRegistrationRow(rows[0]) : null;
+    }
+    if (pgPool) {
+      const res = await pgPool.query("SELECT * FROM registrations WHERE id = $1 LIMIT 1", [id]);
+      return res.rows[0] ? normalizeRegistrationRow(res.rows[0]) : null;
+    }
+    return memoryStore.registrations.get(id) || null;
+  },
+
+  async createRegistration(
+    tournamentId: string,
+    data: Omit<RegistrationRecord, "id" | "tournament_id" | "created_at" | "updated_at" | "status" | "reject_reason"> & {
+      status?: RegistrationStatus;
+    }
+  ): Promise<RegistrationRecord | { error: string }> {
+    const existing = await this.listRegistrations(tournamentId);
+    const nameKey = data.team_name.trim();
+    if (existing.some((r) => r.status !== "rejected" && r.team_name.trim() === nameKey)) {
+      return { error: "تیمی با این نام قبلاً برای این مسابقه ثبت شده است." };
+    }
+    const now = new Date();
+    const rec: RegistrationRecord = {
+      id: crypto.randomUUID(),
+      tournament_id: tournamentId,
+      team_name: data.team_name,
+      short_name: data.short_name || "",
+      city: data.city || "",
+      coach: data.coach || "",
+      contact_name: data.contact_name || "",
+      mobile: data.mobile || "",
+      notes: data.notes || "",
+      status: data.status || "pending",
+      library_team_id: data.library_team_id || "",
+      reject_reason: "",
+      roster: Array.isArray(data.roster) ? data.roster : [],
+      created_at: now,
+      updated_at: now,
+    };
+    const rosterJson = JSON.stringify(rec.roster);
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        `INSERT INTO \`registrations\` (id, tournament_id, team_name, short_name, city, coach, contact_name, mobile, notes, status, library_team_id, reject_reason, roster, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          rec.id,
+          tournamentId,
+          rec.team_name,
+          rec.short_name,
+          rec.city,
+          rec.coach,
+          rec.contact_name,
+          rec.mobile,
+          rec.notes,
+          rec.status,
+          rec.library_team_id,
+          rec.reject_reason,
+          rosterJson,
+          now,
+          now,
+        ]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        `INSERT INTO registrations (id, tournament_id, team_name, short_name, city, coach, contact_name, mobile, notes, status, library_team_id, reject_reason, roster, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+        [
+          rec.id,
+          tournamentId,
+          rec.team_name,
+          rec.short_name,
+          rec.city,
+          rec.coach,
+          rec.contact_name,
+          rec.mobile,
+          rec.notes,
+          rec.status,
+          rec.library_team_id,
+          rec.reject_reason,
+          rosterJson,
+          now,
+          now,
+        ]
+      );
+    }
+    memoryStore.registrations.set(rec.id, rec);
+    return rec;
+  },
+
+  async updateRegistrationStatus(
+    id: string,
+    status: RegistrationStatus,
+    rejectReason = ""
+  ): Promise<RegistrationRecord | { error: string } | null> {
+    const current = await this.getRegistration(id);
+    if (!current) return null;
+    const now = new Date();
+    const updated: RegistrationRecord = {
+      ...current,
+      status,
+      reject_reason: status === "rejected" ? String(rejectReason || "").trim().slice(0, 300) : "",
+      updated_at: now,
+    };
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        "UPDATE `registrations` SET status=?, reject_reason=?, updated_at=? WHERE id=?",
+        [updated.status, updated.reject_reason, now, id]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        "UPDATE registrations SET status=$1, reject_reason=$2, updated_at=$3 WHERE id=$4",
+        [updated.status, updated.reject_reason, now, id]
+      );
+    }
+    memoryStore.registrations.set(id, updated);
+    return updated;
+  },
 };
 
 function normalizeTeamRow(row: any): TeamRecord {
@@ -3310,6 +3538,50 @@ function normalizePlayerRow(row: any): PlayerRecord {
     mobile: row.mobile || "",
     national_id: row.national_id || "",
     status: row.status || "active",
+    created_at: new Date(row.created_at),
+    updated_at: new Date(row.updated_at),
+  };
+}
+
+function parseRoster(raw: any): RegistrationPlayerSnapshot[] {
+  if (!raw) return [];
+  let data = raw;
+  if (typeof raw === "string") {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(data)) return [];
+  return data.map((p) => ({
+    name: String(p?.name || "").trim(),
+    jersey_number: String(p?.jersey_number || ""),
+    position: String(p?.position || ""),
+    birth_date: String(p?.birth_date || ""),
+    mobile: String(p?.mobile || ""),
+    national_id: String(p?.national_id || ""),
+  }));
+}
+
+function normalizeRegistrationRow(row: any): RegistrationRecord {
+  const statusRaw = String(row.status || "pending");
+  const status: RegistrationStatus =
+    statusRaw === "approved" || statusRaw === "rejected" ? statusRaw : "pending";
+  return {
+    id: row.id,
+    tournament_id: row.tournament_id,
+    team_name: row.team_name,
+    short_name: row.short_name || "",
+    city: row.city || "",
+    coach: row.coach || "",
+    contact_name: row.contact_name || "",
+    mobile: row.mobile || "",
+    notes: row.notes || "",
+    status,
+    library_team_id: row.library_team_id || "",
+    reject_reason: row.reject_reason || "",
+    roster: parseRoster(row.roster),
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
   };

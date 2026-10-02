@@ -26,6 +26,7 @@ import {
   SavedTournamentItem,
 } from "@/components/planner/SavedTournamentsModal";
 import { ShareTournamentModal } from "@/components/planner/ShareTournamentModal";
+import { RegistrationModal } from "@/components/planner/RegistrationModal";
 import { DrawCeremonyModal } from "@/components/planner/DrawCeremonyModal";
 import { StoreModal } from "@/components/planner/StoreModal";
 import { SavedTeamsPicker } from "@/components/planner/SavedTeamsPicker";
@@ -322,6 +323,7 @@ function PlannerWizard() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareModalTournamentId, setShareModalTournamentId] = useState<string | null>(null);
   const [shareModalTournamentTitle, setShareModalTournamentTitle] = useState<string>("");
+  const [registrationModalOpen, setRegistrationModalOpen] = useState(false);
 
   // Store & Quota Management
   const [storeModalOpen, setStoreModalOpen] = useState(false);
@@ -1313,6 +1315,33 @@ function PlannerWizard() {
     setShareModalOpen(true);
   }
 
+  function handleOpenRegistrationModal() {
+    if (!user) {
+      openAuthModal("login");
+      return;
+    }
+    setRegistrationModalOpen(true);
+  }
+
+  function isFillableTeamSlot(name: string, index: number) {
+    const t = String(name || "").trim();
+    if (!t) return true;
+    if (t === `تیم ${toPersianDigits(index + 1)}`) return true;
+    return /^تیم\s*[0-9۰-۹٠-٩]+$/.test(t);
+  }
+
+  function insertApprovedRegistrationNames(names: string[]) {
+    const unique = names.map((n) => n.trim()).filter(Boolean);
+    const next = Array.from({ length: teamCount }, (_, i) => teamNames[i] || "");
+    for (const name of unique) {
+      if (next.some((n) => n.trim() === name)) continue;
+      const idx = next.findIndex((n, i) => isFillableTeamSlot(n, i));
+      if (idx < 0) break;
+      next[idx] = name;
+    }
+    setTeamNames(next);
+  }
+
   async function handleEnsureSavedForShare(): Promise<string | null> {
     const currentId = currentSavedId || undefined;
     const title =
@@ -1985,10 +2014,17 @@ function PlannerWizard() {
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-600 mt-1">
-                نام‌ها باید یکتا باشند؛ می‌توانید تایپ کنید، از تیم‌های ذخیره‌شده انتخاب کنید، از فایل اکسل بخوانید یا پیست کنید.
+                نام‌ها باید یکتا باشند؛ می‌توانید تایپ کنید، از تیم‌های ذخیره‌شده انتخاب کنید، از لینک ثبت‌نام تأیید کنید، از فایل اکسل بخوانید یا پیست کنید.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleOpenRegistrationModal}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-violet-400/40 bg-violet-50 px-3.5 py-2 text-xs font-black text-violet-900 hover:bg-violet-100 transition-colors shadow-2xs cursor-pointer"
+              >
+                <span>📝 لینک ثبت‌نام</span>
+              </button>
               <SavedTeamsPicker
                 teamCount={teamCount}
                 currentNames={teamNames}
@@ -3464,6 +3500,15 @@ function PlannerWizard() {
               </button>
 
               <button
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-violet-300 bg-violet-50 px-3.5 py-2 text-xs font-black text-violet-900 hover:bg-violet-100 hover:shadow-xs transition-all cursor-pointer"
+                onClick={handleOpenRegistrationModal}
+                title="لینک ثبت‌نام آنلاین تیم‌ها"
+              >
+                <span>📝</span>
+                <span>لینک ثبت‌نام</span>
+              </button>
+
+              <button
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-black text-amber-900 hover:bg-amber-100 hover:shadow-xs transition-all cursor-pointer"
                 onClick={handleOpenSaveCloud}
                 title="ذخیره این مسابقه و نتایج آن در فضای ابری حساب کاربری"
@@ -3616,6 +3661,22 @@ function PlannerWizard() {
               paidAt: new Date().toISOString(),
             },
           },
+        }}
+      />
+
+      <RegistrationModal
+        isOpen={registrationModalOpen}
+        onClose={() => setRegistrationModalOpen(false)}
+        tournamentId={currentSavedId}
+        tournamentTitle={
+          metadata.title?.trim() ||
+          FORMAT_OPTIONS.find((f) => f.key === format)?.title ||
+          "مسابقه ورزشی"
+        }
+        onEnsureSaved={handleEnsureSavedForShare}
+        onInsertApprovedNames={(names) => {
+          insertApprovedRegistrationNames(names);
+          setRegistrationModalOpen(false);
         }}
       />
 

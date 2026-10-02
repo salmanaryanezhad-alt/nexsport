@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
     return {
       rules: {
         userAgent: "*",
-        disallow: ["/", "/t/", "/teams/", "/api/"],
+        disallow: ["/", "/t/", "/r/", "/teams/", "/api/"],
       },
     };
   }
@@ -17,7 +17,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: ["/", "/planner", "/planner/"],
-      disallow: ["/t/", "/teams/", "/teams", "/api/"],
+      disallow: ["/t/", "/r/", "/teams/", "/teams", "/api/"],
     },
     sitemap,
   };

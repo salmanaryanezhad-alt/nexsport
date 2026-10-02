@@ -76,7 +76,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result);
     }
 
-    // 3. Tournament Dedicated Spectator Link (فعال‌سازی لینک اختصاصی مسابقه)
+    // 3. Online registration link (لینک ثبت‌نام تیم‌ها)
+    if (itemType === "registration_link") {
+      const tid = String(tournamentId || "");
+      if (!tid) {
+        return NextResponse.json({ error: "شناسه مسابقه جهت فعال‌سازی لینک ثبت‌نام ارسال نشده است." }, { status: 400 });
+      }
+      const result = await paymentService.initiateRegistrationPayment({
+        tournamentId: tid,
+        userId: user.id,
+        userEmail: user.email,
+        userMobile: user.mobile || undefined,
+        origin,
+        adminBypass: hasUnlimitedPlanning(user),
+        payWithCredits: Boolean(payWithCredits),
+      });
+      if (!result.success) {
+        return NextResponse.json({ error: result.error || "خطا در پردازش فعال‌سازی لینک ثبت‌نام." }, { status: 400 });
+      }
+      return NextResponse.json(result);
+    }
+
+    // 4. Tournament Dedicated Spectator Link (فعال‌سازی لینک اختصاصی مسابقه)
     if (tournamentId || itemType === "tournament_link") {
       const tid = String(tournamentId);
       if (!tid) {

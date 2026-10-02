@@ -10,7 +10,10 @@ import {
   DEFAULT_PRICING_SETTINGS,
   LINK_ACTIVATION_CREDIT_COST,
   DEDICATED_LINK_PRICE_TOMANS,
+  REGISTRATION_CREDIT_COST,
+  REGISTRATION_LINK_PRICE_TOMANS,
 } from "./types";
+import { registrationPaymentPaid, withRegistrationPaid } from "@/lib/registrations/settings";
 import { MockGateway } from "./gateways/mockGateway";
 import { ZarinpalGateway } from "./gateways/zarinpalGateway";
 import { IdpayGateway } from "./gateways/idpayGateway";
@@ -710,6 +713,185 @@ class PaymentService {
     };
   }
 
+  async initiateRegistrationPayment(params: {
+    tournamentId: string;
+    userId: string;
+    userEmail?: string;
+    userMobile?: string;
+    origin?: string;
+    adminBypass?: boolean;
+    payWithCredits?: boolean;
+  }) {
+    const { tournamentId, userId, userEmail, userMobile, origin, adminBypass, payWithCredits } = params;
+    const tournament = await db.getTournament(tournamentId, userId);
+    if (!tournament) {
+      return { success: false, error: "مسابقه مورد نظر یافت نشد یا شما دسترسی ویرایش آن را ندارید." };
+    }
+
+    if (registrationPaymentPaid(tournament.state)) {
+      return {
+        success: true,
+        alreadyPaid: true,
+        isDirectSuccess: true,
+        isPaid: true,
+        paymentInfo: tournament.state.registrationPayment,
+        tournamentId,
+      };
+    }
+
+    const userQuota = await db.getUserQuota(userId);
+    const dbUser = await db.findUserById(userId);
+    const adminFree = Boolean(adminBypass) || hasUnlimitedPlanning(dbUser) || isSuperAdminEmail(userEmail);
+    const pricing = await db.getPricingSettings();
+    const linkPrice = pricing.registrationPriceTomans || REGISTRATION_LINK_PRICE_TOMANS;
+
+    const persist = async (paymentInfo: any, extra: Record<string, any> = {}) => {
+      const updatedState = withRegistrationPaid(tournament.state, paymentInfo, tournament.team_count);
+      await db.saveTournament({
+        id: tournament.id,
+        userId: tournament.user_id,
+        title: tournament.title,
+        format: tournament.format,
+        sport: tournament.sport || undefined,
+        teamCount: tournament.team_count,
+        state: updatedState,
+      });
+      return {
+        success: true,
+        isDirectSuccess: true,
+        isPaid: true,
+        orderId: paymentInfo.orderId,
+        refId: paymentInfo.refId,
+        paymentInfo,
+        tournamentId,
+        ...extra,
+      };
+    };
+
+    if (adminFree) {
+      return persist(
+        {
+          isPaid: true,
+          amount: 0,
+          currency: "TOMAN",
+          gateway: "admin_free",
+          orderId: `admin_r_${Date.now()}`,
+          refId: `TRX-ADMIN-R-${Math.floor(10000000 + Math.random() * 90000000)}`,
+          paidAt: new Date().toISOString(),
+          note: "لینک ثبت‌نام رایگان حساب مدیر",
+        },
+        { isAdminFree: true }
+      );
+    }
+
+    if (userQuota.isVip) {
+      return persist(
+        {
+          isPaid: true,
+          amount: 0,
+          currency: "TOMAN",
+          gateway: "vip_free",
+          orderId: `vip_r_${Date.now()}`,
+          refId: `TRX-VIP-R-${Math.floor(10000000 + Math.random() * 90000000)}`,
+          paidAt: new Date().toISOString(),
+          note: "لینک ثبت‌نام رایگان عضو ویژه VIP",
+        },
+        { isVipFree: true }
+      );
+    }
+
+    if (payWithCredits) {
+      const debit = await db.consumePlanningCredits(userId, REGISTRATION_CREDIT_COST);
+      if (!debit.success) {
+        return {
+          success: false,
+          error:
+            debit.error ||
+            `برای پرداخت اعتباری لینک ثبت‌نام، حداقل ${REGISTRATION_CREDIT_COST} سهمیه برنامه‌سازی لازم است.`,
+          remainingCredits: debit.remainingCredits,
+        };
+      }
+      return persist(
+        {
+          isPaid: true,
+          amount: 0,
+          currency: "TOMAN",
+          gateway: "planning_credits",
+          orderId: `crd_r_${Date.now()}`,
+          refId: `TRX-CRD-R-${Math.floor(10000000 + Math.random() * 90000000)}`,
+          paidAt: new Date().toISOString(),
+          creditsCharged: debit.charged,
+          note: `فعال‌سازی لینک ثبت‌نام با ${REGISTRATION_CREDIT_COST} سهمیه (معادل ${linkPrice.toLocaleString("en-US")} تومان)`,
+        },
+        { isCreditPayment: true, creditsCharged: debit.charged, remainingCredits: debit.remainingCredits }
+      );
+    }
+
+    if (linkPrice === 0) {
+      return persist({
+        isPaid: true,
+        amount: 0,
+        currency: "TOMAN",
+        gateway: "free_price",
+        orderId: `free_r_${Date.now()}`,
+        refId: `TRX-FREE-R-${Math.floor(10000000 + Math.random() * 90000000)}`,
+        paidAt: new Date().toISOString(),
+        note: "تعرفه لینک ثبت‌نام صفر تومان",
+      });
+    }
+
+    const orderId = `ord_r_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const baseUrl = origin || process.env.NEXT_PUBLIC_BASE_URL || "https://nexsport.ir";
+    const callbackUrl = `${baseUrl}/api/payment/callback?orderId=${orderId}`;
+    const desc = `فعال‌سازی لینک ثبت‌نام آنلاین مسابقه «${tournament.title}» در NexSport`;
+
+    await db.savePaymentOrder({
+      id: orderId,
+      itemType: "registration_link",
+      userId,
+      tournamentId,
+      amountTomans: linkPrice,
+      gateway: this.activeDriver.gatewayName,
+      status: "pending",
+      description: desc,
+    });
+
+    const initResult = await this.activeDriver.initiatePayment({
+      orderId,
+      amountTomans: linkPrice,
+      description: desc,
+      callbackUrl,
+      email: userEmail,
+      mobile: userMobile,
+    });
+
+    if (!initResult.success) {
+      return { success: false, error: initResult.error || "خطا در اتصال به سرویس پرداخت." };
+    }
+
+    if (initResult.isDirectSuccess) {
+      const paymentInfo = {
+        isPaid: true,
+        amount: linkPrice,
+        currency: "TOMAN",
+        gateway: this.activeDriver.gatewayName,
+        orderId,
+        refId: initResult.refId || `TRX-${Math.floor(10000000 + Math.random() * 90000000)}`,
+        paidAt: new Date().toISOString(),
+      };
+      const result = await persist(paymentInfo);
+      return { ...result, amountTomans: linkPrice };
+    }
+
+    return {
+      success: true,
+      isDirectSuccess: false,
+      paymentUrl: initResult.paymentUrl,
+      authority: initResult.authority,
+      orderId,
+    };
+  }
+
   /**
    * Verify callback from external gateway (when real gateway like ZarinPal is connected)
    */
@@ -739,7 +921,31 @@ class PaymentService {
 
     const paidAt = new Date().toISOString();
 
-    if (order.item_type === "tournament_link" && order.tournament_id) {
+    if (order.item_type === "registration_link" && order.tournament_id) {
+      const tournament = await db.getTournament(order.tournament_id, params.userId);
+      if (tournament) {
+        const paymentInfo = {
+          isPaid: true,
+          amount: order.amount_tomans || DEFAULT_PRICING_SETTINGS.registrationPriceTomans,
+          currency: "TOMAN",
+          gateway: this.activeDriver.gatewayName,
+          orderId: params.orderId,
+          refId: verifyRes.refId,
+          cardPan: verifyRes.cardPan,
+          paidAt,
+        };
+        const updatedState = withRegistrationPaid(tournament.state, paymentInfo, tournament.team_count);
+        await db.saveTournament({
+          id: tournament.id,
+          userId: tournament.user_id,
+          title: tournament.title,
+          format: tournament.format,
+          sport: tournament.sport || undefined,
+          teamCount: tournament.team_count,
+          state: updatedState,
+        });
+      }
+    } else if (order.item_type === "tournament_link" && order.tournament_id) {
       const tournament = await db.getTournament(order.tournament_id, params.userId);
       if (tournament) {
         const paymentInfo = {

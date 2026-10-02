@@ -1054,6 +1054,131 @@ async function run() {
     assertEqual(money.paymentInfo.amount, 150000, "مبلغ نقدی ۱۵۰ هزار تومان بماند.");
   });
 
+  await test("لینک ثبت‌نام آنلاین: پرداخت ۲ سهمیه، ارسال، تأیید، رد و ظرفیت", async () => {
+    const { REGISTRATION_CREDIT_COST, REGISTRATION_LINK_PRICE_TOMANS } = await import("../payment/pricing");
+    const { sanitizeRegistrationInput } = await import("../registrations/validate");
+    const { registrationPaymentPaid, readRegistrationSettings } = await import("../registrations/settings");
+
+    const organizer = await db.createUser({
+      name: "برگزارکننده ثبت‌نام",
+      email: "reg.organizer@nexsport.ir",
+      mobile: "09120001122",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: true,
+    });
+    const t = await db.saveTournament({
+      userId: organizer.id,
+      title: "جام ثبت‌نام",
+      format: "league",
+      teamCount: 4,
+      state: { step: 2 },
+    });
+    assertEqual(registrationPaymentPaid(t.state), false, "قبل از پرداخت لینک ثبت‌نام غیرفعال است.");
+
+    const paidReg = await paymentService.initiateRegistrationPayment({
+      tournamentId: t.id,
+      userId: organizer.id,
+      payWithCredits: true,
+    });
+    assertEqual(paidReg.success, true, "با ۵ سهمیه، فعال‌سازی ۲ سهمیه‌ای موفق است.");
+    assertEqual(paidReg.creditsCharged, REGISTRATION_CREDIT_COST, "۲ سهمیه کسر شود.");
+    assertEqual(paidReg.remainingCredits, 3, "پس از کسر ۲ سهمیه، ۳ بماند.");
+
+    const afterPay = await db.getTournament(t.id, organizer.id);
+    assert(registrationPaymentPaid(afterPay?.state), "پس از پرداخت، لینک ثبت‌نام فعال شود.");
+    const settings = readRegistrationSettings(afterPay?.state, 4);
+    assertEqual(settings.capacity, 4, "ظرفیت پیش‌فرض برابر تعداد تیم مسابقه است.");
+    assertEqual(settings.isOpen, true, "ثبت‌نام پس از فعال‌سازی باز باشد.");
+
+    const already = await paymentService.initiateRegistrationPayment({
+      tournamentId: t.id,
+      userId: organizer.id,
+    });
+    assertEqual(already.alreadyPaid, true, "پرداخت مجدد لینک فعال‌شده لازم نباشد.");
+
+    const bad = sanitizeRegistrationInput({ team_name: "سپاهان", mobile: "0912", players: [{ name: "علی" }] });
+    assertEqual(bad.ok, false, "موبایل نامعتبر رد شود.");
+
+    const noPlayer = sanitizeRegistrationInput({ team_name: "سپاهان", mobile: "09121112233", players: [] });
+    assertEqual(noPlayer.ok, false, "بدون بازیکن رد شود.");
+
+    const okInput = sanitizeRegistrationInput({
+      team_name: "سپاهان اصفهان",
+      short_name: "سپاهان",
+      city: "اصفهان",
+      contact_name: "مسئول",
+      mobile: "09121112233",
+      players: [
+        { name: "علی", jersey_number: "9" },
+        { name: "حسن", jersey_number: "10", national_id: "1234567890" },
+      ],
+    });
+    assert(okInput.ok, "ثبت‌نام معتبر قبول شود.");
+    if (!okInput.ok) return;
+
+    const created = await db.createRegistration(t.id, {
+      team_name: okInput.data.team_name,
+      short_name: okInput.data.short_name,
+      city: okInput.data.city,
+      coach: okInput.data.coach,
+      contact_name: okInput.data.contact_name,
+      mobile: okInput.data.mobile,
+      notes: okInput.data.notes,
+      library_team_id: okInput.data.library_team_id,
+      roster: okInput.data.players,
+    });
+    assert(!("error" in created), "ثبت‌نام در دیتابیس ذخیره شود.");
+    if ("error" in created) return;
+    assertEqual(created.status, "pending", "وضعیت اولیه در انتظار است.");
+
+    const dup = await db.createRegistration(t.id, {
+      team_name: okInput.data.team_name,
+      short_name: "",
+      city: "",
+      coach: "",
+      contact_name: "",
+      mobile: "09123334455",
+      notes: "",
+      library_team_id: "",
+      roster: [{ name: "بازیکن", jersey_number: "", position: "", birth_date: "", mobile: "", national_id: "" }],
+    });
+    assert("error" in dup, "نام تکراری تیم رد شود.");
+
+    const second = await db.createRegistration(t.id, {
+      team_name: "ذوب‌آهن",
+      short_name: "",
+      city: "",
+      coach: "",
+      contact_name: "ب",
+      mobile: "09124445566",
+      notes: "",
+      library_team_id: "",
+      roster: [{ name: "مهدی", jersey_number: "1", position: "", birth_date: "", mobile: "", national_id: "" }],
+    });
+    assert(!("error" in second), "تیم دوم ثبت شود.");
+    if ("error" in second) return;
+
+    await db.saveTournament({
+      id: t.id,
+      userId: organizer.id,
+      title: t.title,
+      format: t.format,
+      teamCount: 4,
+      state: { ...afterPay!.state, registration: { isOpen: true, capacity: 1 } },
+    });
+
+    const firstApproved = await db.updateRegistrationStatus(created.id, "approved");
+    assert(!firstApproved || !("error" in firstApproved), "تأیید تیم اول.");
+    const rejected = await db.updateRegistrationStatus(second.id, "rejected", "ظرفیت تکمیل");
+    assertEqual((rejected as any).status, "rejected", "تیم دوم رد شود.");
+    assertEqual((rejected as any).reject_reason, "ظرفیت تکمیل", "دلیل رد ذخیره شود.");
+
+    const list = await db.listRegistrations(t.id);
+    assertEqual(list.length, 2, "دو درخواست در فهرست.");
+    assertEqual(list.filter((r) => r.status === "approved").length, 1, "یک تیم تأییدشده.");
+    assertEqual(REGISTRATION_LINK_PRICE_TOMANS, 100000, "تعرفه نقدی پیش‌فرض ۱۰۰ هزار تومان.");
+  });
+
   await test("اشتراک کاربر ویژه VIP: برنامه‌ریزی نامحدود و ایجاد نامحدود لینک‌های رایگان", async () => {
     const vipUser = await db.createUser({
       name: "کاربر ویژه طلایی",
@@ -1269,6 +1394,7 @@ async function run() {
     assertEqual(defaults.vipDiscount6mPercent, 25, "تخفیف پیش‌فرض ۶ ماهه VIP ۲۵٪ است.");
     assertEqual(defaults.vipDiscount12mPercent, 30, "تخفیف پیش‌فرض سالانه VIP ۳۰٪ است.");
     assertEqual(defaults.linkPriceTomans, 150000, "تعرفه لینک پیش‌فرض ۱۵۰ هزار تومان است.");
+    assertEqual(defaults.registrationPriceTomans, 100000, "تعرفه لینک ثبت‌نام پیش‌فرض ۱۰۰ هزار تومان است.");
 
     const saved = await db.savePricingSettings({
       creditPriceTomans: 40000,
@@ -1280,9 +1406,11 @@ async function run() {
       vipDiscount6mPercent: 25,
       vipDiscount12mPercent: 35,
       linkPriceTomans: 180000,
+      registrationPriceTomans: 120000,
     });
     assertEqual(saved.creditPriceTomans, 40000, "مبلغ هر مسابقه باید ۴۰ هزار ذخیره شود.");
     assertEqual(saved.linkPriceTomans, 180000, "تعرفه لینک باید ۱۸۰ هزار ذخیره شود.");
+    assertEqual(saved.registrationPriceTomans, 120000, "تعرفه ثبت‌نام باید ۱۲۰ هزار ذخیره شود.");
 
     const loaded = await db.getPricingSettings();
     assertEqual(loaded.vipDiscount12mPercent, 35, "تخفیف سالانه باید ۳۵٪ خوانده شود.");
@@ -1312,6 +1440,7 @@ async function run() {
       vipDiscount6mPercent: 25,
       vipDiscount12mPercent: 30,
       linkPriceTomans: 150000,
+      registrationPriceTomans: 100000,
     });
   });
 

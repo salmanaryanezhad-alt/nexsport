@@ -294,6 +294,28 @@ export function AdminPricingModal() {
                   تعرفه فعلی نمایش داده‌شده به کاربر: <strong>{toman(form.linkPriceTomans)} تومان</strong>
                 </p>
               </section>
+
+              <section className="rounded-2xl border border-violet-200 bg-violet-50/50 p-4 space-y-3">
+                <h3 className="font-black text-sm text-violet-950 flex items-center gap-2">
+                  <span>📝</span>
+                  <span>لینک ثبت‌نام آنلاین تیم‌ها</span>
+                </h3>
+                <label className="block text-[11px] font-bold text-slate-700 max-w-xs">
+                  مبلغ فعال‌سازی لینک ثبت‌نام (تومان)
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={form.registrationPriceTomans}
+                    onChange={(e) => update("registrationPriceTomans", e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-violet-600 focus:outline-none"
+                  />
+                </label>
+                <p className="text-[11px] text-violet-900">
+                  تعرفه فعلی: <strong>{toman(form.registrationPriceTomans)} تومان</strong>
+                  {" "}— برگزارکننده می‌تواند به‌جای پرداخت نقدی، با کسر ۲ سهمیه برنامه‌سازی لینک را فعال کند.
+                </p>
+              </section>
             </>
           )}
 

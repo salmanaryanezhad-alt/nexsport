@@ -13,7 +13,7 @@ export type PaymentGatewayType = "mock" | "zarinpal" | "idpay";
 
 export type PaymentStatus = "pending" | "paid" | "failed" | "canceled";
 
-export type PaymentItemType = "tournament_link" | "planning_credits" | "vip_subscription";
+export type PaymentItemType = "tournament_link" | "registration_link" | "planning_credits" | "vip_subscription";
 
 export interface PaymentOrder {
   id: string; // Order reference, e.g. "ord_..."

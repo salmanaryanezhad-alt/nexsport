@@ -5,12 +5,16 @@
  * 1. Credit packages: 50,000 Tomans per tournament. 1% extra discount for every 5 credits.
  * 2. VIP: 350,000 Tomans / month with 20% (3m), 25% (6m), 30% (1y) discounts.
  * 3. Dedicated spectator link: 150,000 Tomans.
+ * 4. Online registration link: 100,000 Tomans (or 2 planning credits).
  */
 
 export const DEDICATED_LINK_PRICE_TOMANS = 150_000;
 export const BASE_PLANNING_PRICE_TOMANS = 50_000;
 /** Dedicated-link activation via planning credits: 3 quotas = 150,000 Tomans. */
 export const LINK_ACTIVATION_CREDIT_COST = 3;
+export const REGISTRATION_LINK_PRICE_TOMANS = 100_000;
+/** Registration-link activation via planning credits: 2 quotas = 100,000 Tomans. */
+export const REGISTRATION_CREDIT_COST = 2;
 export const GUEST_MAX_TOURNAMENTS = 2;
 export const USER_FREE_PLANNINGS = 5;
 export const USER_FREE_LINKS = 1;
@@ -69,6 +73,7 @@ export interface PricingSettings {
   vipDiscount6mPercent: number;
   vipDiscount12mPercent: number;
   linkPriceTomans: number;
+  registrationPriceTomans: number;
 }
 
 export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
@@ -81,6 +86,7 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   vipDiscount6mPercent: 25,
   vipDiscount12mPercent: 30,
   linkPriceTomans: 150_000,
+  registrationPriceTomans: 100_000,
 };
 
 export function sanitizePricingSettings(input: Partial<PricingSettings> | null | undefined): PricingSettings {
@@ -106,6 +112,12 @@ export function sanitizePricingSettings(input: Partial<PricingSettings> | null |
     vipDiscount6mPercent: clampInt(src.vipDiscount6mPercent, DEFAULT_PRICING_SETTINGS.vipDiscount6mPercent, 0, 90),
     vipDiscount12mPercent: clampInt(src.vipDiscount12mPercent, DEFAULT_PRICING_SETTINGS.vipDiscount12mPercent, 0, 90),
     linkPriceTomans: clampInt(src.linkPriceTomans, DEFAULT_PRICING_SETTINGS.linkPriceTomans, 0, 50_000_000),
+    registrationPriceTomans: clampInt(
+      src.registrationPriceTomans,
+      DEFAULT_PRICING_SETTINGS.registrationPriceTomans,
+      0,
+      50_000_000
+    ),
   };
 }
 

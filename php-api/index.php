@@ -636,22 +636,26 @@ if ($path === 'payment/create' && $method === 'POST') {
     $creditsCharged = 0;
     $remainingCredits = null;
     $gateway = 'mock';
-    $amount = 150000;
+    $isRegistration = ($itemType === 'registration_link');
+    $amount = $isRegistration ? 100000 : 150000;
+    $creditCost = $isRegistration ? 2 : 3;
     $note = null;
 
     if ($payWithCredits) {
-        $debit = db_consume_planning_credits($pdo, $session['user_id'], 3);
+        $debit = db_consume_planning_credits($pdo, $session['user_id'], $creditCost);
         if (empty($debit['success'])) {
             json_response([
-                'error' => $debit['error'] ?? 'برای پرداخت اعتباری لینک، حداقل ۳ سهمیه برنامه‌سازی لازم است.',
+                'error' => $debit['error'] ?? ('برای پرداخت اعتباری، حداقل ' . $creditCost . ' سهمیه برنامه‌سازی لازم است.'),
                 'remainingCredits' => $debit['remaining'] ?? 0
             ], 400);
         }
-        $creditsCharged = (int)($debit['charged'] ?? 3);
+        $creditsCharged = (int)($debit['charged'] ?? $creditCost);
         $remainingCredits = (int)($debit['remaining'] ?? 0);
         $gateway = 'planning_credits';
         $amount = 0;
-        $note = 'فعال‌سازی لینک با ۳ سهمیه برنامه‌سازی (معادل ۱۵۰ هزار تومان)';
+        $note = $isRegistration
+            ? 'فعال‌سازی لینک ثبت‌نام با ۲ سهمیه برنامه‌سازی (معادل ۱۰۰ هزار تومان)'
+            : 'فعال‌سازی لینک با ۳ سهمیه برنامه‌سازی (معادل ۱۵۰ هزار تومان)';
     }
 
     $orderId = 'ord_' . time() . '_' . substr(md5(uniqid()), 0, 5);
@@ -659,7 +663,7 @@ if ($path === 'payment/create' && $method === 'POST') {
     $paidAt = date('c');
 
     $state = $tournament['state'] ?? [];
-    $state['payment'] = [
+    $paymentInfo = [
         'isPaid'   => true,
         'amount'   => $amount,
         'currency' => 'TOMAN',
@@ -670,6 +674,16 @@ if ($path === 'payment/create' && $method === 'POST') {
         'creditsCharged' => $creditsCharged,
         'note' => $note
     ];
+    if ($isRegistration) {
+        $cap = (int)($state['registration']['capacity'] ?? $tournament['team_count'] ?? 8);
+        $state['registrationPayment'] = $paymentInfo;
+        $state['registration'] = [
+            'isOpen' => ($state['registration']['isOpen'] ?? true) !== false,
+            'capacity' => $cap > 0 ? $cap : (int)$tournament['team_count']
+        ];
+    } else {
+        $state['payment'] = $paymentInfo;
+    }
 
     db_save_tournament(
         $pdo,
@@ -949,6 +963,178 @@ if (preg_match('#^teams/([^/]+)/players/([^/]+)$#', $path, $matches) && $method 
     if (!$player || $player['team_id'] !== $team['id']) json_response(['error' => 'بازیکن یافت نشد.'], 404);
     db_delete_player($pdo, $player['id']);
     json_response(['success' => true]);
+}
+
+function php_registration_settings($state, $teamCount) {
+    $cap = (int)($state['registration']['capacity'] ?? $teamCount);
+    if ($cap < 2) $cap = max(2, (int)$teamCount);
+    return [
+        'isOpen' => ($state['registration']['isOpen'] ?? true) !== false,
+        'capacity' => $cap
+    ];
+}
+
+function php_sanitize_registration_input($body) {
+    $team = php_sanitize_team_input([
+        'name' => $body['team_name'] ?? '',
+        'short_name' => $body['short_name'] ?? '',
+        'city' => $body['city'] ?? '',
+        'coach' => $body['coach'] ?? '',
+    ]);
+    if (isset($team['error'])) return $team;
+    $mobile = clean_mobile((string)($body['mobile'] ?? ''));
+    if (!$mobile || strlen($mobile) < 10) return ['error' => 'شماره موبایل مسئول تیم را وارد نمایید.'];
+    $playersIn = is_array($body['players'] ?? null) ? $body['players'] : [];
+    if (count($playersIn) > 40) return ['error' => 'حداکثر ۴۰ بازیکن در هر ثبت‌نام مجاز است.'];
+    $players = [];
+    $jerseys = [];
+    foreach ($playersIn as $p) {
+        $name = trim((string)($p['name'] ?? ''));
+        if ($name === '') continue;
+        $parsed = php_sanitize_player_input($p);
+        if (isset($parsed['error'])) return $parsed;
+        $jersey = $parsed['data']['jersey_number'];
+        if ($jersey !== '' && in_array($jersey, $jerseys, true)) {
+            return ['error' => 'شماره پیراهن در فهرست این تیم تکراری است.'];
+        }
+        if ($jersey !== '') $jerseys[] = $jersey;
+        $players[] = $parsed['data'];
+    }
+    if (!$players) return ['error' => 'حداقل یک بازیکن را در فهرست ثبت کنید.'];
+    return ['data' => [
+        'team_name' => $team['data']['name'],
+        'short_name' => $team['data']['short_name'],
+        'city' => $team['data']['city'],
+        'coach' => $team['data']['coach'],
+        'contact_name' => mb_substr(trim((string)($body['contact_name'] ?? '')), 0, 80),
+        'mobile' => $mobile,
+        'notes' => mb_substr(trim((string)($body['notes'] ?? '')), 0, 500),
+        'library_team_id' => mb_substr(trim((string)($body['library_team_id'] ?? '')), 0, 36),
+        'roster' => $players,
+    ]];
+}
+
+if (preg_match('#^registrations/public/([^/]+)$#', $path, $matches) && $method === 'GET') {
+    $tid = $matches[1];
+    $tournament = db_get_public_tournament($pdo, $tid);
+    if (!$tournament) json_response(['error' => 'مسابقه یافت نشد.'], 404);
+    $state = $tournament['state'] ?? [];
+    if (empty($state['registrationPayment']['isPaid'])) {
+        json_response(['error' => 'لینک ثبت‌نام این مسابقه هنوز فعال نشده است.', 'notActivated' => true, 'tournamentTitle' => $tournament['title']], 402);
+    }
+    $settings = php_registration_settings($state, $tournament['team_count']);
+    $list = db_list_registrations($pdo, $tid);
+    $approved = 0;
+    foreach ($list as $r) if (($r['status'] ?? '') === 'approved') $approved++;
+    $remaining = max(0, $settings['capacity'] - $approved);
+    json_response([
+        'tournament' => [
+            'id' => $tournament['id'],
+            'title' => $tournament['title'],
+            'format' => $tournament['format'],
+            'sport' => $tournament['sport'],
+            'teamCount' => $tournament['team_count'],
+        ],
+        'isOpen' => $settings['isOpen'] && $remaining > 0,
+        'isClosed' => !$settings['isOpen'],
+        'isFull' => $remaining <= 0,
+        'capacity' => $settings['capacity'],
+        'approved' => $approved,
+        'remaining' => $remaining,
+    ]);
+}
+
+if (preg_match('#^registrations/public/([^/]+)$#', $path, $matches) && $method === 'POST') {
+    $tid = $matches[1];
+    $tournament = db_get_public_tournament($pdo, $tid);
+    if (!$tournament) json_response(['error' => 'مسابقه یافت نشد.'], 404);
+    $state = $tournament['state'] ?? [];
+    if (empty($state['registrationPayment']['isPaid'])) {
+        json_response(['error' => 'لینک ثبت‌نام این مسابقه هنوز فعال نشده است.'], 402);
+    }
+    $settings = php_registration_settings($state, $tournament['team_count']);
+    $list = db_list_registrations($pdo, $tid);
+    $approved = 0;
+    foreach ($list as $r) if (($r['status'] ?? '') === 'approved') $approved++;
+    if (!$settings['isOpen']) json_response(['error' => 'ثبت‌نام این مسابقه بسته شده است.'], 403);
+    if ($approved >= $settings['capacity']) json_response(['error' => 'ظرفیت مسابقه تکمیل شده است.'], 409);
+    $parsed = php_sanitize_registration_input(get_json_input());
+    if (isset($parsed['error'])) json_response(['error' => $parsed['error']], 400);
+    $created = db_create_registration($pdo, $tid, $parsed['data']);
+    if (isset($created['error'])) json_response(['error' => $created['error']], 409);
+    json_response([
+        'success' => true,
+        'registration' => ['id' => $created['id'], 'team_name' => $created['team_name'], 'status' => $created['status']],
+        'message' => 'ثبت‌نام شما ارسال شد و پس از تأیید برگزارکننده نهایی می‌شود.',
+    ]);
+}
+
+if (preg_match('#^tournaments/([^/]+)/registrations$#', $path, $matches) && $method === 'GET') {
+    list($session) = require_auth($pdo);
+    $tid = $matches[1];
+    $tournament = db_get_tournament($pdo, $tid, $session['user_id']);
+    if (!$tournament) json_response(['error' => 'مسابقه یافت نشد.'], 404);
+    $state = $tournament['state'] ?? [];
+    $settings = php_registration_settings($state, $tournament['team_count']);
+    $registrations = db_list_registrations($pdo, $tid);
+    $approved = 0;
+    foreach ($registrations as $r) if (($r['status'] ?? '') === 'approved') $approved++;
+    json_response([
+        'isPaid' => !empty($state['registrationPayment']['isPaid']),
+        'settings' => $settings,
+        'approved' => $approved,
+        'remaining' => max(0, $settings['capacity'] - $approved),
+        'registrations' => $registrations,
+        'tournament' => ['id' => $tournament['id'], 'title' => $tournament['title'], 'teamCount' => $tournament['team_count']],
+    ]);
+}
+
+if (preg_match('#^tournaments/([^/]+)/registrations$#', $path, $matches) && $method === 'PATCH') {
+    list($session) = require_auth($pdo);
+    $tid = $matches[1];
+    $tournament = db_get_tournament($pdo, $tid, $session['user_id']);
+    if (!$tournament) json_response(['error' => 'مسابقه یافت نشد.'], 404);
+    $state = $tournament['state'] ?? [];
+    if (empty($state['registrationPayment']['isPaid'])) json_response(['error' => 'ابتدا لینک ثبت‌نام را فعال کنید.'], 402);
+    $body = get_json_input();
+    $settings = php_registration_settings($state, $tournament['team_count']);
+    if (array_key_exists('isOpen', $body)) $settings['isOpen'] = (bool)$body['isOpen'];
+    if (isset($body['capacity'])) {
+        $n = (int)$body['capacity'];
+        if ($n < 2 || $n > 128) json_response(['error' => 'ظرفیت باید بین ۲ تا ۱۲۸ تیم باشد.'], 400);
+        $list = db_list_registrations($pdo, $tid);
+        $approved = 0;
+        foreach ($list as $r) if (($r['status'] ?? '') === 'approved') $approved++;
+        if ($n < $approved) json_response(['error' => 'ظرفیت نمی‌تواند کمتر از تعداد تیم‌های تأییدشده باشد.'], 400);
+        $settings['capacity'] = $n;
+    }
+    $state['registration'] = $settings;
+    db_save_tournament($pdo, $tournament['id'], $session['user_id'], $tournament['title'], $tournament['format'], $tournament['sport'], $tournament['team_count'], $state);
+    json_response(['success' => true, 'settings' => $settings]);
+}
+
+if (preg_match('#^tournaments/([^/]+)/registrations/([^/]+)$#', $path, $matches) && $method === 'PATCH') {
+    list($session) = require_auth($pdo);
+    $tid = $matches[1];
+    $rid = $matches[2];
+    $tournament = db_get_tournament($pdo, $tid, $session['user_id']);
+    if (!$tournament) json_response(['error' => 'مسابقه یافت نشد.'], 404);
+    $state = $tournament['state'] ?? [];
+    if (empty($state['registrationPayment']['isPaid'])) json_response(['error' => 'لینک ثبت‌نام فعال نیست.'], 402);
+    $rec = db_get_registration($pdo, $rid);
+    if (!$rec || $rec['tournament_id'] !== $tid) json_response(['error' => 'ثبت‌نام یافت نشد.'], 404);
+    $body = get_json_input();
+    $status = (string)($body['status'] ?? '');
+    if (!in_array($status, ['approved', 'rejected', 'pending'], true)) json_response(['error' => 'وضعیت نامعتبر است.'], 400);
+    if ($status === 'approved') {
+        $settings = php_registration_settings($state, $tournament['team_count']);
+        $list = db_list_registrations($pdo, $tid);
+        $approved = 0;
+        foreach ($list as $r) if (($r['status'] ?? '') === 'approved' && $r['id'] !== $rid) $approved++;
+        if ($approved >= $settings['capacity']) json_response(['error' => 'ظرفیت مسابقه تکمیل است؛ ابتدا ظرفیت را افزایش دهید یا تیمی را رد کنید.'], 409);
+    }
+    $updated = db_update_registration_status($pdo, $rid, $status, $body['reject_reason'] ?? '');
+    json_response(['success' => true, 'registration' => $updated]);
 }
 
 if ($path === 'admin/teams' && $method === 'GET') {

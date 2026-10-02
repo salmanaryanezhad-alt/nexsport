@@ -69,6 +69,7 @@ if (!htaccessContent.includes('X-Robots-Tag')) {
 # Site pages: index, follow. User tournament links /t/ stay noindex, nofollow.
 <IfModule mod_setenvif.c>
   SetEnvIf Request_URI "^/t/" is_tournament_page
+  SetEnvIf Request_URI "^/r/" is_tournament_page
   SetEnvIf Request_URI "^/teams" is_tournament_page
 </IfModule>
 <IfModule mod_headers.c>
