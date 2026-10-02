@@ -37,7 +37,7 @@ export async function PATCH(
   try {
     const { id } = await Promise.resolve(params);
     const auth = await requireClubEditor(req, id);
-    if ("error" in auth) {
+    if (!auth.ok) {
       return NextResponse.json({ error: auth.error, expired: (auth as any).expired }, { status: auth.status });
     }
     const body = await req.json().catch(() => ({}));
@@ -58,7 +58,7 @@ export async function DELETE(
   try {
     const { id } = await Promise.resolve(params);
     const auth = await requireClubEditor(req, id);
-    if ("error" in auth) {
+    if (!auth.ok) {
       return NextResponse.json({ error: auth.error, expired: (auth as any).expired }, { status: auth.status });
     }
     if (!auth.isAdmin && auth.club.owner_id !== auth.user.id) {

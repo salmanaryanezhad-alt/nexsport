@@ -7,16 +7,18 @@ export const dynamic = "force-dynamic";
 
 async function requireOwner(req: NextRequest, tournamentId: string) {
   const auth = await verifySessionRequest(req);
-  if ("error" in auth) return auth;
+  if (!("user" in auth) || !auth.user) {
+    return { ok: false as const, error: (auth as any).error || "ابتدا وارد حساب کاربری شوید.", status: (auth as any).status || 401, expired: (auth as any).expired };
+  }
   const tournament = await db.getTournament(tournamentId, auth.user.id);
   if (!tournament) {
     if (auth.isAdmin) {
       const any = await db.getPublicTournament(tournamentId);
-      if (any) return { user: auth.user, isAdmin: true, tournament: any };
+      if (any) return { ok: true as const, user: auth.user, isAdmin: true, tournament: any };
     }
-    return { error: "مسابقه یافت نشد.", status: 404 as const };
+    return { ok: false as const, error: "مسابقه یافت نشد.", status: 404 as const };
   }
-  return { user: auth.user, isAdmin: auth.isAdmin, tournament };
+  return { ok: true as const, user: auth.user, isAdmin: auth.isAdmin, tournament };
 }
 
 export async function GET(
@@ -26,7 +28,7 @@ export async function GET(
   try {
     const { id } = await Promise.resolve(params);
     const auth = await requireOwner(req, id);
-    if ("error" in auth) {
+    if (!auth.ok) {
       return NextResponse.json({ error: auth.error, expired: (auth as any).expired }, { status: auth.status });
     }
     const settings = readRegistrationSettings(auth.tournament.state, auth.tournament.team_count);
@@ -57,7 +59,7 @@ export async function PATCH(
   try {
     const { id } = await Promise.resolve(params);
     const auth = await requireOwner(req, id);
-    if ("error" in auth) {
+    if (!auth.ok) {
       return NextResponse.json({ error: auth.error, expired: (auth as any).expired }, { status: auth.status });
     }
     if (!registrationPaymentPaid(auth.tournament.state)) {

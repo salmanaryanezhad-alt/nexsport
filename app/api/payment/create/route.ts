@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
         payWithCredits: Boolean(payWithCredits),
       });
       if (!result.success) {
-        return NextResponse.json({ error: result.error || "خطا در پردازش فعال‌سازی لینک ثبت‌نام." }, { status: 400 });
+        return NextResponse.json({ error: ("error" in result && result.error) || "خطا در پردازش فعال‌سازی لینک ثبت‌نام." }, { status: 400 });
       }
       return NextResponse.json(result);
     }

@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const auth = await verifySessionRequest(req);
-    if ("error" in auth) {
-      return NextResponse.json({ error: auth.error, expired: (auth as any).expired }, { status: auth.status });
+    if (!("user" in auth) || !auth.user) {
+      return NextResponse.json({ error: (auth as any).error, expired: (auth as any).expired }, { status: (auth as any).status || 401 });
     }
     const [clubs, invites] = await Promise.all([
       db.listClubsForUser(auth.user.id),
@@ -28,8 +28,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const auth = await verifySessionRequest(req);
-    if ("error" in auth) {
-      return NextResponse.json({ error: auth.error, expired: (auth as any).expired }, { status: auth.status });
+    if (!("user" in auth) || !auth.user) {
+      return NextResponse.json({ error: (auth as any).error, expired: (auth as any).expired }, { status: (auth as any).status || 401 });
     }
     const body = await req.json().catch(() => ({}));
     const parsed = sanitizeClubInput(body || {});

@@ -14,7 +14,7 @@ export async function GET(
   try {
     const { id } = await Promise.resolve(params);
     const auth = await requireClubMember(req, id);
-    if ("error" in auth) {
+    if (!auth.ok) {
       return NextResponse.json({ error: auth.error, expired: (auth as any).expired }, { status: auth.status });
     }
     if (auth.membership && auth.membership.status !== "active" && !auth.isAdmin) {
@@ -48,7 +48,7 @@ export async function POST(
   try {
     const { id } = await Promise.resolve(params);
     const auth = await requireClubEditor(req, id);
-    if ("error" in auth) {
+    if (!auth.ok) {
       return NextResponse.json({ error: auth.error, expired: (auth as any).expired }, { status: auth.status });
     }
     const body = await req.json().catch(() => ({}));
@@ -75,8 +75,8 @@ export async function PATCH(
   try {
     const { id } = await Promise.resolve(params);
     const auth = await verifySessionRequest(req);
-    if ("error" in auth) {
-      return NextResponse.json({ error: auth.error, expired: auth.expired }, { status: auth.status });
+    if (!("user" in auth) || !auth.user) {
+      return NextResponse.json({ error: (auth as any).error, expired: (auth as any).expired }, { status: (auth as any).status || 401 });
     }
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
@@ -101,8 +101,8 @@ export async function PATCH(
     }
 
     const editor = await requireClubEditor(req, id);
-    if ("error" in editor) {
-      return NextResponse.json({ error: editor.error, expired: (editor as any).expired }, { status: editor.status });
+    if (!editor.ok) {
+      return NextResponse.json({ error: editor.error, expired: editor.expired }, { status: editor.status });
     }
     if (target.role === "owner") {
       return NextResponse.json({ error: "نقش مالک قابل تغییر نیست." }, { status: 400 });
@@ -127,7 +127,7 @@ export async function DELETE(
   try {
     const { id } = await Promise.resolve(params);
     const auth = await requireClubEditor(req, id);
-    if ("error" in auth) {
+    if (!auth.ok) {
       return NextResponse.json({ error: auth.error, expired: (auth as any).expired }, { status: auth.status });
     }
     const memberId = String(req.nextUrl.searchParams.get("memberId") || "").trim();
