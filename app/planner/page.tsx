@@ -1462,6 +1462,26 @@ function PlannerWizard() {
     }
   }
 
+  const loadQuery = searchParams.get("load");
+  useEffect(() => {
+    if (!isLoaded || !user || !loadQuery) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/tournaments/${loadQuery}/`, { credentials: "same-origin" });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled || !res.ok || !data.tournament) return;
+        handleLoadCloudTournament(data.tournament);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, user, loadQuery]);
+
   function handleCloudSaveSuccess(t: SavedTournamentItem) {
     setCurrentSavedId(t.id);
     if (!metadata.title) {

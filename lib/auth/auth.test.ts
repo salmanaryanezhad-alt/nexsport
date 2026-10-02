@@ -1593,6 +1593,85 @@ async function run() {
     assertEqual(orphanPlayers.length, 0, "بازیکنان تیم حذف‌شده پاک شوند.");
   });
 
+  await test("پنل برگزارکننده: خلاصه مسابقات، کتابخانه تیم و ثبت‌نام‌ها", async () => {
+    const { toTournamentCard, summarizeMatches, formatLabel } = await import("../organizer/summary");
+    assertEqual(formatLabel("knockout"), "تک‌حذفی", "برچسب فرمت حذفی.");
+
+    const organizer = await db.createUser({
+      name: "برگزارکننده پنل",
+      email: "panel.organizer@nexsport.ir",
+      mobile: "09120009988",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: true,
+    });
+
+    const t = await db.saveTournament({
+      userId: organizer.id,
+      title: "جام پنل",
+      format: "league",
+      teamCount: 4,
+      state: {
+        step: 4,
+        payment: { isPaid: true },
+        registrationPayment: { isPaid: true },
+        registration: { isOpen: true, capacity: 4 },
+        result: {
+          format: "league",
+          rounds: [
+            {
+              round: 1,
+              matches: [
+                { id: "m1", home: "الف", away: "ب" },
+                { id: "m2", home: "ج", away: "د" },
+              ],
+            },
+          ],
+        },
+        scores: { m1: { home: 1, away: 0 } },
+      },
+    });
+
+    const matches = summarizeMatches((await db.getTournament(t.id, organizer.id))?.state);
+    assertEqual(matches.total, 2, "دو بازی در برنامه.");
+    assertEqual(matches.played, 1, "یک بازی نتیجه دارد.");
+
+    const card = toTournamentCard((await db.getTournament(t.id, organizer.id)) as any);
+    assertEqual(card.spectatorPaid, true, "لینک تماشاگر فعال.");
+    assertEqual(card.registrationPaid, true, "لینک ثبت‌نام فعال.");
+
+    const teamIn = await import("../teams/validate").then((m) =>
+      m.sanitizeTeamInput({ name: "تیم پنل", city: "تهران" })
+    );
+    assert(teamIn.ok, "تیم پنل معتبر.");
+    if (!teamIn.ok) return;
+    const team = await db.createTeam(organizer.id, teamIn.data);
+    const pIn = await import("../teams/validate").then((m) => m.sanitizePlayerInput({ name: "بازیکن پنل" }));
+    assert(pIn.ok, "بازیکن پنل معتبر.");
+    if (!pIn.ok) return;
+    await db.createPlayer(team.id, pIn.data);
+
+    await db.createRegistration(t.id, {
+      team_name: "میهمان پنل",
+      short_name: "",
+      city: "",
+      coach: "",
+      contact_name: "علی",
+      mobile: "09121110000",
+      notes: "",
+      library_team_id: "",
+      roster: [{ name: "سعید", jersey_number: "7", position: "", birth_date: "", mobile: "", national_id: "" }],
+    });
+
+    const lib = await db.countUserLibrary(organizer.id);
+    assertEqual(lib.teams, 1, "یک تیم در کتابخانه.");
+    assertEqual(lib.players, 1, "یک بازیکن در کتابخانه.");
+    const regs = await db.listRegistrationsByUser(organizer.id);
+    assertEqual(regs.length, 1, "یک ثبت‌نام برای برگزارکننده.");
+    assertEqual(regs[0].tournament_title, "جام پنل", "عنوان مسابقه روی ثبت‌نام.");
+    const full = await db.listTournamentsFull(organizer.id);
+    assert(Boolean(full[0]?.state?.payment?.isPaid), "لیست کامل شامل وضعیت پرداخت است.");
+  });
+
   await test("تبدیل تقویم شمسی و میلادی", async () => {
     const { gregorianToJalali, jalaliToGregorian, parseJalaliInput } = await import("../jalali");
     const j = gregorianToJalali(2026, 3, 21);

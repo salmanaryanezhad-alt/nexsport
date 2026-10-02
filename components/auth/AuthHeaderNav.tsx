@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "./AuthContext";
 
 export function AuthHeaderNav() {
@@ -297,6 +298,15 @@ export function AuthHeaderNav() {
                 </button>
               </>
             )}
+
+            <Link
+              href="/panel"
+              onClick={() => setDropdownOpen(false)}
+              className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-black text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors flex items-center justify-between cursor-pointer mb-1"
+            >
+              <span>پنل برگزارکننده</span>
+              <span>📊</span>
+            </Link>
 
             <button
               type="button"

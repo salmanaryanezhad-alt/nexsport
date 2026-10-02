@@ -1137,6 +1137,99 @@ if (preg_match('#^tournaments/([^/]+)/registrations/([^/]+)$#', $path, $matches)
     json_response(['success' => true, 'registration' => $updated]);
 }
 
+if ($path === 'organizer/overview' && $method === 'GET') {
+    list($session) = require_auth($pdo);
+    $user = db_find_user_by_id($pdo, $session['user_id']);
+    if (!$user) json_response(['error' => 'کاربر یافت نشد.'], 401);
+    $labels = [
+        'league' => 'لیگ دوره‌ای',
+        'double-league' => 'لیگ رفت و برگشت',
+        'groups' => 'مرحله گروهی',
+        'groups-knockout' => 'گروهی + حذفی',
+        'knockout' => 'تک‌حذفی',
+        'double-knockout' => 'دو حذفی',
+    ];
+    $tournaments = db_list_tournaments_full($pdo, $user['id']);
+    $library = db_count_user_library($pdo, $user['id']);
+    $regs = db_list_registrations_by_user($pdo, $user['id']);
+    $cards = [];
+    $spectator = 0;
+    $regLinks = 0;
+    $matchesTotal = 0;
+    $matchesPlayed = 0;
+    foreach ($tournaments as $t) {
+        $state = is_array($t['state'] ?? null) ? $t['state'] : [];
+        $specPaid = !empty($state['payment']['isPaid']);
+        $regPaid = !empty($state['registrationPayment']['isPaid']);
+        if ($specPaid) $spectator++;
+        if ($regPaid) $regLinks++;
+        $played = 0;
+        if (is_array($state['scores'] ?? null)) {
+            foreach ($state['scores'] as $s) {
+                if (is_array($s) && ($s['home'] ?? null) !== null && ($s['away'] ?? null) !== null) $played++;
+            }
+        }
+        $matchesPlayed += $played;
+        $matchesTotal += $played;
+        $settings = php_registration_settings($state, $t['team_count']);
+        $cards[] = [
+            'id' => $t['id'],
+            'title' => $t['title'],
+            'format' => $t['format'],
+            'formatLabel' => $labels[$t['format']] ?? $t['format'],
+            'sport' => $t['sport'] ?? '',
+            'teamCount' => (int)$t['team_count'],
+            'step' => (int)($state['step'] ?? 0),
+            'spectatorPaid' => $specPaid,
+            'registrationPaid' => $regPaid,
+            'registrationOpen' => $settings['isOpen'],
+            'registrationCapacity' => $settings['capacity'],
+            'matchesTotal' => $played,
+            'matchesPlayed' => $played,
+            'createdAt' => $t['created_at'],
+            'updatedAt' => $t['updated_at'],
+        ];
+    }
+    $pending = 0; $approved = 0; $rejected = 0;
+    foreach ($regs as $r) {
+        if (($r['status'] ?? '') === 'approved') $approved++;
+        elseif (($r['status'] ?? '') === 'rejected') $rejected++;
+        else $pending++;
+    }
+    $unlimited = is_admin_email($user['email'] ?? '') || (($user['role'] ?? '') === 'admin');
+    json_response([
+        'profile' => [
+            'id' => $user['id'],
+            'name' => $user['name'],
+            'email' => $user['email'],
+            'mobile' => $user['mobile'],
+            'role' => $user['role'] ?? 'user',
+            'createdAt' => $user['created_at'] ?? null,
+        ],
+        'quota' => [
+            'planningCredits' => $unlimited ? 999999 : (int)($user['planning_credits'] ?? 5),
+            'isVip' => false,
+            'unlimitedPlanning' => $unlimited,
+            'vipExpiresAt' => null,
+            'freeLinkAvailable' => true,
+        ],
+        'stats' => [
+            'tournamentCount' => count($cards),
+            'teamCount' => $library['teams'],
+            'playerCount' => $library['players'],
+            'pendingRegistrations' => $pending,
+            'approvedRegistrations' => $approved,
+            'rejectedRegistrations' => $rejected,
+            'spectatorLinks' => $spectator,
+            'registrationLinks' => $regLinks,
+            'matchesTotal' => $matchesTotal,
+            'matchesPlayed' => $matchesPlayed,
+        ],
+        'tournaments' => $cards,
+        'registrations' => $regs,
+    ]);
+}
+
 if ($path === 'admin/teams' && $method === 'GET') {
     list($session) = require_auth($pdo);
     $user = db_find_user_by_id($pdo, $session['user_id']);

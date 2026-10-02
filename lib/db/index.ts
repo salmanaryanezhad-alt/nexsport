@@ -1908,6 +1908,63 @@ export const db = {
     return list.sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
   },
 
+  async listTournamentsFull(userId: string): Promise<TournamentRecord[]> {
+    await initTablesIfRealDb();
+    const mapRow = (r: any): TournamentRecord => ({
+      id: r.id,
+      user_id: r.user_id,
+      title: r.title,
+      format: r.format,
+      sport: r.sport,
+      team_count: r.team_count,
+      state: typeof r.state === "string" ? JSON.parse(r.state) : r.state,
+      created_at: r.created_at instanceof Date ? r.created_at : new Date(r.created_at),
+      updated_at: r.updated_at instanceof Date ? r.updated_at : new Date(r.updated_at),
+    });
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `tournaments` WHERE user_id = ? ORDER BY updated_at DESC",
+        [userId]
+      );
+      return rows.map(mapRow);
+    }
+    if (pgPool) {
+      const res = await pgPool.query(
+        "SELECT * FROM tournaments WHERE user_id = $1 ORDER BY updated_at DESC",
+        [userId]
+      );
+      return res.rows.map(mapRow);
+    }
+    return this.listTournaments(userId);
+  },
+
+  async countUserLibrary(userId: string): Promise<{ teams: number; players: number }> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [teamRows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT COUNT(*) AS c FROM `teams` WHERE user_id = ?",
+        [userId]
+      );
+      const [playerRows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT COUNT(*) AS c FROM `players` p INNER JOIN `teams` t ON t.id = p.team_id WHERE t.user_id = ?",
+        [userId]
+      );
+      return { teams: Number(teamRows[0]?.c || 0), players: Number(playerRows[0]?.c || 0) };
+    }
+    if (pgPool) {
+      const teams = await pgPool.query("SELECT COUNT(*)::int AS c FROM teams WHERE user_id = $1", [userId]);
+      const players = await pgPool.query(
+        "SELECT COUNT(*)::int AS c FROM players p INNER JOIN teams t ON t.id = p.team_id WHERE t.user_id = $1",
+        [userId]
+      );
+      return { teams: teams.rows[0]?.c || 0, players: players.rows[0]?.c || 0 };
+    }
+    const teams = Array.from(memoryStore.teams.values()).filter((t) => t.user_id === userId);
+    const teamIds = new Set(teams.map((t) => t.id));
+    const players = Array.from(memoryStore.players.values()).filter((p) => teamIds.has(p.team_id));
+    return { teams: teams.length, players: players.length };
+  },
+
   async listLinkedTournaments(
     userId: string,
     teamId: string,
@@ -3379,6 +3436,38 @@ export const db = {
     return Array.from(memoryStore.registrations.values())
       .filter((r) => r.tournament_id === tournamentId)
       .sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+  },
+
+  async listRegistrationsByUser(userId: string): Promise<(RegistrationRecord & { tournament_title: string })[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        `SELECT r.*, t.title AS tournament_title
+         FROM \`registrations\` r
+         INNER JOIN \`tournaments\` t ON t.id = r.tournament_id
+         WHERE t.user_id = ?
+         ORDER BY r.created_at DESC`,
+        [userId]
+      );
+      return rows.map((row) => ({ ...normalizeRegistrationRow(row), tournament_title: String(row.tournament_title || "") }));
+    }
+    if (pgPool) {
+      const res = await pgPool.query(
+        `SELECT r.*, t.title AS tournament_title
+         FROM registrations r
+         INNER JOIN tournaments t ON t.id = r.tournament_id
+         WHERE t.user_id = $1
+         ORDER BY r.created_at DESC`,
+        [userId]
+      );
+      return res.rows.map((row) => ({ ...normalizeRegistrationRow(row), tournament_title: String(row.tournament_title || "") }));
+    }
+    const mine = await this.listTournaments(userId);
+    const byId = new Map(mine.map((t) => [t.id, t.title]));
+    return Array.from(memoryStore.registrations.values())
+      .filter((r) => byId.has(r.tournament_id))
+      .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
+      .map((r) => ({ ...r, tournament_title: byId.get(r.tournament_id) || "" }));
   },
 
   async getRegistration(id: string): Promise<RegistrationRecord | null> {

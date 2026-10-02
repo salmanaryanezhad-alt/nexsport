@@ -1046,3 +1046,51 @@ function db_update_registration_status($pdo, $id, $status, $reason = '') {
     $stmt->execute([$status, $reason, $id]);
     return db_get_registration($pdo, $id);
 }
+
+function db_list_tournaments_full($pdo, $userId) {
+    $stmt = $pdo->prepare("SELECT * FROM tournaments WHERE user_id = ? ORDER BY updated_at DESC");
+    $stmt->execute([$userId]);
+    $out = [];
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $stateData = json_decode($row['state'] ?? '', true);
+        if (!is_array($stateData)) $stateData = [];
+        $out[] = [
+            'id' => $row['id'],
+            'user_id' => $row['user_id'],
+            'title' => $row['title'],
+            'format' => $row['format'],
+            'sport' => $row['sport'],
+            'team_count' => (int)$row['team_count'],
+            'state' => $stateData,
+            'created_at' => $row['created_at'],
+            'updated_at' => $row['updated_at'],
+        ];
+    }
+    return $out;
+}
+
+function db_count_user_library($pdo, $userId) {
+    $teams = $pdo->prepare("SELECT COUNT(*) FROM teams WHERE user_id = ?");
+    $teams->execute([$userId]);
+    $players = $pdo->prepare("SELECT COUNT(*) FROM players p INNER JOIN teams t ON t.id = p.team_id WHERE t.user_id = ?");
+    $players->execute([$userId]);
+    return ['teams' => (int)$teams->fetchColumn(), 'players' => (int)$players->fetchColumn()];
+}
+
+function db_list_registrations_by_user($pdo, $userId) {
+    $stmt = $pdo->prepare("
+        SELECT r.*, t.title AS tournament_title
+        FROM registrations r
+        INNER JOIN tournaments t ON t.id = r.tournament_id
+        WHERE t.user_id = ?
+        ORDER BY r.created_at DESC
+    ");
+    $stmt->execute([$userId]);
+    $out = [];
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $rec = db_normalize_registration_row($row);
+        $rec['tournament_title'] = $row['tournament_title'] ?? '';
+        $out[] = $rec;
+    }
+    return $out;
+}
