@@ -340,6 +340,27 @@ function db_list_all_users($pdo) {
     return $users;
 }
 
+function db_consume_planning_credits($pdo, $userId, $count) {
+    $charge = max(1, (int)$count);
+    $user = db_find_user_by_id($pdo, $userId);
+    if (!$user) {
+        return ['success' => false, 'remaining' => 0, 'charged' => 0, 'error' => 'کاربر یافت نشد.'];
+    }
+    $current = isset($user['planning_credits']) ? (int)$user['planning_credits'] : 5;
+    if ($current < $charge) {
+        return [
+            'success' => false,
+            'remaining' => $current,
+            'charged' => 0,
+            'error' => "برای این کار به {$charge} سهمیه برنامه‌سازی نیاز است. سهمیه فعلی شما کافی نیست.",
+        ];
+    }
+    $new = $current - $charge;
+    $stmt = $pdo->prepare("UPDATE users SET planning_credits = ? WHERE id = ?");
+    $stmt->execute([$new, $userId]);
+    return ['success' => true, 'remaining' => $new, 'charged' => $charge];
+}
+
 function db_add_planning_credits($pdo, $userId, $count) {
     $add = max(1, (int)$count);
     $stmt = $pdo->prepare("UPDATE users SET planning_credits = COALESCE(planning_credits, 5) + ? WHERE id = ?");

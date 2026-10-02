@@ -8,6 +8,8 @@ import {
   buildVipPlans,
   applyCouponOnFinal,
   DEFAULT_PRICING_SETTINGS,
+  LINK_ACTIVATION_CREDIT_COST,
+  DEDICATED_LINK_PRICE_TOMANS,
 } from "./types";
 import { MockGateway } from "./gateways/mockGateway";
 import { ZarinpalGateway } from "./gateways/zarinpalGateway";
@@ -88,8 +90,9 @@ class PaymentService {
     discountCode?: string;
     adminBypass?: boolean;
     discountCatalog?: any[];
+    payWithCredits?: boolean;
   }) {
-    const { tournamentId, userId, userEmail, userMobile, origin, useFreeGift, discountCode, adminBypass, discountCatalog } = params;
+    const { tournamentId, userId, userEmail, userMobile, origin, useFreeGift, discountCode, adminBypass, discountCatalog, payWithCredits } = params;
 
     const tournament = await db.getTournament(tournamentId, userId);
     if (!tournament) {
@@ -232,6 +235,62 @@ class PaymentService {
         isDirectSuccess: true,
         isPaid: true,
         isFreeGift: true,
+        orderId: paymentInfo.orderId,
+        refId: paymentInfo.refId,
+        paymentInfo,
+        tournamentId,
+      };
+    }
+
+    // 2.5 Pay with planning credits: 3 quotas = dedicated link price (150,000 Tomans by default)
+    if (payWithCredits) {
+      const pricing = await db.getPricingSettings();
+      const linkPrice = pricing.linkPriceTomans || DEDICATED_LINK_PRICE_TOMANS;
+      const debit = await db.consumePlanningCredits(userId, LINK_ACTIVATION_CREDIT_COST);
+      if (!debit.success) {
+        return {
+          success: false,
+          error:
+            debit.error ||
+            `برای پرداخت اعتباری لینک، حداقل ${LINK_ACTIVATION_CREDIT_COST} سهمیه برنامه‌سازی لازم است.`,
+          remainingCredits: debit.remainingCredits,
+        };
+      }
+
+      const paymentInfo = {
+        isPaid: true,
+        amount: 0,
+        currency: "TOMAN",
+        gateway: "planning_credits",
+        orderId: `crd_${Date.now()}`,
+        refId: `TRX-CRD-${Math.floor(10000000 + Math.random() * 90000000)}`,
+        paidAt: new Date().toISOString(),
+        creditsCharged: debit.charged,
+        note: `فعال‌سازی لینک با ${LINK_ACTIVATION_CREDIT_COST} سهمیه برنامه‌سازی (معادل ${linkPrice.toLocaleString("en-US")} تومان)`,
+      };
+
+      const updatedState = {
+        ...tournament.state,
+        payment: paymentInfo,
+      };
+
+      await db.saveTournament({
+        id: tournament.id,
+        userId: tournament.user_id,
+        title: tournament.title,
+        format: tournament.format,
+        sport: tournament.sport || undefined,
+        teamCount: tournament.team_count,
+        state: updatedState,
+      });
+
+      return {
+        success: true,
+        isDirectSuccess: true,
+        isPaid: true,
+        isCreditPayment: true,
+        creditsCharged: debit.charged,
+        remainingCredits: debit.remainingCredits,
         orderId: paymentInfo.orderId,
         refId: paymentInfo.refId,
         paymentInfo,

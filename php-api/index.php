@@ -632,6 +632,28 @@ if ($path === 'payment/create' && $method === 'POST') {
         json_response(['error' => 'مسابقه یافت نشد یا دسترسی ویرایش آن را ندارید.'], 404);
     }
 
+    $payWithCredits = !empty($body['payWithCredits']);
+    $creditsCharged = 0;
+    $remainingCredits = null;
+    $gateway = 'mock';
+    $amount = 150000;
+    $note = null;
+
+    if ($payWithCredits) {
+        $debit = db_consume_planning_credits($pdo, $session['user_id'], 3);
+        if (empty($debit['success'])) {
+            json_response([
+                'error' => $debit['error'] ?? 'برای پرداخت اعتباری لینک، حداقل ۳ سهمیه برنامه‌سازی لازم است.',
+                'remainingCredits' => $debit['remaining'] ?? 0
+            ], 400);
+        }
+        $creditsCharged = (int)($debit['charged'] ?? 3);
+        $remainingCredits = (int)($debit['remaining'] ?? 0);
+        $gateway = 'planning_credits';
+        $amount = 0;
+        $note = 'فعال‌سازی لینک با ۳ سهمیه برنامه‌سازی (معادل ۱۵۰ هزار تومان)';
+    }
+
     $orderId = 'ord_' . time() . '_' . substr(md5(uniqid()), 0, 5);
     $refId = 'TRX-' . rand(10000000, 99999999);
     $paidAt = date('c');
@@ -639,12 +661,14 @@ if ($path === 'payment/create' && $method === 'POST') {
     $state = $tournament['state'] ?? [];
     $state['payment'] = [
         'isPaid'   => true,
-        'amount'   => 200000,
+        'amount'   => $amount,
         'currency' => 'TOMAN',
-        'gateway'  => 'mock',
+        'gateway'  => $gateway,
         'orderId'  => $orderId,
         'refId'    => $refId,
-        'paidAt'   => $paidAt
+        'paidAt'   => $paidAt,
+        'creditsCharged' => $creditsCharged,
+        'note' => $note
     ];
 
     db_save_tournament(
@@ -658,14 +682,20 @@ if ($path === 'payment/create' && $method === 'POST') {
         $state
     );
 
-    json_response([
+    $out = [
         'success'         => true,
         'isDirectSuccess' => true,
         'isPaid'          => true,
         'orderId'         => $orderId,
         'refId'           => $refId,
         'tournamentId'    => $tournamentId
-    ]);
+    ];
+    if ($payWithCredits) {
+        $out['isCreditPayment'] = true;
+        $out['creditsCharged'] = $creditsCharged;
+        $out['remainingCredits'] = $remainingCredits;
+    }
+    json_response($out);
 }
 
 // 14. DELETE /api/tournaments/{id}

@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { itemType, tournamentId, creditCount, vipPlanId, discountCode } = body || {};
+    const { itemType, tournamentId, creditCount, vipPlanId, discountCode, payWithCredits } = body || {};
     const origin = req.nextUrl.origin;
     const discountCatalog = readDiscountCatalogCookie(req);
 
@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
         adminBypass: hasUnlimitedPlanning(user),
         discountCode: discountCode ? String(discountCode).trim() : undefined,
         discountCatalog,
+        payWithCredits: Boolean(payWithCredits),
       });
 
       if (!result.success) {

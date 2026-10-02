@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { toPersianDigits } from "@/lib/digits";
-import { DEDICATED_LINK_PRICE_TOMANS } from "@/lib/payment/types";
+import { DEDICATED_LINK_PRICE_TOMANS, LINK_ACTIVATION_CREDIT_COST } from "@/lib/payment/types";
 import { encodeTournamentPayload } from "@/lib/tournamentCodec";
 
 interface ShareTournamentModalProps {
@@ -364,7 +364,66 @@ export function ShareTournamentModal({
     }
   }
 
+  async function handlePayWithCredits() {
+    if (!activeId) {
+      await handleAutoSave();
+      return;
+    }
+
+    setPaymentLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/payment/create/", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tournamentId: activeId,
+          payWithCredits: true,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "خطا در پرداخت اعتباری لینک.");
+      }
+
+      if (data.isDirectSuccess || data.isPaid) {
+        setIsPaid(true);
+        setJustPaidSuccess(true);
+        const resolvedRef = data.refId || `TRX-${Math.floor(10000000 + Math.random() * 90000000)}`;
+        setRefId(resolvedRef);
+        if (typeof data.remainingCredits === "number") {
+          setQuota((prev) => (prev ? { ...prev, planningCredits: data.remainingCredits } : prev));
+        }
+        await loadUserQuota();
+
+        if (typeof window !== "undefined" && activeId) {
+          try {
+            if (encodedToken) {
+              document.cookie = `nexsport_t_${activeId}=${encodedToken}; path=/; max-age=2592000; SameSite=Lax`;
+            }
+            if (tournamentData) {
+              localStorage.setItem(`nexsport_t_${activeId}`, JSON.stringify(tournamentData));
+            }
+          } catch {}
+        }
+      } else if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      }
+    } catch (err: any) {
+      setError(err?.message || "خطا در پرداخت اعتباری و فعال‌سازی لینک اختصاصی.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
   const adminFreeLink = Boolean(isAdmin || quota?.unlimitedLinks || quota?.unlimitedPlanning);
+  const needsPaidActivation = !adminFreeLink && !quota?.isVip && !quota?.freeLinkAvailable;
+  const creditBalance = quota?.planningCredits ?? 0;
+  const canPayWithCredits = creditBalance >= LINK_ACTIVATION_CREDIT_COST;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -722,6 +781,38 @@ export function ShareTournamentModal({
                   </span>
                 </p>
               </div>
+
+              {needsPaidActivation && (
+                <div className="rounded-2xl border border-amber-300 bg-amber-50/80 p-3.5 space-y-2.5">
+                  <div className="flex items-start gap-2">
+                    <span className="text-base shrink-0">💎</span>
+                    <div className="space-y-1">
+                      <h4 className="font-black text-xs text-amber-950">پرداخت اعتباری از سهمیه برنامه‌سازی</h4>
+                      <p className="text-[11px] font-bold text-amber-950 leading-relaxed">
+                        با این کار {toPersianDigits(LINK_ACTIVATION_CREDIT_COST)} تا از سهمیه‌های برنامه‌سازی شما معادل{" "}
+                        {toPersianDigits(linkPrice.toLocaleString("en-US"))} تومان کسر خواهد شد.
+                      </p>
+                      <p className="text-[11px] text-amber-900">
+                        سهمیه فعلی شما:{" "}
+                        <strong>{toPersianDigits(creditBalance)}</strong>
+                        {" "}برنامه‌سازی
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={paymentLoading || !activeId || !canPayWithCredits}
+                    onClick={handlePayWithCredits}
+                    className="w-full rounded-xl border border-amber-400 bg-white px-4 py-2.5 text-xs font-black text-amber-950 shadow-sm hover:bg-amber-100 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {paymentLoading
+                      ? "در حال کسر سهمیه و فعال‌سازی..."
+                      : canPayWithCredits
+                      ? `فعال‌سازی لینک با ${toPersianDigits(LINK_ACTIVATION_CREDIT_COST)} سهمیه برنامه‌سازی`
+                      : `سهمیه کافی نیست (حداقل ${toPersianDigits(LINK_ACTIVATION_CREDIT_COST)} سهمیه لازم است)`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

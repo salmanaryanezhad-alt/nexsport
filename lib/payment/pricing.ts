@@ -9,6 +9,8 @@
 
 export const DEDICATED_LINK_PRICE_TOMANS = 150_000;
 export const BASE_PLANNING_PRICE_TOMANS = 50_000;
+/** Dedicated-link activation via planning credits: 3 quotas = 150,000 Tomans. */
+export const LINK_ACTIVATION_CREDIT_COST = 3;
 export const GUEST_MAX_TOURNAMENTS = 2;
 export const USER_FREE_PLANNINGS = 5;
 export const USER_FREE_LINKS = 1;

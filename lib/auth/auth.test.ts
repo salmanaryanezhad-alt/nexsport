@@ -980,6 +980,80 @@ async function run() {
     assertEqual(secondResult.paymentInfo.amount, 150000, "لینک دوم باید ۱۵۰,۰۰۰ تومان باشد.");
   });
 
+  await test("پرداخت لینک اختصاصی با ۳ سهمیه برنامه‌سازی معادل ۱۵۰ هزار تومان", async () => {
+    const { LINK_ACTIVATION_CREDIT_COST } = await import("../payment/pricing");
+    const user = await db.createUser({
+      name: "برگزارکننده اعتباری",
+      email: "creditlink@nexsport.ir",
+      mobile: "09121112233",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: true,
+    });
+
+    const t1 = await db.saveTournament({
+      userId: user.id,
+      title: "مسابقه هدیه",
+      format: "league",
+      teamCount: 4,
+      state: { step: 4 },
+    });
+    const t2 = await db.saveTournament({
+      userId: user.id,
+      title: "مسابقه اعتباری",
+      format: "league",
+      teamCount: 4,
+      state: { step: 4 },
+    });
+    const t3 = await db.saveTournament({
+      userId: user.id,
+      title: "مسابقه بدون سهمیه",
+      format: "league",
+      teamCount: 4,
+      state: { step: 4 },
+    });
+
+    await paymentService.initiateTournamentPayment({
+      tournamentId: t1.id,
+      userId: user.id,
+      useFreeGift: true,
+    });
+
+    const before = await db.getUserQuota(user.id);
+    assertEqual(before.planningCredits, 5, "سهمیه اولیه پس از هدیه لینک باید ۵ بماند.");
+
+    const paid = await paymentService.initiateTournamentPayment({
+      tournamentId: t2.id,
+      userId: user.id,
+      useFreeGift: true,
+      payWithCredits: true,
+    });
+    assertEqual(paid.success, true, "پرداخت اعتباری لینک باید موفق باشد.");
+    assertEqual(Boolean(paid.isCreditPayment), true, "نوع پرداخت اعتباری باشد.");
+    assertEqual(paid.creditsCharged, LINK_ACTIVATION_CREDIT_COST, "۳ سهمیه کسر شود.");
+    assertEqual(paid.remainingCredits, 2, "پس از کسر ۳ سهمیه، ۲ بماند.");
+    assertEqual(await paymentService.isTournamentPaid(t2.id), true, "لینک دوم با سهمیه فعال شود.");
+
+    const after = await db.getUserQuota(user.id);
+    assertEqual(after.planningCredits, 2, "موجودی سهمیه در دیتابیس ۲ باشد.");
+
+    const fail = await paymentService.initiateTournamentPayment({
+      tournamentId: t3.id,
+      userId: user.id,
+      useFreeGift: true,
+      payWithCredits: true,
+    });
+    assertEqual(fail.success, false, "با ۲ سهمیه نباید لینک سوم اعتباری فعال شود.");
+    assertEqual(await paymentService.isTournamentPaid(t3.id), false, "لینک سوم بدون پرداخت فعال نشود.");
+
+    const money = await paymentService.initiateTournamentPayment({
+      tournamentId: t3.id,
+      userId: user.id,
+      useFreeGift: true,
+    });
+    assertEqual(money.success, true, "پرداخت نقدی لینک سوم باید ممکن باشد.");
+    assertEqual(money.paymentInfo.amount, 150000, "مبلغ نقدی ۱۵۰ هزار تومان بماند.");
+  });
+
   await test("اشتراک کاربر ویژه VIP: برنامه‌ریزی نامحدود و ایجاد نامحدود لینک‌های رایگان", async () => {
     const vipUser = await db.createUser({
       name: "کاربر ویژه طلایی",

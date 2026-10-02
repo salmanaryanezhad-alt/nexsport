@@ -2235,6 +2235,46 @@ export const db = {
     return { success: true, isVip: false, remainingCredits: newCredits };
   },
 
+  async consumePlanningCredits(
+    userId: string,
+    count: number
+  ): Promise<{
+    success: boolean;
+    remainingCredits: number;
+    charged: number;
+    error?: string;
+  }> {
+    const charge = Math.max(1, Math.floor(Number(count) || 0));
+    const user = await this.findUserById(userId);
+    if (!user) {
+      return { success: false, remainingCredits: 0, charged: 0, error: "کاربر یافت نشد." };
+    }
+    if (hasUnlimitedPlanning(user)) {
+      return { success: true, remainingCredits: 999999, charged: 0 };
+    }
+    const currentCredits = user.planning_credits !== undefined ? Number(user.planning_credits) : 5;
+    if (currentCredits < charge) {
+      return {
+        success: false,
+        remainingCredits: currentCredits,
+        charged: 0,
+        error: `برای این کار به ${charge} سهمیه برنامه‌سازی نیاز است. سهمیه فعلی شما کافی نیست.`,
+      };
+    }
+    const newCredits = currentCredits - charge;
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute("UPDATE `users` SET planning_credits = ? WHERE id = ?", [newCredits, userId]);
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query("UPDATE users SET planning_credits = $1 WHERE id = $2", [newCredits, userId]);
+    } else {
+      user.planning_credits = newCredits;
+      memoryStore.users.set(userId, user);
+    }
+    return { success: true, remainingCredits: newCredits, charged: charge };
+  },
+
   async useFreeLink(userId: string): Promise<boolean> {
     const user = await this.findUserById(userId);
     if (!user) return false;
