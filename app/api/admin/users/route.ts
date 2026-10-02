@@ -56,6 +56,10 @@ export async function GET(req: NextRequest) {
 
     const enriched = users.map((u) => {
       const isVip = Boolean(u.vip_expires_at && new Date(u.vip_expires_at).getTime() > Date.now());
+      const isClubPro = Boolean(
+        hasUnlimitedPlanning(u) ||
+          (u.club_pro_expires_at && new Date(u.club_pro_expires_at).getTime() > Date.now())
+      );
       const unlimitedPlanning = isVip || hasUnlimitedPlanning(u);
       const planningCredits = unlimitedPlanning
         ? 999999
@@ -65,10 +69,12 @@ export async function GET(req: NextRequest) {
       return {
         ...u,
         isVip,
+        isClubPro,
         unlimitedPlanning,
         planningCredits,
         freeLinkAvailable: !u.free_link_used,
         vipExpiresAt: u.vip_expires_at ? new Date(u.vip_expires_at).toISOString() : null,
+        clubProExpiresAt: u.club_pro_expires_at ? new Date(u.club_pro_expires_at).toISOString() : null,
         tournamentCount: tournamentCountByUser[u.id] || 0,
       };
     });

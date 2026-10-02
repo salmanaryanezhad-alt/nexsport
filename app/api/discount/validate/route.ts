@@ -5,7 +5,7 @@ import { readDiscountCatalogCookie } from "@/lib/auth/discountCatalog";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_TYPES: DiscountItemType[] = ["credits", "vip", "link"];
+const ALLOWED_TYPES: DiscountItemType[] = ["credits", "vip", "link", "club_page", "club_pro"];
 
 export async function POST(req: NextRequest) {
   try {

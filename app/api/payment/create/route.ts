@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { itemType, tournamentId, creditCount, vipPlanId, discountCode, payWithCredits } = body || {};
+    const { itemType, tournamentId, clubId, creditCount, vipPlanId, clubProPlanId, discountCode, payWithCredits } =
+      body || {};
     const origin = req.nextUrl.origin;
     const discountCatalog = readDiscountCatalogCookie(req);
 
@@ -73,6 +74,48 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: result.error || "خطا در خرید اشتراک ویژه." }, { status: 400 });
       }
 
+      return NextResponse.json(result);
+    }
+
+    if (itemType === "club_page") {
+      const cid = String(clubId || "");
+      if (!cid) {
+        return NextResponse.json({ error: "شناسه باشگاه جهت فعال‌سازی صفحه عمومی ارسال نشده است." }, { status: 400 });
+      }
+      const result = await paymentService.initiateClubPagePayment({
+        clubId: cid,
+        userId: user.id,
+        userEmail: user.email,
+        userMobile: user.mobile || undefined,
+        origin,
+        adminBypass: hasUnlimitedPlanning(user),
+        payWithCredits: Boolean(payWithCredits),
+        discountCode: discountCode ? String(discountCode).trim() : undefined,
+        discountCatalog,
+      });
+      if (!result.success) {
+        return NextResponse.json(
+          { error: ("error" in result && result.error) || "خطا در فعال‌سازی صفحه باشگاه." },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(result);
+    }
+
+    if (itemType === "club_pro") {
+      const planId = String(clubProPlanId || "clubpro-1m");
+      const result = await paymentService.initiateClubProPayment({
+        userId: user.id,
+        clubProPlanId: planId,
+        userEmail: user.email,
+        userMobile: user.mobile || undefined,
+        origin,
+        discountCode: discountCode ? String(discountCode).trim() : undefined,
+        discountCatalog,
+      });
+      if (!result.success) {
+        return NextResponse.json({ error: result.error || "خطا در خرید اشتراک Club Pro." }, { status: 400 });
+      }
       return NextResponse.json(result);
     }
 

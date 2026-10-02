@@ -11,7 +11,7 @@ interface DiscountCodeItem {
   id: string;
   code: string;
   discount_percent: number;
-  applies_to: "credits" | "vip" | "link" | "planning" | "all";
+  applies_to: "credits" | "vip" | "link" | "planning" | "club_page" | "club_pro" | "all";
   is_active: boolean;
   expires_at: string | null;
   created_at: string;
@@ -34,7 +34,9 @@ export function AdminDiscountsModal() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [newPercent, setNewPercent] = useState<string>("20");
-  const [newAppliesTo, setNewAppliesTo] = useState<"credits" | "vip" | "link" | "planning" | "all">("all");
+  const [newAppliesTo, setNewAppliesTo] = useState<
+    "credits" | "vip" | "link" | "planning" | "club_page" | "club_pro" | "all"
+  >("all");
   const [hasExpiry, setHasExpiry] = useState(false);
   const [newExpiryDate, setNewExpiryDate] = useState("");
   const [submittingNew, setSubmittingNew] = useState(false);
@@ -469,10 +471,12 @@ export function AdminDiscountsModal() {
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-600 focus:outline-none cursor-pointer"
                 >
                   <option value="credits">بسته‌های اعتباری</option>
-                  <option value="vip">حساب VIP</option>
-                  <option value="link">ایجاد لینک</option>
+                  <option value="vip">حساب VIP برگزارکننده</option>
+                  <option value="link">ایجاد لینک تماشاگر</option>
                   <option value="planning">برنامه‌ریزی (اعتباری و VIP)</option>
-                  <option value="all">هر سه مورد</option>
+                  <option value="club_page">صفحه عمومی باشگاه</option>
+                  <option value="club_pro">اشتراک Club Pro</option>
+                  <option value="all">همه موارد</option>
                 </select>
               </div>
             </div>
@@ -564,9 +568,11 @@ export function AdminDiscountsModal() {
 
                 let appliesLabel = "هر سه مورد";
                 if (item.applies_to === "credits") appliesLabel = "بسته‌های اعتباری";
-                if (item.applies_to === "vip") appliesLabel = "حساب VIP";
-                if (item.applies_to === "link") appliesLabel = "ایجاد لینک";
+                if (item.applies_to === "vip") appliesLabel = "حساب VIP برگزارکننده";
+                if (item.applies_to === "link") appliesLabel = "ایجاد لینک تماشاگر";
                 if (item.applies_to === "planning") appliesLabel = "برنامه‌ریزی (اعتباری و VIP)";
+                if (item.applies_to === "club_page") appliesLabel = "صفحه عمومی باشگاه";
+                if (item.applies_to === "club_pro") appliesLabel = "اشتراک Club Pro";
 
                 return (
                   <div

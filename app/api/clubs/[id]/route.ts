@@ -17,11 +17,40 @@ export async function GET(
     if (!snap) return NextResponse.json({ error: "باشگاه یافت نشد." }, { status: 404 });
     const { user, isAdmin } = await optionalClubAuth(req);
     const membership = user ? await db.getClubMembership(id, user.id) : null;
-    return NextResponse.json({
-      ...snap,
+    const canEdit = canEditClub(membership?.role, isAdmin) && membership?.status !== "pending";
+    const insider = Boolean(isAdmin || (membership && membership.status === "active"));
+    const pagePaid = Boolean(snap.club.pagePaid);
+    const showFull = insider || pagePaid;
+    const teaser = {
+      club: {
+        id: snap.club.id,
+        name: snap.club.name,
+        short_name: snap.club.short_name,
+        sport: snap.club.sport,
+        city: snap.club.city,
+        founded_year: snap.club.founded_year,
+        venue: snap.club.venue,
+        pagePaid: false,
+      },
+      teams: [],
+      players: [],
+      coaches: [],
+      tournaments: [],
+      locked: true,
+      pagePaid: false,
+      canEdit,
       myRole: membership?.status === "active" ? membership.role : null,
       myStatus: membership?.status || null,
-      canEdit: canEditClub(membership?.role, isAdmin) && membership?.status !== "pending",
+      roleLabel: membership?.role ? clubRoleLabel(membership.role) : null,
+    };
+    if (!showFull) return NextResponse.json(teaser);
+    return NextResponse.json({
+      ...snap,
+      locked: false,
+      pagePaid,
+      myRole: membership?.status === "active" ? membership.role : null,
+      myStatus: membership?.status || null,
+      canEdit,
       roleLabel: membership?.role ? clubRoleLabel(membership.role) : null,
     });
   } catch (err) {

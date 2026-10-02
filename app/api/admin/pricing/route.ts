@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyAdminRequest } from "@/lib/auth/adminGuard";
-import { buildVipPlans, sanitizePricingSettings } from "@/lib/payment/pricing";
+import { buildVipPlans, buildClubProPlans, sanitizePricingSettings } from "@/lib/payment/pricing";
 import { readPricingCookie, resolvePricingSettings, writePricingCookie } from "@/lib/auth/pricingCookie";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
       success: true,
       settings,
       vipPlans: buildVipPlans(settings),
+      clubProPlans: buildClubProPlans(settings),
     });
     writePricingCookie(response, settings);
     return response;
@@ -41,6 +42,7 @@ export async function PUT(req: NextRequest) {
       success: true,
       settings,
       vipPlans: buildVipPlans(settings),
+      clubProPlans: buildClubProPlans(settings),
     });
     writePricingCookie(response, settings);
     return response;

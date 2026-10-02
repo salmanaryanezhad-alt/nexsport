@@ -8,6 +8,7 @@ import {
   DEFAULT_PRICING_SETTINGS,
   PricingSettings,
   buildVipPlans,
+  buildClubProPlans,
   calculateCreditPrice,
 } from "@/lib/payment/pricing";
 
@@ -39,6 +40,7 @@ export function AdminPricingModal() {
   }, [isPricingModalOpen, isAdmin]);
 
   const previewPlans = useMemo(() => buildVipPlans(form), [form]);
+  const previewClubPro = useMemo(() => buildClubProPlans(form), [form]);
   const preview100 = useMemo(() => calculateCreditPrice(100, form), [form]);
   const preview10 = useMemo(() => calculateCreditPrice(10, form), [form]);
 
@@ -314,6 +316,111 @@ export function AdminPricingModal() {
                 <p className="text-[11px] text-violet-900">
                   تعرفه فعلی: <strong>{toman(form.registrationPriceTomans)} تومان</strong>
                   {" "}— برگزارکننده می‌تواند به‌جای پرداخت نقدی، با کسر ۲ سهمیه برنامه‌سازی لینک را فعال کند.
+                </p>
+              </section>
+
+              <section className="rounded-2xl border border-teal-200 bg-teal-50/50 p-4 space-y-3">
+                <h3 className="font-black text-sm text-teal-950 flex items-center gap-2">
+                  <span>🏟️</span>
+                  <span>صفحه عمومی باشگاه</span>
+                </h3>
+                <label className="block text-[11px] font-bold text-slate-700 max-w-xs">
+                  مبلغ فعال‌سازی صفحه /c/ (تومان)
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={form.clubPagePriceTomans}
+                    onChange={(e) => update("clubPagePriceTomans", e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-teal-600 focus:outline-none"
+                  />
+                </label>
+                <p className="text-[11px] text-teal-900">
+                  ایجاد باشگاه رایگان است. تعرفه صفحه عمومی: <strong>{toman(form.clubPagePriceTomans)} تومان</strong>
+                  {" "}یا ۲ سهمیه برنامه‌سازی. Club Pro این فعال‌سازی را رایگان می‌کند. VIP برگزارکننده شامل باشگاه نیست.
+                </p>
+              </section>
+
+              <section className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4 space-y-3">
+                <h3 className="font-black text-sm text-indigo-950 flex items-center gap-2">
+                  <span>🛡️</span>
+                  <span>اشتراک Club Pro (جدا از VIP)</span>
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    مبلغ ماهانه (تومان)
+                    <input
+                      type="number"
+                      min={1000}
+                      required
+                      value={form.clubProMonthlyTomans}
+                      onChange={(e) => update("clubProMonthlyTomans", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-indigo-500 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    تخفیف ۳ ماهه
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={0}
+                        max={90}
+                        required
+                        value={form.clubProDiscount3mPercent}
+                        onChange={(e) => update("clubProDiscount3mPercent", e.target.value)}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-indigo-500 focus:outline-none"
+                      />
+                      <span className="text-xs font-bold text-slate-600">٪</span>
+                    </div>
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    تخفیف ۶ ماهه
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={0}
+                        max={90}
+                        required
+                        value={form.clubProDiscount6mPercent}
+                        onChange={(e) => update("clubProDiscount6mPercent", e.target.value)}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-indigo-500 focus:outline-none"
+                      />
+                      <span className="text-xs font-bold text-slate-600">٪</span>
+                    </div>
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    تخفیف سالانه
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={0}
+                        max={90}
+                        required
+                        value={form.clubProDiscount12mPercent}
+                        onChange={(e) => update("clubProDiscount12mPercent", e.target.value)}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-indigo-500 focus:outline-none"
+                      />
+                      <span className="text-xs font-bold text-slate-600">٪</span>
+                    </div>
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {previewClubPro.map((plan) => (
+                    <div key={plan.id} className="rounded-xl border border-indigo-200 bg-white p-2.5">
+                      <div className="text-[10px] font-bold text-indigo-900">{plan.title}</div>
+                      <div className="font-black text-xs text-slate-900 mt-1">
+                        {toman(plan.finalPriceTomans)} تومان
+                      </div>
+                      {plan.discountPercent > 0 && (
+                        <div className="text-[10px] text-rose-700 font-bold mt-0.5">
+                          {toPersianDigits(plan.discountPercent)}٪ تخفیف
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-indigo-900">
+                  طرح رایگان: ۱ باشگاه، ۲ تیم، ۱۵ بازیکن، ۲ مربی. Club Pro این سقف‌ها را برمی‌دارد و صفحه عمومی را رایگان فعال می‌کند.
                 </p>
               </section>
             </>

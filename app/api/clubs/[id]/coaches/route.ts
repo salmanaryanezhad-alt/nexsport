@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireClubEditor } from "@/lib/clubs/access";
 import { sanitizeCoachInput } from "@/lib/clubs/validate";
+import { assertCanAddClubCoach } from "@/lib/clubs/limits";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ export async function POST(
     }
     const parsed = sanitizeCoachInput(await req.json().catch(() => ({})));
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    const cap = await assertCanAddClubCoach(id, auth.user, auth.isAdmin);
+    if (!cap.ok) return NextResponse.json({ error: cap.error, needsClubPro: true }, { status: 403 });
     const coach = await db.addClubCoach(id, parsed.data);
     return NextResponse.json({ success: true, coach });
   } catch (err) {

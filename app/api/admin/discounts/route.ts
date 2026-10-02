@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!["credits", "vip", "link", "planning", "all"].includes(appliesTo)) {
+    if (!["credits", "vip", "link", "planning", "club_page", "club_pro", "all"].includes(appliesTo)) {
       return NextResponse.json(
         { error: "نوع اعمال نامعتبر است." },
         { status: 400 }

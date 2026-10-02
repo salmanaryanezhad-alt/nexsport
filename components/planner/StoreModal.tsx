@@ -6,17 +6,19 @@ import { toPersianDigits } from "@/lib/digits";
 import {
   CREDIT_PRESETS,
   VIP_PLANS,
+  CLUB_PRO_PLANS,
   DEFAULT_PRICING_SETTINGS,
   PricingSettings,
   calculateCreditPrice,
   VipPlan,
   LINK_ACTIVATION_CREDIT_COST,
+  buildClubProPlans,
 } from "@/lib/payment/pricing";
 
 interface StoreModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: "credits" | "vip";
+  initialTab?: "credits" | "vip" | "clubpro";
   initialSuccess?: {
     type: "credits" | "vip";
     count?: number;
@@ -35,7 +37,7 @@ export function StoreModal({
   onSuccess,
 }: StoreModalProps) {
   const { user, openAuthModal, isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState<"credits" | "vip">(initialTab);
+  const [activeTab, setActiveTab] = useState<"credits" | "vip" | "clubpro">(initialTab);
 
   // Credit Tab State
   const [selectedPreset, setSelectedPreset] = useState<number>(10);
@@ -44,6 +46,7 @@ export function StoreModal({
 
   // VIP Tab State
   const [selectedVipPlan, setSelectedVipPlan] = useState<string>("vip-12m");
+  const [selectedClubProPlan, setSelectedClubProPlan] = useState<string>("clubpro-12m");
 
   // User Quota State
   const [quota, setQuota] = useState<{
@@ -51,8 +54,10 @@ export function StoreModal({
     planningCredits?: number;
     freeLinkAvailable?: boolean;
     isVip?: boolean;
+    isClubPro?: boolean;
     unlimitedPlanning?: boolean;
     vipExpiresAt?: string | null;
+    clubProExpiresAt?: string | null;
     remaining?: number;
     guestCount?: number;
     guestLimit?: number;
@@ -74,6 +79,7 @@ export function StoreModal({
 
   const [pricingSettings, setPricingSettings] = useState<PricingSettings>({ ...DEFAULT_PRICING_SETTINGS });
   const [vipPlans, setVipPlans] = useState<VipPlan[]>(VIP_PLANS);
+  const [clubProPlans, setClubProPlans] = useState<VipPlan[]>(CLUB_PRO_PLANS);
   const bodyScrollRef = useRef<HTMLDivElement | null>(null);
   const purchaseResultRef = useRef<HTMLDivElement | null>(null);
 
@@ -103,6 +109,8 @@ export function StoreModal({
         const data = await res.json();
         if (data.settings) setPricingSettings(data.settings);
         if (Array.isArray(data.vipPlans) && data.vipPlans.length) setVipPlans(data.vipPlans);
+        if (Array.isArray(data.clubProPlans) && data.clubProPlans.length) setClubProPlans(data.clubProPlans);
+        else if (data.settings) setClubProPlans(buildClubProPlans(data.settings));
       }
     } catch {}
   }
@@ -139,6 +147,7 @@ export function StoreModal({
 
   const creditPricing = calculateCreditPrice(activeCount, pricingSettings);
   const selectedVip = vipPlans.find((p) => p.id === selectedVipPlan) || vipPlans[3] || vipPlans[0];
+  const selectedClubPro = clubProPlans.find((p) => p.id === selectedClubProPlan) || clubProPlans[3] || clubProPlans[0];
 
   // Dynamic discount amounts
   const creditDiscountAmount = appliedDiscount
@@ -154,6 +163,13 @@ export function StoreModal({
   const vipFinalPay = appliedDiscount
     ? Math.max(0, selectedVip.finalPriceTomans - vipDiscountAmount)
     : selectedVip.finalPriceTomans;
+
+  const clubProDiscountAmount = appliedDiscount
+    ? Math.round((selectedClubPro.finalPriceTomans * appliedDiscount.discountPercent) / 100)
+    : 0;
+  const clubProFinalPay = appliedDiscount
+    ? Math.max(0, selectedClubPro.finalPriceTomans - clubProDiscountAmount)
+    : selectedClubPro.finalPriceTomans;
 
   function handleSelectPreset(count: number) {
     setSelectedPreset(count);
@@ -178,14 +194,19 @@ export function StoreModal({
     setDiscountError(null);
 
     try {
-      const baseAmt = activeTab === "credits" ? creditPricing.finalPrice : selectedVip.finalPriceTomans;
+      const baseAmt =
+        activeTab === "credits"
+          ? creditPricing.finalPrice
+          : activeTab === "clubpro"
+          ? selectedClubPro.finalPriceTomans
+          : selectedVip.finalPriceTomans;
       const res = await fetch("/api/discount/validate/", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: rawCode,
-          itemType: activeTab === "credits" ? "credits" : "vip",
+          itemType: activeTab === "credits" ? "credits" : activeTab === "clubpro" ? "club_pro" : "vip",
           baseAmount: baseAmt,
         }),
       });
@@ -322,6 +343,58 @@ export function StoreModal({
     }
   }
 
+  async function handlePurchaseClubPro() {
+    if (!user) {
+      onClose();
+      openAuthModal("login");
+      return;
+    }
+
+    setProcessing(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/payment/create/", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemType: "club_pro",
+          clubProPlanId: selectedClubPro.id,
+          discountCode: appliedDiscount ? appliedDiscount.code : undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.error || "خطا در پردازش اشتراک Club Pro.");
+        setProcessing(false);
+        return;
+      }
+
+      if (data.paymentUrl && !data.isDirectSuccess) {
+        window.location.href = data.paymentUrl;
+        return;
+      }
+
+      setSuccessInfo({
+        type: "clubpro",
+        title: selectedClubPro.title,
+        months: selectedClubPro.months,
+        expiresAt: data.expiresAt,
+        amount: clubProFinalPay,
+        refId: data.refId,
+      });
+
+      await loadQuota();
+      if (onSuccess) onSuccess();
+    } catch {
+      setError("خطا در برقراری ارتباط با درگاه پرداخت.");
+    } finally {
+      setProcessing(false);
+    }
+  }
+
   const purchaseResultBanner =
     successInfo || error ? (
       <div ref={purchaseResultRef} className="space-y-2">
@@ -335,6 +408,10 @@ export function StoreModal({
               <p className="text-xs text-emerald-900 leading-relaxed">
                 تعداد <strong>{toPersianDigits(successInfo.count)}</strong> مسابقه به حساب شما اضافه شد. موجودی جدید شما:{" "}
                 <strong>{toPersianDigits(successInfo.totalCredits)}</strong> مسابقه (بدون تاریخ انقضا).
+              </p>
+            ) : successInfo.type === "clubpro" ? (
+              <p className="text-xs text-emerald-900 leading-relaxed">
+                اشتراک <strong>{successInfo.title}</strong> فعال شد. سقف رایگان باشگاه برداشته شد و فعال‌سازی صفحه عمومی باشگاه برای شما رایگان است. این اشتراک جدا از VIP برگزارکننده است.
               </p>
             ) : (
               <p className="text-xs text-emerald-900 leading-relaxed">
@@ -376,7 +453,7 @@ export function StoreModal({
                 فروشگاه و ارتقای خدمات NexSport
               </h2>
               <p className="text-[11px] text-slate-500">
-                بسته‌های اعتباری مسابقات و اشتراک‌های ویژه VIP
+                بسته‌های اعتباری، VIP برگزارکننده و Club Pro باشگاه
               </p>
             </div>
           </div>
@@ -462,7 +539,7 @@ export function StoreModal({
         </div>
 
         {/* Tab Selector */}
-        <div className="flex border-b border-slate-200 px-5 pt-3 gap-2 bg-white shrink-0">
+        <div className="flex border-b border-slate-200 px-5 pt-3 gap-2 bg-white shrink-0 overflow-x-auto">
           <button
             type="button"
             onClick={() => {
@@ -504,6 +581,28 @@ export function StoreModal({
             <span>اشتراک کاربر ویژه VIP</span>
             <span className="text-[10px] bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full font-bold">
               لینک رایگان نامحدود
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("clubpro");
+              setSuccessInfo(null);
+              setError(null);
+              setAppliedDiscount(null);
+              setDiscountError(null);
+            }}
+            className={`flex items-center gap-2 pb-3 px-3 font-black text-xs sm:text-sm border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "clubpro"
+                ? "border-indigo-600 text-indigo-900"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <span>🏟️</span>
+            <span>Club Pro باشگاه</span>
+            <span className="text-[10px] bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-full font-bold">
+              جدا از VIP
             </span>
           </button>
         </div>
@@ -901,6 +1000,171 @@ export function StoreModal({
                   <>
                     <span>ارتقا به کاربر ویژه {selectedVip.title}</span>
                     <span>({toPersianDigits(vipFinalPay.toLocaleString("en-US"))} تومان)</span>
+                    <span>←</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {activeTab === "clubpro" && (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-indigo-300 bg-gradient-to-r from-indigo-500/10 via-indigo-500/5 to-white p-3.5 space-y-1.5">
+                <div className="font-black text-xs text-indigo-950 flex items-center gap-1.5">
+                  <span>🏟️</span>
+                  <span>Club Pro جدا از اشتراک VIP برگزارکننده است</span>
+                </div>
+                <div className="text-[11px] text-indigo-900 leading-relaxed space-y-1">
+                  <div>✓ ایجاد باشگاه همیشه رایگان است (سقف رایگان: ۱ باشگاه، ۲ تیم، ۱۵ بازیکن، ۲ مربی).</div>
+                  <div>✓ Club Pro سقف‌ها را برمی‌دارد و فعال‌سازی صفحه عمومی باشگاه را رایگان می‌کند.</div>
+                  <div>✓ دعوت‌شوندگان هزینه‌ای نمی‌پردازند. VIP برگزارکننده روی باشگاه اعمال نمی‌شود.</div>
+                </div>
+                {quota?.isClubPro && (
+                  <p className="text-[11px] font-black text-emerald-800">اشتراک Club Pro شما هم‌اکنون فعال است.</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {clubProPlans.map((plan) => {
+                  const isSelected = selectedClubProPlan === plan.id;
+                  return (
+                    <div
+                      key={plan.id}
+                      onClick={() => setSelectedClubProPlan(plan.id)}
+                      className={`relative rounded-2xl border p-4 flex flex-col justify-between transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-indigo-500 bg-indigo-50/40 ring-2 ring-indigo-400/40 shadow-sm"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
+                    >
+                      {plan.discountPercent > 0 && (
+                        <span className="absolute -top-2.5 left-3 bg-indigo-500 text-white font-black text-[9px] px-2 py-0.5 rounded-full shadow-2xs">
+                          {toPersianDigits(plan.discountPercent)}٪ تخفیف
+                        </span>
+                      )}
+                      <div>
+                        <div className="font-black text-sm text-slate-900 mb-1">{plan.title}</div>
+                        <div className="text-[11px] text-slate-500 mb-2">{plan.durationLabel}</div>
+                        <ul className="space-y-1 text-[11px] text-slate-600 mb-3">
+                          {plan.features.slice(0, 3).map((f, idx) => (
+                            <li key={idx} className="flex items-center gap-1.5">
+                              <span className="text-emerald-600 font-bold">✓</span>
+                              <span>{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="pt-2 border-t border-slate-100 flex items-baseline justify-between">
+                        <div>
+                          {plan.discountPercent > 0 && (
+                            <span className="text-[10px] text-slate-400 line-through ml-1">
+                              {toPersianDigits(plan.basePriceTomans.toLocaleString("en-US"))}
+                            </span>
+                          )}
+                          <span className="font-black text-sm text-indigo-900">
+                            {toPersianDigits(plan.finalPriceTomans.toLocaleString("en-US"))} تومان
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          ماهیانه {toPersianDigits(plan.monthlyEquivalentTomans.toLocaleString("en-US"))}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="rounded-2xl border border-indigo-300 bg-indigo-50/40 p-4 space-y-2.5">
+                <div className="flex items-center justify-between text-xs text-slate-800">
+                  <span className="font-bold">پلن انتخابی:</span>
+                  <strong className="font-black text-indigo-950">
+                    {selectedClubPro.title} ({selectedClubPro.durationLabel})
+                  </strong>
+                </div>
+                {appliedDiscount ? (
+                  <>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>مبلغ پلن:</span>
+                      <del className="line-through font-bold">
+                        {toPersianDigits(selectedClubPro.finalPriceTomans.toLocaleString("en-US"))} تومان
+                      </del>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-rose-700 font-bold">
+                      <span>کد تخفیف ({toPersianDigits(appliedDiscount.discountPercent)}٪):</span>
+                      <span>- {toPersianDigits(clubProDiscountAmount.toLocaleString("en-US"))} تومان</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-indigo-200 font-black text-sm text-slate-900">
+                      <span>مبلغ نهایی قابل پرداخت:</span>
+                      <div className="text-indigo-900 text-lg font-black">
+                        {toPersianDigits(clubProFinalPay.toLocaleString("en-US"))} تومان
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between pt-2 border-t border-indigo-200 font-black text-sm text-slate-900">
+                    <span>مبلغ قابل پرداخت:</span>
+                    <div className="text-indigo-900 text-lg">
+                      {toPersianDigits(selectedClubPro.finalPriceTomans.toLocaleString("en-US"))} تومان
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+                <label className="block text-[11px] font-bold text-slate-700">کد تخفیف دارید؟</label>
+                {appliedDiscount ? (
+                  <div className="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-300 p-2.5 text-xs">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                      <span>✓</span>
+                      <span>
+                        کد تخفیف «{appliedDiscount.code}» اعمال شد ({toPersianDigits(appliedDiscount.discountPercent)}٪ تخفیف)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveDiscount}
+                      className="text-xs text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 transition cursor-pointer"
+                    >
+                      ✕ حذف
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={discountCodeInput}
+                      onChange={(e) => {
+                        setDiscountCodeInput(e.target.value.toUpperCase());
+                        if (discountError) setDiscountError(null);
+                      }}
+                      placeholder="کد تخفیف"
+                      className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-mono font-bold uppercase"
+                    />
+                    <button
+                      type="button"
+                      disabled={validatingDiscount || !discountCodeInput.trim()}
+                      onClick={handleApplyDiscount}
+                      className="rounded-xl bg-slate-800 text-white px-4 py-2 text-xs font-bold disabled:opacity-50"
+                    >
+                      {validatingDiscount ? "بررسی..." : "اعمال تخفیف"}
+                    </button>
+                  </div>
+                )}
+                {discountError && <p className="text-[11px] font-bold text-rose-600">{discountError}</p>}
+              </div>
+
+              <button
+                type="button"
+                onClick={handlePurchaseClubPro}
+                disabled={processing}
+                className="w-full rounded-2xl bg-indigo-700 py-3 text-center font-black text-sm text-white hover:bg-indigo-800 shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {processing ? (
+                  <span>در حال انتقال به درگاه پرداخت...</span>
+                ) : (
+                  <>
+                    <span>خرید {selectedClubPro.title}</span>
+                    <span>({toPersianDigits(clubProFinalPay.toLocaleString("en-US"))} تومان)</span>
                     <span>←</span>
                   </>
                 )}

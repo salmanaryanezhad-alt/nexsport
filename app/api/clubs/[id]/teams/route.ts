@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireClubEditor } from "@/lib/clubs/access";
+import { assertCanAttachClubTeam } from "@/lib/clubs/limits";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,8 @@ export async function POST(
     if (team.user_id !== auth.user.id && !auth.isAdmin) {
       return NextResponse.json({ error: "فقط تیم‌های کتابخانه خودتان را می‌توانید به باشگاه وصل کنید." }, { status: 403 });
     }
+    const cap = await assertCanAttachClubTeam(id, teamId, auth.user, auth.isAdmin);
+    if (!cap.ok) return NextResponse.json({ error: cap.error, needsClubPro: true }, { status: 403 });
     const attached = await db.attachClubTeam(id, teamId);
     if ("error" in attached) return NextResponse.json({ error: attached.error }, { status: 409 });
     return NextResponse.json({ success: true });

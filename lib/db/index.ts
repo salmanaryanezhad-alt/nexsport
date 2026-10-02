@@ -31,6 +31,7 @@ export interface UserRecord {
   planning_credits?: number;
   free_link_used?: boolean;
   vip_expires_at?: Date | null;
+  club_pro_expires_at?: Date | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -197,6 +198,8 @@ export interface ClubRecord {
   description: string;
   contact_name: string;
   mobile: string;
+  page_paid?: boolean;
+  page_paid_at?: Date | null;
   created_at: Date;
   updated_at: Date;
   member_count?: number;
@@ -377,6 +380,7 @@ function normalizeUserRow(row: any): UserRecord {
         : 5,
     free_link_used: Boolean(row.free_link_used),
     vip_expires_at: row.vip_expires_at ? new Date(row.vip_expires_at) : null,
+    club_pro_expires_at: row.club_pro_expires_at ? new Date(row.club_pro_expires_at) : null,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
   };
@@ -510,6 +514,9 @@ async function initTablesIfRealDb() {
       } catch {}
       try {
         await mysqlPool.query("ALTER TABLE `users` ADD COLUMN `vip_expires_at` TIMESTAMP NULL DEFAULT NULL");
+      } catch {}
+      try {
+        await mysqlPool.query("ALTER TABLE `users` ADD COLUMN `club_pro_expires_at` TIMESTAMP NULL DEFAULT NULL");
       } catch {}
 
       await mysqlPool.query(`
@@ -669,12 +676,23 @@ async function initTablesIfRealDb() {
           \`description\` VARCHAR(500) DEFAULT '',
           \`contact_name\` VARCHAR(80) DEFAULT '',
           \`mobile\` VARCHAR(20) DEFAULT '',
+          \`page_paid\` TINYINT(1) DEFAULT 0,
+          \`page_paid_at\` TIMESTAMP NULL DEFAULT NULL,
           \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           PRIMARY KEY (\`id\`),
           KEY \`idx_clubs_owner\` (\`owner_id\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
+      try {
+        await mysqlPool.query("ALTER TABLE `clubs` ADD COLUMN `page_paid` TINYINT(1) DEFAULT 0");
+      } catch {}
+      try {
+        await mysqlPool.query("ALTER TABLE `clubs` ADD COLUMN `page_paid_at` TIMESTAMP NULL DEFAULT NULL");
+      } catch {}
+      try {
+        await mysqlPool.query("ALTER TABLE `payment_orders` ADD COLUMN `club_id` VARCHAR(36) DEFAULT NULL");
+      } catch {}
       await mysqlPool.query(`
         CREATE TABLE IF NOT EXISTS \`club_members\` (
           \`id\` VARCHAR(36) NOT NULL,
@@ -792,6 +810,7 @@ async function initTablesIfRealDb() {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS planning_credits INT DEFAULT 5;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS free_link_used BOOLEAN DEFAULT FALSE;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS vip_expires_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS club_pro_expires_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 
         CREATE TABLE IF NOT EXISTS guest_usage (
           ip VARCHAR(64) PRIMARY KEY,
@@ -922,10 +941,15 @@ async function initTablesIfRealDb() {
           description VARCHAR(500) DEFAULT '',
           contact_name VARCHAR(80) DEFAULT '',
           mobile VARCHAR(20) DEFAULT '',
+          page_paid BOOLEAN DEFAULT FALSE,
+          page_paid_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_clubs_owner ON clubs(owner_id);
+        ALTER TABLE clubs ADD COLUMN IF NOT EXISTS page_paid BOOLEAN DEFAULT FALSE;
+        ALTER TABLE clubs ADD COLUMN IF NOT EXISTS page_paid_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+        ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS club_id VARCHAR(36) DEFAULT NULL;
 
         CREATE TABLE IF NOT EXISTS club_members (
           id VARCHAR(36) PRIMARY KEY,
@@ -1172,7 +1196,7 @@ export const db = {
     if (mysqlPool) {
       await initTablesIfRealDb();
       const [rows] = await mysqlPool.execute<RowDataPacket[]>(
-        "SELECT id, name, email, mobile, is_verified, role, planning_credits, free_link_used, vip_expires_at, created_at, updated_at FROM `users` ORDER BY created_at DESC"
+        "SELECT id, name, email, mobile, is_verified, role, planning_credits, free_link_used, vip_expires_at, club_pro_expires_at, created_at, updated_at FROM `users` ORDER BY created_at DESC"
       );
       return rows.map((r) => {
         const u = normalizeUserRow(r);
@@ -1184,7 +1208,7 @@ export const db = {
     if (pgPool) {
       await initTablesIfRealDb();
       const res = await pgPool.query(
-        "SELECT id, name, email, mobile, is_verified, role, planning_credits, free_link_used, vip_expires_at, created_at, updated_at FROM users ORDER BY created_at DESC"
+        "SELECT id, name, email, mobile, is_verified, role, planning_credits, free_link_used, vip_expires_at, club_pro_expires_at, created_at, updated_at FROM users ORDER BY created_at DESC"
       );
       return res.rows.map((r) => {
         const u = normalizeUserRow(r);
@@ -2455,6 +2479,8 @@ export const db = {
   async getUserQuota(userId: string): Promise<{
     isVip: boolean;
     vipExpiresAt: Date | null;
+    isClubPro: boolean;
+    clubProExpiresAt: Date | null;
     planningCredits: number;
     freeLinkAvailable: boolean;
     unlimitedPlanning: boolean;
@@ -2465,6 +2491,8 @@ export const db = {
       return {
         isVip: false,
         vipExpiresAt: null,
+        isClubPro: false,
+        clubProExpiresAt: null,
         planningCredits: 0,
         freeLinkAvailable: false,
         unlimitedPlanning: false,
@@ -2474,10 +2502,16 @@ export const db = {
     const isVip = Boolean(
       user.vip_expires_at && new Date(user.vip_expires_at).getTime() > Date.now()
     );
+    const isClubPro = Boolean(
+      hasUnlimitedPlanning(user) ||
+        (user.club_pro_expires_at && new Date(user.club_pro_expires_at).getTime() > Date.now())
+    );
     const unlimitedPlanning = isVip || hasUnlimitedPlanning(user);
     return {
       isVip,
       vipExpiresAt: user.vip_expires_at || null,
+      isClubPro,
+      clubProExpiresAt: user.club_pro_expires_at || null,
       planningCredits: unlimitedPlanning
         ? 999999
         : user.planning_credits !== undefined
@@ -2668,6 +2702,95 @@ export const db = {
       memoryStore.users.set(userId, user);
     }
     return newExp;
+  },
+
+  async activateClubProSubscription(userId: string, months: number): Promise<Date> {
+    const user = await this.findUserById(userId);
+    const now = new Date();
+    let currentExp =
+      user?.club_pro_expires_at && new Date(user.club_pro_expires_at).getTime() > now.getTime()
+        ? new Date(user.club_pro_expires_at)
+        : now;
+    const newExp = new Date(currentExp);
+    newExp.setMonth(newExp.getMonth() + Math.max(1, months));
+
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      await mysqlPool.execute("UPDATE `users` SET club_pro_expires_at = ? WHERE id = ?", [newExp, userId]);
+    } else if (pgPool) {
+      await initTablesIfRealDb();
+      await pgPool.query("UPDATE users SET club_pro_expires_at = $1 WHERE id = $2", [newExp, userId]);
+    } else if (user) {
+      user.club_pro_expires_at = newExp;
+      memoryStore.users.set(userId, user);
+    }
+    return newExp;
+  },
+
+  async markClubPagePaid(clubId: string): Promise<ClubRecord | null> {
+    const existing = await this.getClub(clubId);
+    if (!existing) return null;
+    const now = new Date();
+    const updated: ClubRecord = { ...existing, page_paid: true, page_paid_at: now, updated_at: now };
+    if (mysqlPool) {
+      await mysqlPool.execute("UPDATE `clubs` SET page_paid = 1, page_paid_at = ?, updated_at = ? WHERE id = ?", [
+        now,
+        now,
+        clubId,
+      ]);
+    } else if (pgPool) {
+      await pgPool.query("UPDATE clubs SET page_paid = TRUE, page_paid_at = $1, updated_at = $2 WHERE id = $3", [
+        now,
+        now,
+        clubId,
+      ]);
+    }
+    memoryStore.clubs.set(clubId, updated);
+    return updated;
+  },
+
+  async countOwnedClubs(userId: string): Promise<number> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT COUNT(*) AS n FROM `clubs` WHERE owner_id = ?",
+        [userId]
+      );
+      return Number(rows[0]?.n || 0);
+    }
+    if (pgPool) {
+      const res = await pgPool.query("SELECT COUNT(*)::int AS n FROM clubs WHERE owner_id = $1", [userId]);
+      return Number(res.rows[0]?.n || 0);
+    }
+    return Array.from(memoryStore.clubs.values()).filter((c) => c.owner_id === userId).length;
+  },
+
+  async countClubPlayers(clubId: string): Promise<number> {
+    const teamIds = await this.listClubTeamIds(clubId);
+    let n = 0;
+    for (const tid of teamIds) {
+      const roster = await this.listPlayers(tid);
+      n += roster.length;
+    }
+    return n;
+  },
+
+  async listClubIdsForTeam(teamId: string): Promise<string[]> {
+    await initTablesIfRealDb();
+    if (mysqlPool) {
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT club_id FROM `club_teams` WHERE team_id = ?",
+        [teamId]
+      );
+      return rows.map((r) => String(r.club_id));
+    }
+    if (pgPool) {
+      const res = await pgPool.query("SELECT club_id FROM club_teams WHERE team_id = $1", [teamId]);
+      return res.rows.map((r) => String(r.club_id));
+    }
+    return Array.from(memoryStore.clubTeams.values())
+      .filter((x) => x.team_id === teamId)
+      .map((x) => x.club_id);
   },
 
   async savePaymentOrder(order: any): Promise<any> {
@@ -3840,7 +3963,15 @@ export const db = {
       id = generateShortId(8);
     }
     const now = new Date();
-    const club: ClubRecord = { id, owner_id: ownerId, ...data, created_at: now, updated_at: now };
+    const club: ClubRecord = {
+      id,
+      owner_id: ownerId,
+      ...data,
+      page_paid: false,
+      page_paid_at: null,
+      created_at: now,
+      updated_at: now,
+    };
     if (mysqlPool) {
       await mysqlPool.execute(
         `INSERT INTO \`clubs\` (id, owner_id, name, short_name, sport, city, founded_year, venue, description, contact_name, mobile, created_at, updated_at)
@@ -4244,6 +4375,8 @@ function normalizeClubRow(row: any): ClubRecord {
     description: row.description || "",
     contact_name: row.contact_name || "",
     mobile: row.mobile || "",
+    page_paid: Boolean(row.page_paid),
+    page_paid_at: row.page_paid_at ? new Date(row.page_paid_at) : null,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
     my_role,

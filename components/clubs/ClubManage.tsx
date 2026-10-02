@@ -8,6 +8,8 @@ import { toPersianDigits } from "@/lib/digits";
 import { TEAM_SPORTS } from "@/lib/teams/catalog";
 import { CLUB_COACH_TITLES, clubRoleLabel } from "@/lib/clubs/roles";
 import { TeamItem } from "@/components/teams/teamTypes";
+import { ClubPagePaywall } from "@/components/clubs/ClubPagePaywall";
+import { StoreModal } from "@/components/planner/StoreModal";
 
 type Section = "info" | "teams" | "players" | "coaches" | "tournaments" | "members";
 
@@ -38,6 +40,7 @@ export function ClubManage() {
   const [coachForm, setCoachForm] = useState({ name: "", title: "سرمربی", mobile: "", notes: "" });
   const [invite, setInvite] = useState({ identifier: "", role: "member" });
   const [saving, setSaving] = useState(false);
+  const [storeOpen, setStoreOpen] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -70,6 +73,15 @@ export function ClubManage() {
   useEffect(() => {
     if (user && id) load().catch(() => setError("خطا در دریافت باشگاه."));
   }, [user, id, load]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("payment_status") === "success") {
+      setMessage("پرداخت با موفقیت انجام شد و صفحه عمومی فعال گردید.");
+      load().catch(() => {});
+    }
+  }, [load]);
 
   useEffect(() => {
     if (!user) return;
@@ -223,6 +235,11 @@ export function ClubManage() {
         </div>
         <div className="flex gap-2">
           <Link href={`/c/${id}`} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-black">صفحه اختصاصی</Link>
+          {canEdit && (
+            <button type="button" onClick={() => setStoreOpen(true)} className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-black text-indigo-800">
+              Club Pro
+            </button>
+          )}
           {canEdit && data.club && (
             <button type="button" onClick={deleteClub} className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700">حذف باشگاه</button>
           )}
@@ -237,6 +254,16 @@ export function ClubManage() {
       </nav>
       {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">{error}</div>}
       {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">{message}</div>}
+      {canEdit && (
+        <ClubPagePaywall
+          clubId={id}
+          pagePaid={Boolean(data.pagePaid || data.club?.pagePaid)}
+          onActivated={() => load()}
+        />
+      )}
+      <p className="text-[11px] text-slate-500">
+        طرح رایگان: ۱ باشگاه، ۲ تیم، ۱۵ بازیکن، ۲ مربی. دعوت اعضا رایگان است. برای سقف نامحدود، Club Pro بخرید — جدا از VIP برگزارکننده.
+      </p>
 
       {section === "info" && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 grid gap-3 sm:grid-cols-2">
@@ -400,6 +427,7 @@ export function ClubManage() {
           ))}
         </div>
       )}
+      <StoreModal isOpen={storeOpen} onClose={() => setStoreOpen(false)} initialTab="clubpro" onSuccess={() => load()} />
     </div>
   );
 }

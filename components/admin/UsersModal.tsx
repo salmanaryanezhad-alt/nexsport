@@ -14,10 +14,12 @@ interface AdminUserItem {
   role: string;
   created_at: string;
   isVip?: boolean;
+  isClubPro?: boolean;
   unlimitedPlanning?: boolean;
   planningCredits?: number;
   freeLinkAvailable?: boolean;
   vipExpiresAt?: string | null;
+  clubProExpiresAt?: string | null;
   tournamentCount?: number;
 }
 
@@ -176,7 +178,19 @@ export function UsersModal() {
     if (u.unlimitedPlanning && !u.isVip) return "نامحدود (مدیر)";
     if (u.isVip) {
       const until = u.vipExpiresAt ? formatPersianDate(u.vipExpiresAt) : "";
-      return until ? `VIP تا ${until}` : "کاربر ویژه VIP";
+      const vip = until ? `VIP تا ${until}` : "کاربر ویژه VIP";
+      if (u.isClubPro) {
+        const cp = u.clubProExpiresAt ? formatPersianDate(u.clubProExpiresAt) : "";
+        return cp ? `${vip} • Club Pro تا ${cp}` : `${vip} • Club Pro`;
+      }
+      return vip;
+    }
+    if (u.isClubPro) {
+      const until = u.clubProExpiresAt ? formatPersianDate(u.clubProExpiresAt) : "";
+      const credits = typeof u.planningCredits === "number" ? u.planningCredits : 5;
+      return until
+        ? `Club Pro تا ${until} • ${toPersianDigits(credits)} اعتبار`
+        : `Club Pro • ${toPersianDigits(credits)} اعتبار`;
     }
     const credits = typeof u.planningCredits === "number" ? u.planningCredits : 5;
     return `${toPersianDigits(credits)} اعتبار برنامه‌ریزی`;

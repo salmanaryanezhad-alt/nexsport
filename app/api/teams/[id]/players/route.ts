@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifySessionRequest } from "@/lib/auth/sessionGuard";
 import { sanitizePlayerInput } from "@/lib/teams/validate";
+import { assertCanAddClubPlayer } from "@/lib/clubs/limits";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,8 @@ export async function POST(
     const body = await req.json();
     const parsed = sanitizePlayerInput(body || {});
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    const cap = await assertCanAddClubPlayer(id, auth.user, auth.isAdmin);
+    if (!cap.ok) return NextResponse.json({ error: cap.error, needsClubPro: true }, { status: 403 });
     const result = await db.createPlayer(id, parsed.data);
     if ("error" in result) return NextResponse.json({ error: result.error }, { status: 409 });
     return NextResponse.json({ success: true, player: result });

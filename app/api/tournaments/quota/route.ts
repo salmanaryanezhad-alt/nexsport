@@ -32,9 +32,11 @@ export async function GET(req: NextRequest) {
           planningCredits: unlimited ? 999999 : hasDbUser ? quota.planningCredits : 5,
           freeLinkAvailable: hasDbUser ? quota.freeLinkAvailable : true,
           isVip: quota.isVip,
+          isClubPro: quota.isClubPro || unlimited,
           unlimitedPlanning: unlimited,
           unlimitedLinks: unlimited,
           vipExpiresAt: quota.vipExpiresAt ? quota.vipExpiresAt.toISOString() : null,
+          clubProExpiresAt: quota.clubProExpiresAt ? quota.clubProExpiresAt.toISOString() : null,
           role: user?.role || quota.role || "user",
         });
       }

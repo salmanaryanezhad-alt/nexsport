@@ -327,7 +327,7 @@ function PlannerWizard() {
 
   // Store & Quota Management
   const [storeModalOpen, setStoreModalOpen] = useState(false);
-  const [storeModalTab, setStoreModalTab] = useState<"credits" | "vip">("credits");
+  const [storeModalTab, setStoreModalTab] = useState<"credits" | "vip" | "clubpro">("credits");
   const [storeReturnSuccess, setStoreReturnSuccess] = useState<{
     type: "credits" | "vip";
     count?: number;

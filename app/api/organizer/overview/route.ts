@@ -41,8 +41,10 @@ export async function GET(req: NextRequest) {
       quota: {
         planningCredits: unlimited ? 999999 : quota.planningCredits,
         isVip: quota.isVip,
+        isClubPro: quota.isClubPro || unlimited,
         unlimitedPlanning: unlimited,
         vipExpiresAt: quota.vipExpiresAt ? quota.vipExpiresAt.toISOString() : null,
+        clubProExpiresAt: quota.clubProExpiresAt ? quota.clubProExpiresAt.toISOString() : null,
         freeLinkAvailable: quota.freeLinkAvailable,
       },
       stats: {

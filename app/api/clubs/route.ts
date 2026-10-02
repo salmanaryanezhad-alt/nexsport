@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifySessionRequest } from "@/lib/auth/sessionGuard";
 import { sanitizeClubInput } from "@/lib/clubs/validate";
+import { assertCanCreateClub } from "@/lib/clubs/limits";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const parsed = sanitizeClubInput(body || {});
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    const cap = await assertCanCreateClub(auth.user, Boolean(auth.isAdmin));
+    if (!cap.ok) return NextResponse.json({ error: cap.error, needsClubPro: true }, { status: 403 });
     const club = await db.createClub(auth.user.id, parsed.data);
     return NextResponse.json({ success: true, club: serializeClub(club) });
   } catch (err) {
@@ -57,6 +60,7 @@ function serializeClub(c: any) {
     mobile: c.mobile,
     my_role: c.my_role,
     my_status: c.my_status,
+    page_paid: Boolean(c.page_paid),
     createdAt: c.created_at instanceof Date ? c.created_at.toISOString() : c.created_at,
     updatedAt: c.updated_at instanceof Date ? c.updated_at.toISOString() : c.updated_at,
   };

@@ -13,12 +13,19 @@ export type PaymentGatewayType = "mock" | "zarinpal" | "idpay";
 
 export type PaymentStatus = "pending" | "paid" | "failed" | "canceled";
 
-export type PaymentItemType = "tournament_link" | "registration_link" | "planning_credits" | "vip_subscription";
+export type PaymentItemType =
+  | "tournament_link"
+  | "registration_link"
+  | "planning_credits"
+  | "vip_subscription"
+  | "club_page"
+  | "club_pro";
 
 export interface PaymentOrder {
   id: string; // Order reference, e.g. "ord_..."
   itemType: PaymentItemType;
   tournamentId?: string;
+  clubId?: string;
   userId: string;
   itemQuantity?: number; // for credits
   itemDurationMonths?: number; // for VIP subscription (1, 3, 6, 12)

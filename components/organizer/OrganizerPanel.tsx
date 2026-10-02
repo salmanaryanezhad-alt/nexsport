@@ -11,6 +11,7 @@ import { TeamFields } from "@/components/teams/TeamFields";
 import { emptyTeamForm, TeamItem } from "@/components/teams/teamTypes";
 import { TEAM_SPORTS } from "@/lib/teams/catalog";
 import { clubRoleLabel } from "@/lib/clubs/roles";
+import { StoreModal } from "@/components/planner/StoreModal";
 
 type TabId = "dashboard" | "tournaments" | "teams" | "clubs" | "registrations" | "reports" | "profile";
 
@@ -19,8 +20,10 @@ type Overview = {
   quota: {
     planningCredits: number;
     isVip: boolean;
+    isClubPro?: boolean;
     unlimitedPlanning: boolean;
     vipExpiresAt: string | null;
+    clubProExpiresAt?: string | null;
     freeLinkAvailable: boolean;
   };
   stats: {
@@ -112,6 +115,8 @@ export function OrganizerPanel() {
   const [teamForm, setTeamForm] = useState(emptyTeamForm);
   const [expandedReg, setExpandedReg] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [storeOpen, setStoreOpen] = useState(false);
+  const [payBanner, setPayBanner] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -169,6 +174,19 @@ export function OrganizerPanel() {
       setName(user.name);
     }
   }, [user, load, loadTeams, loadClubs]);
+
+  useEffect(() => {
+    const status = searchParams.get("payment_status");
+    const itemType = searchParams.get("itemType");
+    if (status === "success") {
+      setPayBanner(
+        itemType === "club_pro"
+          ? "اشتراک Club Pro با موفقیت فعال شد."
+          : "پرداخت با موفقیت انجام شد."
+      );
+      if (itemType === "club_pro") setStoreOpen(true);
+    }
+  }, [searchParams]);
 
   const pendingRegs = useMemo(
     () => (data?.registrations || []).filter((r) => r.status === "pending"),
@@ -285,6 +303,7 @@ export function OrganizerPanel() {
         ))}
       </nav>
 
+      {payBanner && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">{payBanner}</div>}
       {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-bold text-rose-800">{error}</div>}
       {fetching && !data && <p className="text-sm font-bold text-slate-500">در حال بارگذاری پنل…</p>}
 
@@ -317,7 +336,8 @@ export function OrganizerPanel() {
             <div className="text-sm">
               <span className="font-black">سهمیه برنامه‌سازی: </span>
               {data?.quota.unlimitedPlanning ? "نامحدود" : toPersianDigits(data?.quota.planningCredits ?? 0)}
-              {data?.quota.isVip && <span className="mr-2 rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 text-[10px] font-black">VIP</span>}
+              {data?.quota.isVip && <span className="mr-2 rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 text-[10px] font-black">VIP برگزارکننده</span>}
+              {data?.quota.isClubPro && <span className="mr-2 rounded-full bg-indigo-100 text-indigo-900 px-2 py-0.5 text-[10px] font-black">Club Pro</span>}
               {isAdmin && <span className="mr-2 rounded-full bg-pitch text-white px-2 py-0.5 text-[10px] font-black">مدیر</span>}
             </div>
             <div className="flex gap-2">
@@ -414,9 +434,14 @@ export function OrganizerPanel() {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <h2 className="font-black">باشگاه‌های من</h2>
-            <button type="button" onClick={() => setShowCreateClub((v) => !v)} className="rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-black text-white">
-              {showCreateClub ? "انصراف" : "＋ ایجاد باشگاه"}
-            </button>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setStoreOpen(true)} className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-black text-indigo-800">
+                Club Pro
+              </button>
+              <button type="button" onClick={() => setShowCreateClub((v) => !v)} className="rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-black text-white">
+                {showCreateClub ? "انصراف" : "＋ ایجاد باشگاه"}
+              </button>
+            </div>
           </div>
           {showCreateClub && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 grid gap-2 sm:grid-cols-3">
@@ -436,7 +461,11 @@ export function OrganizerPanel() {
                     body: JSON.stringify(clubForm),
                   });
                   const json = await res.json().catch(() => ({}));
-                  if (!res.ok) { setError(json.error || "ایجاد باشگاه ناموفق."); return; }
+                  if (!res.ok) {
+                    setError(json.error || "ایجاد باشگاه ناموفق.");
+                    if (json.needsClubPro) setStoreOpen(true);
+                    return;
+                  }
                   setClubForm({ name: "", city: "", sport: "فوتبال" });
                   setShowCreateClub(false);
                   await loadClubs();
@@ -489,11 +518,21 @@ export function OrganizerPanel() {
               ))}
             </div>
           )}
+          <p className="text-[11px] text-slate-500">
+            ایجاد باشگاه رایگان است. طرح رایگان: ۱ باشگاه، ۲ تیم، ۱۵ بازیکن، ۲ مربی. صفحه عمومی جداگانه فعال می‌شود (مثل لینک تماشاگر). VIP برگزارکننده شامل باشگاه نیست.
+          </p>
           {clubs.length === 0 && <p className="text-sm text-slate-500">باشگاهی ندارید. یکی بسازید یا دعوت را بپذیرید.</p>}
           <div className="grid gap-3 sm:grid-cols-2">
             {clubs.map((c) => (
               <div key={c.id} className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
-                <div className="font-black">{c.name}</div>
+                <div className="font-black flex items-center gap-2">
+                  {c.name}
+                  {c.page_paid ? (
+                    <span className="rounded-full bg-emerald-50 text-emerald-800 px-2 py-0.5 text-[10px] font-black">صفحه عمومی فعال</span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 text-slate-500 px-2 py-0.5 text-[10px] font-black">صفحه عمومی قفل</span>
+                  )}
+                </div>
                 <p className="text-[11px] text-slate-500">{c.sport} {c.city ? `• ${c.city}` : ""} • {clubRoleLabel(c.my_role)}</p>
                 <div className="flex gap-2 text-xs">
                   <Link href={`/c/${c.id}`} className="rounded-xl border border-slate-200 px-3 py-1.5 font-black">صفحه باشگاه</Link>
@@ -641,6 +680,7 @@ export function OrganizerPanel() {
           {profileErr && <div className="md:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">{profileErr}</div>}
         </div>
       )}
+      <StoreModal isOpen={storeOpen} onClose={() => setStoreOpen(false)} initialTab="clubpro" onSuccess={() => loadClubs()} />
     </div>
   );
 }

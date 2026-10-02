@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
       const order: any = verifyResult.order || {};
       const itemType = String(order.item_type || order.itemType || "");
       const tid = String(order.tournament_id || order.tournamentId || tournamentId || "");
+      const clubId = String(order.club_id || order.clubId || (itemType === "club_page" ? tid : "") || "");
       const qty = Number(order.item_quantity || order.itemQuantity || 0);
       const params = new URLSearchParams({
         payment_status: "success",
@@ -60,6 +61,12 @@ export async function GET(req: NextRequest) {
       if (itemType) params.set("itemType", itemType);
       if (tid) params.set("tournamentId", tid);
       if (qty) params.set("creditCount", String(qty));
+      if (itemType === "club_page" && clubId) {
+        return NextResponse.redirect(`${baseUrl}/c/${clubId}/manage?${params.toString()}`);
+      }
+      if (itemType === "club_pro") {
+        return NextResponse.redirect(`${baseUrl}/panel?tab=clubs&${params.toString()}`);
+      }
       return NextResponse.redirect(`${baseUrl}/planner?${params.toString()}`);
     } else {
       return NextResponse.redirect(

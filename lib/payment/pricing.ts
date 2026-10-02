@@ -6,6 +6,8 @@
  * 2. VIP: 350,000 Tomans / month with 20% (3m), 25% (6m), 30% (1y) discounts.
  * 3. Dedicated spectator link: 150,000 Tomans.
  * 4. Online registration link: 100,000 Tomans (or 2 planning credits).
+ * 5. Public club page: 100,000 Tomans (or 2 planning credits). Create-club stays free.
+ * 6. Club Pro: 200,000 Tomans / month, separate from organizer VIP. Free caps: 1 club / 2 teams / 15 players / 2 coaches.
  */
 
 export const DEDICATED_LINK_PRICE_TOMANS = 150_000;
@@ -15,27 +17,40 @@ export const LINK_ACTIVATION_CREDIT_COST = 3;
 export const REGISTRATION_LINK_PRICE_TOMANS = 100_000;
 /** Registration-link activation via planning credits: 2 quotas = 100,000 Tomans. */
 export const REGISTRATION_CREDIT_COST = 2;
+/** Public club page `/c/[id]` — same muscle as registration link. */
+export const CLUB_PAGE_PRICE_TOMANS = 100_000;
+export const CLUB_PAGE_CREDIT_COST = 2;
+/** Club Pro is separate from organizer VIP. */
+export const CLUB_PRO_MONTHLY_TOMANS = 200_000;
+export const FREE_CLUB_LIMIT = 1;
+export const FREE_CLUB_TEAMS = 2;
+export const FREE_CLUB_PLAYERS = 15;
+export const FREE_CLUB_COACHES = 2;
 export const GUEST_MAX_TOURNAMENTS = 2;
 export const USER_FREE_PLANNINGS = 5;
 export const USER_FREE_LINKS = 1;
 
-export type DiscountItemType = "credits" | "vip" | "link";
+export type DiscountItemType = "credits" | "vip" | "link" | "club_page" | "club_pro";
 export type DiscountAppliesTo = DiscountItemType | "planning" | "all";
 
 export const DISCOUNT_APPLIES_OPTIONS: { value: DiscountAppliesTo; label: string }[] = [
   { value: "credits", label: "بسته‌های اعتباری" },
-  { value: "vip", label: "حساب VIP" },
-  { value: "link", label: "ایجاد لینک" },
+  { value: "vip", label: "حساب VIP برگزارکننده" },
+  { value: "link", label: "ایجاد لینک تماشاگر" },
   { value: "planning", label: "برنامه‌ریزی (اعتباری و VIP)" },
-  { value: "all", label: "هر سه مورد" },
+  { value: "club_page", label: "صفحه عمومی باشگاه" },
+  { value: "club_pro", label: "اشتراک Club Pro" },
+  { value: "all", label: "همه موارد" },
 ];
 
 export const DISCOUNT_APPLIES_LABELS: Record<DiscountAppliesTo, string> = {
   credits: "فقط بسته‌های اعتباری",
-  vip: "فقط حساب VIP",
-  link: "فقط ایجاد لینک",
+  vip: "فقط حساب VIP برگزارکننده",
+  link: "فقط ایجاد لینک اختصاصی تماشاگران",
   planning: "برنامه‌ریزی (اعتباری و VIP)",
-  all: "هر سه مورد",
+  club_page: "فقط فعال‌سازی صفحه عمومی باشگاه",
+  club_pro: "فقط اشتراک Club Pro",
+  all: "همه موارد",
 };
 
 export function discountAppliesToItem(
@@ -60,6 +75,8 @@ export function mismatchDiscountMessage(appliesTo: string | null | undefined): s
   if (scope === "vip") return "این کد تخفیف فقط برای اشتراک ویژه VIP قابل استفاده است.";
   if (scope === "link") return "این کد تخفیف فقط برای فعال‌سازی لینک اختصاصی تماشاگران قابل استفاده است.";
   if (scope === "planning") return "این کد تخفیف فقط برای برنامه‌ریزی مسابقات (بسته‌های اعتباری و اشتراک VIP) قابل استفاده است.";
+  if (scope === "club_page") return "این کد تخفیف فقط برای فعال‌سازی صفحه عمومی باشگاه قابل استفاده است.";
+  if (scope === "club_pro") return "این کد تخفیف فقط برای اشتراک Club Pro باشگاه قابل استفاده است.";
   return "این کد تخفیف برای این بخش قابل استفاده نیست.";
 }
 
@@ -74,6 +91,11 @@ export interface PricingSettings {
   vipDiscount12mPercent: number;
   linkPriceTomans: number;
   registrationPriceTomans: number;
+  clubPagePriceTomans: number;
+  clubProMonthlyTomans: number;
+  clubProDiscount3mPercent: number;
+  clubProDiscount6mPercent: number;
+  clubProDiscount12mPercent: number;
 }
 
 export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
@@ -87,6 +109,11 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   vipDiscount12mPercent: 30,
   linkPriceTomans: 150_000,
   registrationPriceTomans: 100_000,
+  clubPagePriceTomans: 100_000,
+  clubProMonthlyTomans: 200_000,
+  clubProDiscount3mPercent: 20,
+  clubProDiscount6mPercent: 25,
+  clubProDiscount12mPercent: 30,
 };
 
 export function sanitizePricingSettings(input: Partial<PricingSettings> | null | undefined): PricingSettings {
@@ -117,6 +144,36 @@ export function sanitizePricingSettings(input: Partial<PricingSettings> | null |
       DEFAULT_PRICING_SETTINGS.registrationPriceTomans,
       0,
       50_000_000
+    ),
+    clubPagePriceTomans: clampInt(
+      src.clubPagePriceTomans,
+      DEFAULT_PRICING_SETTINGS.clubPagePriceTomans,
+      0,
+      50_000_000
+    ),
+    clubProMonthlyTomans: clampInt(
+      src.clubProMonthlyTomans,
+      DEFAULT_PRICING_SETTINGS.clubProMonthlyTomans,
+      1_000,
+      50_000_000
+    ),
+    clubProDiscount3mPercent: clampInt(
+      src.clubProDiscount3mPercent,
+      DEFAULT_PRICING_SETTINGS.clubProDiscount3mPercent,
+      0,
+      90
+    ),
+    clubProDiscount6mPercent: clampInt(
+      src.clubProDiscount6mPercent,
+      DEFAULT_PRICING_SETTINGS.clubProDiscount6mPercent,
+      0,
+      90
+    ),
+    clubProDiscount12mPercent: clampInt(
+      src.clubProDiscount12mPercent,
+      DEFAULT_PRICING_SETTINGS.clubProDiscount12mPercent,
+      0,
+      90
     ),
   };
 }
@@ -238,6 +295,70 @@ export function buildVipPlans(settings?: Partial<PricingSettings> | null): VipPl
 }
 
 export const VIP_PLANS: VipPlan[] = buildVipPlans();
+
+export function buildClubProPlans(settings?: Partial<PricingSettings> | null): VipPlan[] {
+  const s = sanitizePricingSettings(settings);
+  const monthly = s.clubProMonthlyTomans;
+
+  const make = (
+    months: number,
+    discountPercent: number,
+    extra: { id: string; title: string; durationLabel: string; extraFeatures: string[] }
+  ): VipPlan => {
+    const basePriceTomans = monthly * months;
+    const finalPriceTomans = Math.round(basePriceTomans * (1 - discountPercent / 100));
+    const monthlyEquivalentTomans = Math.round(finalPriceTomans / months);
+    const saved = Math.max(0, basePriceTomans - finalPriceTomans);
+    const features = [
+      "باشگاه نامحدود (ایجاد باشگاه همچنان رایگان است)",
+      "تیم، بازیکن و مربی نامحدود در هر باشگاه",
+      "فعال‌سازی رایگان صفحه عمومی باشگاه (/c/)",
+      "جدا از اشتراک VIP برگزارکننده — روی برنامه‌ریزی مسابقه اثر ندارد",
+      ...extra.extraFeatures.map((f) => f.replace("{saved}", `${formatFaAmount(saved)} تومان`)),
+    ];
+    return {
+      id: extra.id,
+      months,
+      title: extra.title,
+      durationLabel: extra.durationLabel,
+      basePriceTomans,
+      discountPercent,
+      finalPriceTomans,
+      monthlyEquivalentTomans,
+      tag: discountPercent > 0 ? `${discountPercent}٪ تخفیف` : undefined,
+      features,
+    };
+  };
+
+  return [
+    make(1, 0, {
+      id: "clubpro-1m",
+      title: "Club Pro یک‌ماهه",
+      durationLabel: "۱ ماه (۳۰ روز)",
+      extraFeatures: ["مناسب تست و فصل کوتاه"],
+    }),
+    make(3, s.clubProDiscount3mPercent, {
+      id: "clubpro-3m",
+      title: "Club Pro سه‌ماهه",
+      durationLabel: "۳ ماه (۹۰ روز)",
+      extraFeatures: ["{saved} صرفه‌جویی نسبت به ماهانه"],
+    }),
+    make(6, s.clubProDiscount6mPercent, {
+      id: "clubpro-6m",
+      title: "Club Pro شش‌ماهه",
+      durationLabel: "۶ ماه (۱۸۰ روز)",
+      extraFeatures: ["{saved} صرفه‌جویی ویژه"],
+    }),
+    make(12, s.clubProDiscount12mPercent, {
+      id: "clubpro-12m",
+      title: "Club Pro یک‌ساله",
+      durationLabel: "۱ سال (۳۶۵ روز)",
+      extraFeatures: ["{saved} تخفیف سالانه"],
+    }),
+  ];
+}
+
+export const CLUB_PRO_PLANS: VipPlan[] = buildClubProPlans();
 
 /**
  * Calculates credit package price with dynamic tiered discount.

@@ -63,6 +63,8 @@ export async function clubPublicSnapshot(clubId: string) {
       description: club.description,
       contact_name: club.contact_name,
       mobile: club.mobile,
+      pagePaid: Boolean(club.page_paid),
+      pagePaidAt: club.page_paid_at instanceof Date ? club.page_paid_at.toISOString() : club.page_paid_at || null,
       createdAt: club.created_at instanceof Date ? club.created_at.toISOString() : club.created_at,
     },
     teams,
