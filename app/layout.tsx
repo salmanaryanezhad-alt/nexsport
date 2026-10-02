@@ -12,11 +12,11 @@ const isServerExport = process.env.NEXT_EXPORT === "true";
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nexsport.ir"),
   title: {
-    default: "NexSport | برنامه‌ریز و قرعه‌کشی آنلاین مسابقات ورزشی",
+    default: "NexSport | برنامه‌ریز مسابقات، تیم، باشگاه و جامعه ورزشی",
     template: "%s | NexSport",
   },
   description:
-    "سامانه آنلاین برنامه‌ریزی مسابقات در ۱ دقیقه. رایگان شروع کنید، حرفه‌ای برگزار کنید. تولید برنامه لیگ، گروهی و حذفی بدون بازی تکراری همراه با جدول رده‌بندی زنده و خروجی اکسل و PDF.",
+    "برنامه لیگ و حذفی بسازید، نتیجه را زنده ثبت کنید، لینک تماشاگر و ثبت‌نام رایگان بدهید. تیم و باشگاه مدیریت کنید؛ جامعه و خدمات ورزشی را پیدا کنید.",
   keywords: [
     "برنامه ریز مسابقات",
     "قرعه کشی مسابقات",
@@ -54,9 +54,9 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   openGraph: {
-    title: "NexSport | برنامه‌ریز و قرعه‌کشی آنلاین مسابقات ورزشی",
+    title: "NexSport | برنامه‌ریز مسابقات، تیم، باشگاه و جامعه ورزشی",
     description:
-      "تولید خودکار و استاندارد برنامه مسابقات لیگ، گروهی و حذفی بدون بازی تکراری، با ثبت نتایج زنده، رده‌بندی و خروجی اکسل و PDF.",
+      "برنامه مسابقه، صفحه تماشاگر، ثبت‌نام رایگان، کتابخانه تیم، باشگاه، جامعه و خدمات ورزشی در یک سامانه.",
     url: "https://nexsport.ir",
     siteName: "NexSport",
     locale: "fa_IR",
@@ -72,9 +72,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "NexSport | برنامه‌ریز آنلاین مسابقات ورزشی",
-    description:
-      "سامانه هوشمند برنامه‌ریزی مسابقات در ۱ دقیقه. رایگان شروع کنید، حرفه‌ای برگزار کنید.",
+    title: "NexSport | برنامه‌ریز مسابقات و جامعه ورزشی",
+    description: "از قرعه‌کشی تا تیم، باشگاه، صفحه تماشاگر و خدمات ورزشی.",
     images: ["https://nexsport.ir/og-image.png"],
   },
   robots: isServerExport
