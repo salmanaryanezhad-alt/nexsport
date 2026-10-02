@@ -1054,8 +1054,7 @@ async function run() {
     assertEqual(money.paymentInfo.amount, 150000, "مبلغ نقدی ۱۵۰ هزار تومان بماند.");
   });
 
-  await test("لینک ثبت‌نام آنلاین: پرداخت ۲ سهمیه، ارسال، تأیید، رد و ظرفیت", async () => {
-    const { REGISTRATION_CREDIT_COST, REGISTRATION_LINK_PRICE_TOMANS } = await import("../payment/pricing");
+  await test("لینک ثبت‌نام آنلاین: رایگان است؛ ارسال، تأیید، رد و ظرفیت", async () => {
     const { sanitizeRegistrationInput } = await import("../registrations/validate");
     const { registrationPaymentPaid, readRegistrationSettings } = await import("../registrations/settings");
 
@@ -1073,28 +1072,27 @@ async function run() {
       teamCount: 4,
       state: { step: 2 },
     });
-    assertEqual(registrationPaymentPaid(t.state), false, "قبل از پرداخت لینک ثبت‌نام غیرفعال است.");
+    assertEqual(registrationPaymentPaid(t.state), true, "لینک ثبت‌نام همراه مسابقه رایگان است.");
 
     const paidReg = await paymentService.initiateRegistrationPayment({
       tournamentId: t.id,
       userId: organizer.id,
       payWithCredits: true,
     });
-    assertEqual(paidReg.success, true, "با ۵ سهمیه، فعال‌سازی ۲ سهمیه‌ای موفق است.");
-    assertEqual(paidReg.creditsCharged, REGISTRATION_CREDIT_COST, "۲ سهمیه کسر شود.");
-    assertEqual(paidReg.remainingCredits, 3, "پس از کسر ۲ سهمیه، ۳ بماند.");
+    assertEqual(paidReg.success, true, "فعال‌سازی لینک ثبت‌نام باید رایگان باشد.");
+    assertEqual(Boolean((paidReg as any).creditsCharged), false, "سهمیه برنامه‌سازی برای ثبت‌نام کسر نشود.");
 
     const afterPay = await db.getTournament(t.id, organizer.id);
-    assert(registrationPaymentPaid(afterPay?.state), "پس از پرداخت، لینک ثبت‌نام فعال شود.");
+    assert(registrationPaymentPaid(afterPay?.state), "لینک ثبت‌نام فعال بماند.");
     const settings = readRegistrationSettings(afterPay?.state, 4);
     assertEqual(settings.capacity, 4, "ظرفیت پیش‌فرض برابر تعداد تیم مسابقه است.");
-    assertEqual(settings.isOpen, true, "ثبت‌نام پس از فعال‌سازی باز باشد.");
+    assertEqual(settings.isOpen, true, "ثبت‌نام پس از ذخیره باز باشد.");
 
     const already = await paymentService.initiateRegistrationPayment({
       tournamentId: t.id,
       userId: organizer.id,
     });
-    assertEqual(already.alreadyPaid, true, "پرداخت مجدد لینک فعال‌شده لازم نباشد.");
+    assertEqual(already.alreadyPaid, true, "فعال‌سازی مجدد لازم نباشد.");
 
     const bad = sanitizeRegistrationInput({ team_name: "سپاهان", mobile: "0912", players: [{ name: "علی" }] });
     assertEqual(bad.ok, false, "موبایل نامعتبر رد شود.");
@@ -1176,7 +1174,6 @@ async function run() {
     const list = await db.listRegistrations(t.id);
     assertEqual(list.length, 2, "دو درخواست در فهرست.");
     assertEqual(list.filter((r) => r.status === "approved").length, 1, "یک تیم تأییدشده.");
-    assertEqual(REGISTRATION_LINK_PRICE_TOMANS, 100000, "تعرفه نقدی پیش‌فرض ۱۰۰ هزار تومان.");
   });
 
   await test("اشتراک کاربر ویژه VIP: برنامه‌ریزی نامحدود و ایجاد نامحدود لینک‌های رایگان", async () => {

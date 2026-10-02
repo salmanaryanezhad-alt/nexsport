@@ -3,8 +3,9 @@ export type RegistrationSettings = {
   capacity: number;
 };
 
-export function registrationPaymentPaid(state: any): boolean {
-  return Boolean(state?.registrationPayment?.isPaid);
+/** Registration link is always included with a saved tournament — never a paywall. */
+export function registrationPaymentPaid(_state?: any): boolean {
+  return true;
 }
 
 export function readRegistrationSettings(state: any, fallbackCapacity: number): RegistrationSettings {

@@ -378,7 +378,7 @@ export function OrganizerPanel() {
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   <StatusPill ok={t.spectatorPaid} yes="لینک تماشاگر فعال" no="تماشاگر غیرفعال" />
-                  <StatusPill ok={t.registrationPaid} yes="ثبت‌نام فعال" no="ثبت‌نام غیرفعال" />
+                  <StatusPill ok={t.registrationOpen} yes="ثبت‌نام باز" no="ثبت‌نام بسته" />
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 text-xs">
@@ -388,11 +388,9 @@ export function OrganizerPanel() {
                     {copied === `t-${t.id}` ? "کپی شد" : "کپی لینک تماشاگر"}
                   </button>
                 )}
-                {t.registrationPaid && (
-                  <button type="button" onClick={() => copy(`${origin}/r/${t.id}`, `r-${t.id}`)} className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-1.5 font-black text-violet-900">
-                    {copied === `r-${t.id}` ? "کپی شد" : "کپی لینک ثبت‌نام"}
-                  </button>
-                )}
+                <button type="button" onClick={() => copy(`${origin}/r/${t.id}`, `r-${t.id}`)} className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-1.5 font-black text-violet-900">
+                  {copied === `r-${t.id}` ? "کپی شد" : "کپی لینک ثبت‌نام"}
+                </button>
                 <button type="button" onClick={() => setTab("registrations")} className="rounded-xl border border-slate-200 px-3 py-1.5 font-black">ثبت‌نام‌ها</button>
                 <button type="button" onClick={() => deleteTournament(t.id, t.title)} className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 font-black text-rose-700">حذف</button>
               </div>
@@ -519,7 +517,7 @@ export function OrganizerPanel() {
             </div>
           )}
           <p className="text-[11px] text-slate-500">
-            ایجاد باشگاه رایگان است. طرح رایگان: ۱ باشگاه، ۲ تیم، ۱۵ بازیکن، ۲ مربی. صفحه عمومی جداگانه فعال می‌شود (مثل لینک تماشاگر). VIP برگزارکننده شامل باشگاه نیست.
+            ایجاد باشگاه رایگان است. طرح رایگان: ۱ باشگاه، ۱ تیم، ۱۵ بازیکن، ۲ مربی. صفحه عمومی جداگانه فعال می‌شود (مثل لینک تماشاگر). لینک ثبت‌نام مسابقه رایگان است. VIP برگزارکننده شامل باشگاه نیست.
           </p>
           {clubs.length === 0 && <p className="text-sm text-slate-500">باشگاهی ندارید. یکی بسازید یا دعوت را بپذیرید.</p>}
           <div className="grid gap-3 sm:grid-cols-2">
@@ -547,7 +545,7 @@ export function OrganizerPanel() {
       {tab === "registrations" && data && (
         <div className="space-y-3">
           <h2 className="font-black">مدیریت ثبت‌نام‌ها ({toPersianDigits(data.registrations.length)})</h2>
-          {data.registrations.length === 0 && <p className="text-sm text-slate-500">هنوز درخواستی ثبت نشده است. لینک ثبت‌نام را از برنامه‌ریز فعال کنید.</p>}
+          {data.registrations.length === 0 && <p className="text-sm text-slate-500">هنوز درخواستی ثبت نشده است. لینک ثبت‌نام را از همین پنل یا برنامه‌ریز کپی کنید.</p>}
           {data.registrations.map((item) => (
             <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
               <div className="flex items-start justify-between gap-2">
@@ -606,7 +604,7 @@ export function OrganizerPanel() {
                     <td className="px-3 py-2">{toPersianDigits(t.matchesTotal)}</td>
                     <td className="px-3 py-2">{toPersianDigits(t.matchesPlayed)}</td>
                     <td className="px-3 py-2">{t.spectatorPaid ? "فعال" : "—"}</td>
-                    <td className="px-3 py-2">{t.registrationPaid ? "فعال" : "—"}</td>
+                    <td className="px-3 py-2">{t.registrationOpen ? "باز" : "بسته"}</td>
                   </tr>
                 ))}
               </tbody>

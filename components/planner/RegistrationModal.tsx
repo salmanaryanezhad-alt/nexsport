@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { toPersianDigits } from "@/lib/digits";
-import { REGISTRATION_CREDIT_COST, REGISTRATION_LINK_PRICE_TOMANS } from "@/lib/payment/types";
 
 type RegistrationItem = {
   id: string;
@@ -35,33 +34,23 @@ export function RegistrationModal({
   onEnsureSaved: () => Promise<string | null>;
   onInsertApprovedNames?: (names: string[]) => void;
 }) {
-  const { user, openAuthModal, isAdmin } = useAuth();
+  const { user, openAuthModal } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(tournamentId);
   const [loading, setLoading] = useState(false);
-  const [isPaid, setIsPaid] = useState(false);
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [quota, setQuota] = useState<{ isVip?: boolean; planningCredits?: number; unlimitedPlanning?: boolean; unlimitedLinks?: boolean } | null>(null);
-  const [price, setPrice] = useState(REGISTRATION_LINK_PRICE_TOMANS);
   const [isOpenReg, setIsOpenReg] = useState(true);
   const [capacity, setCapacity] = useState(8);
   const [approved, setApproved] = useState(0);
   const [items, setItems] = useState<RegistrationItem[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const loadQuota = useCallback(async () => {
-    try {
-      const res = await fetch("/api/tournaments/quota/", { credentials: "same-origin" });
-      if (res.ok) setQuota(await res.json());
-    } catch {}
-  }, []);
-
   const loadList = useCallback(async (id: string) => {
     const res = await fetch(`/api/tournaments/${id}/registrations/`, { credentials: "same-origin" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "خطا در دریافت ثبت‌نام‌ها.");
-    setIsPaid(Boolean(data.isPaid));
+    setReady(true);
     setIsOpenReg(data.settings?.isOpen !== false);
     setCapacity(Number(data.settings?.capacity) || 8);
     setApproved(Number(data.approved) || 0);
@@ -76,16 +65,8 @@ export function RegistrationModal({
     if (!isOpen) return;
     setError(null);
     setCopied(false);
-    fetch("/api/pricing/", { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.settings?.registrationPriceTomans != null) {
-          setPrice(Number(d.settings.registrationPriceTomans) || REGISTRATION_LINK_PRICE_TOMANS);
-        }
-      })
-      .catch(() => {});
+    setReady(false);
     if (!user) return;
-    loadQuota();
     if (!activeId) return;
     (async () => {
       setLoading(true);
@@ -97,55 +78,13 @@ export function RegistrationModal({
         setLoading(false);
       }
     })();
-  }, [isOpen, user, activeId, loadList, loadQuota]);
+  }, [isOpen, user, activeId, loadList]);
 
   if (!isOpen) return null;
 
-  const adminFree = Boolean(isAdmin || quota?.unlimitedLinks || quota?.unlimitedPlanning);
-  const needsPay = !adminFree && !quota?.isVip;
-  const creditBalance = quota?.planningCredits ?? 0;
-  const canPayCredits = creditBalance >= REGISTRATION_CREDIT_COST;
   const remaining = Math.max(0, capacity - approved);
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://nexsport.ir";
   const shareUrl = activeId ? `${baseUrl}/r/${activeId}` : "";
-
-  async function pay(withCredits: boolean) {
-    let id = activeId;
-    if (!id) {
-      id = await onEnsureSaved();
-      if (id) setActiveId(id);
-    }
-    if (!id) {
-      setError("ابتدا مسابقه را ذخیره کنید.");
-      return;
-    }
-    setPaymentLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/payment/create/", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemType: "registration_link", tournamentId: id, payWithCredits: withCredits }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "خطا در پرداخت.");
-      if (data.paymentUrl) {
-        window.location.href = data.paymentUrl;
-        return;
-      }
-      setIsPaid(true);
-      if (typeof data.remainingCredits === "number") {
-        setQuota((p) => (p ? { ...p, planningCredits: data.remainingCredits } : p));
-      }
-      await loadQuota();
-      await loadList(id);
-    } catch (e: any) {
-      setError(e?.message || "خطا در فعال‌سازی لینک ثبت‌نام.");
-    } finally {
-      setPaymentLoading(false);
-    }
-  }
 
   async function saveSettings(next: { isOpen?: boolean; capacity?: number }) {
     if (!activeId) return;
@@ -188,7 +127,7 @@ export function RegistrationModal({
       <div className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-200 flex flex-col overflow-hidden max-h-[92vh]">
         <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-violet-50 via-white to-white px-5 py-4">
           <div>
-            <h2 className="font-black text-sm sm:text-base text-slate-900">{isPaid ? "لینک ثبت‌نام تیم‌ها" : "فعال‌سازی ثبت‌نام آنلاین"}</h2>
+            <h2 className="font-black text-sm sm:text-base text-slate-900">لینک ثبت‌نام تیم‌ها</h2>
             <p className="text-[11px] text-slate-500 truncate max-w-[280px]">{tournamentTitle}</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100">✕</button>
@@ -203,7 +142,7 @@ export function RegistrationModal({
           {user && loading && <p className="text-center py-8 font-bold text-slate-600">در حال آماده‌سازی...</p>}
           {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 font-bold text-rose-800">{error}</div>}
 
-          {user && !loading && !isPaid && !activeId && (
+          {user && !loading && !activeId && (
             <button
               type="button"
               onClick={async () => {
@@ -213,41 +152,11 @@ export function RegistrationModal({
               }}
               className="w-full rounded-2xl bg-violet-700 py-3 font-black text-white"
             >
-              ذخیره مسابقه و ادامه
+              ذخیره مسابقه و نمایش لینک ثبت‌نام
             </button>
           )}
 
-          {user && !loading && !isPaid && activeId && (
-            <div className="space-y-3">
-              <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4 space-y-2">
-                <div className="flex justify-between font-bold"><span>خدمت</span><span>لینک ثبت‌نام آنلاین تیم‌ها</span></div>
-                {adminFree || quota?.isVip ? (
-                  <div className="font-black text-emerald-800">۰ تومان — {adminFree ? "حساب مدیر" : "عضو VIP"}</div>
-                ) : (
-                  <div className="flex justify-between items-baseline">
-                    <span className="font-black">مبلغ</span>
-                    <span className="font-black text-lg text-violet-800">{toPersianDigits(price.toLocaleString("en-US"))} تومان</span>
-                  </div>
-                )}
-              </div>
-              <button type="button" disabled={paymentLoading || !activeId} onClick={() => pay(false)} className="w-full rounded-2xl bg-violet-700 py-3 font-black text-white disabled:opacity-50">
-                {paymentLoading ? "در حال فعال‌سازی..." : adminFree || quota?.isVip ? "فعال‌سازی رایگان لینک ثبت‌نام" : `پرداخت ${toPersianDigits(price.toLocaleString("en-US"))} تومان و فعال‌سازی`}
-              </button>
-              {needsPay && (
-                <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 space-y-2">
-                  <p className="font-bold text-amber-950">
-                    با این کار {toPersianDigits(REGISTRATION_CREDIT_COST)} تا از سهمیه‌های برنامه‌سازی شما معادل {toPersianDigits(price.toLocaleString("en-US"))} تومان کسر خواهد شد.
-                  </p>
-                  <p>سهمیه فعلی: {toPersianDigits(creditBalance)}</p>
-                  <button type="button" disabled={paymentLoading || !canPayCredits} onClick={() => pay(true)} className="w-full rounded-xl border border-amber-400 bg-white py-2 font-black text-amber-950 disabled:opacity-50">
-                    {canPayCredits ? `فعال‌سازی با ${toPersianDigits(REGISTRATION_CREDIT_COST)} سهمیه` : "سهمیه کافی نیست"}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {user && !loading && isPaid && (
+          {user && !loading && activeId && ready && (
             <div className="space-y-4">
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
                 <p className="font-black text-emerald-950">لینک ثبت‌نام فعال است</p>

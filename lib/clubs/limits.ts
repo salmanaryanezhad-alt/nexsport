@@ -51,7 +51,7 @@ export async function assertCanAttachClubTeam(
   if (teamIds.length >= FREE_CLUB_TEAMS) {
     return {
       ok: false,
-      error: "در طرح رایگان هر باشگاه حداکثر ۲ تیم می‌تواند داشته باشد. برای تیم بیشتر Club Pro لازم است.",
+      error: "در طرح رایگان هر باشگاه حداکثر ۱ تیم می‌تواند داشته باشد. برای تیم بیشتر Club Pro لازم است.",
     };
   }
 

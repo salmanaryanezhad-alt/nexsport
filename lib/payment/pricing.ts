@@ -5,9 +5,9 @@
  * 1. Credit packages: 50,000 Tomans per tournament. 1% extra discount for every 5 credits.
  * 2. VIP: 350,000 Tomans / month with 20% (3m), 25% (6m), 30% (1y) discounts.
  * 3. Dedicated spectator link: 150,000 Tomans.
- * 4. Online registration link: 100,000 Tomans (or 2 planning credits).
+ * 4. Online registration link: always free (included with a saved tournament).
  * 5. Public club page: 100,000 Tomans (or 2 planning credits). Create-club stays free.
- * 6. Club Pro: 200,000 Tomans / month, separate from organizer VIP. Free caps: 1 club / 2 teams / 15 players / 2 coaches.
+ * 6. Club Pro: 200,000 Tomans / month, separate from organizer VIP. Free caps: 1 club / 1 team / 15 players / 2 coaches.
  */
 
 export const DEDICATED_LINK_PRICE_TOMANS = 150_000;
@@ -23,7 +23,7 @@ export const CLUB_PAGE_CREDIT_COST = 2;
 /** Club Pro is separate from organizer VIP. */
 export const CLUB_PRO_MONTHLY_TOMANS = 200_000;
 export const FREE_CLUB_LIMIT = 1;
-export const FREE_CLUB_TEAMS = 2;
+export const FREE_CLUB_TEAMS = 1;
 export const FREE_CLUB_PLAYERS = 15;
 export const FREE_CLUB_COACHES = 2;
 export const GUEST_MAX_TOURNAMENTS = 2;
