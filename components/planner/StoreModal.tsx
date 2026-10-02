@@ -10,6 +10,7 @@ import {
   PricingSettings,
   calculateCreditPrice,
   VipPlan,
+  LINK_ACTIVATION_CREDIT_COST,
 } from "@/lib/payment/pricing";
 
 interface StoreModalProps {
@@ -693,7 +694,7 @@ export function StoreModal({
               <div className="rounded-xl bg-amber-50/70 border border-amber-200/80 p-2.5 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
                 <span>ℹ️</span>
                 <span>
-                  <strong>نکته:</strong> بسته‌های اعتباری مربوط به برنامه‌ریزی و تولید جداول مسابقات است. ایجاد لینک اختصاصی تماشاگران برای هر مسابقه همان {toPersianDigits(pricingSettings.linkPriceTomans.toLocaleString("en-US"))} تومان جداگانه است (به جز ۱ مسابقه اول که هدیه رایگان ثبت‌نام شماست). در صورتی که مایلید تمام لینک‌ها رایگان باشند، به <strong>اشتراک ویژه VIP</strong> ارتقا دهید.
+                  <strong>نکته:</strong> بسته‌های اعتباری مربوط به برنامه‌ریزی و تولید جداول مسابقات است. ایجاد لینک اختصاصی تماشاگران برای هر مسابقه همان {toPersianDigits(pricingSettings.linkPriceTomans.toLocaleString("en-US"))} تومان جداگانه است (به جز ۱ مسابقه اول که هدیه رایگان ثبت‌نام شماست)، یا می‌توانید با کسر {toPersianDigits(LINK_ACTIVATION_CREDIT_COST)} سهمیه اعتبار همان لینک را فعال کنید. در صورتی که مایلید تمام لینک‌ها رایگان باشند، به <strong>اشتراک ویژه VIP</strong> ارتقا دهید.
                 </span>
               </div>
 
