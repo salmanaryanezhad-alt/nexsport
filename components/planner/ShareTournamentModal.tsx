@@ -705,13 +705,6 @@ export function ShareTournamentModal({
                       <strong className="text-slate-900">اشتراک‌گذاری ۱-کلیکی:</strong> ابزار اشتراک مستقیم در ایتا، بله، تلگرام، واتس‌اپ و پیامک همراه با QR Code.
                     </div>
                   </div>
-
-                  <div className="flex items-start gap-2">
-                    <span className="text-emerald-600 font-bold shrink-0 text-sm">🛡️</span>
-                    <div>
-                      <strong className="text-slate-900">سئوی ایمن (NoIndex):</strong> صفحه مسابقه در گوگل ایندکس نمی‌شود تا در صورت حذف احتمالی مسابقه توسط شما، هیچ لینک شکسته ۴۰۴ به سئوی سایت آسیب نزند.
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -968,13 +961,6 @@ export function ShareTournamentModal({
                   <div>
                     <strong className="text-slate-900">حالت فقط مشاهده تماشاگران:</strong>{" "}
                     تماشاگران، بازیکنان و داوران می‌توانند کل برنامه مسابقات، جداول رده‌بندی زنده و براکت‌ها را تا فینال ببینند؛ فیلدها و دکمه‌های ثبت نتیجه برای آن‌ها کاملاً مخفی و مسدود است.
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-emerald-600 font-bold">✓</span>
-                  <div>
-                    <strong className="text-slate-900">سئوی ایمن و بدون ایندکس (NoIndex):</strong>{" "}
-                    این لینک با تگ‌های امنیتی noindex و nofollow محافظت شده تا در صورت حذف یا ویرایش مسابقه توسط شما، هیچ خطای ۴۰۴ در گوگل ثبت نشود.
                   </div>
                 </div>
               </div>

@@ -163,7 +163,7 @@ export function AuthHeaderNav() {
         type="button"
         onClick={() => setNotifOpen(true)}
         className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm hover:border-emerald-400 cursor-pointer"
-        title="اعلان‌های مسابقات"
+        title="اعلان‌ها"
       >
         🔔
         {notifCount > 0 && (

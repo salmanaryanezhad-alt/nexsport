@@ -4749,7 +4749,7 @@ export const db = {
       user_id: data.userId,
       type: data.type || "info",
       title: String(data.title || "").slice(0, 200),
-      body: String(data.body || "").slice(0, 500),
+      body: String(data.body || "").slice(0, 800),
       link: String(data.link || "").slice(0, 200),
       is_read: false,
       created_at: now,
@@ -4772,6 +4772,22 @@ export const db = {
       console.warn("[NexSport DB] createNotification:", err);
     }
     memoryStore.notifications.set(id, rec);
+  },
+
+  async broadcastNotification(data: { title: string; body?: string; link?: string }): Promise<number> {
+    const users = await this.listAllUsers();
+    let sent = 0;
+    for (const u of users) {
+      await this.createNotification({
+        userId: u.id,
+        type: "broadcast",
+        title: data.title,
+        body: data.body,
+        link: data.link,
+      });
+      sent += 1;
+    }
+    return sent;
   },
 
   async notifyTournamentFollowers(tournamentId: string, title: string, body: string): Promise<number> {

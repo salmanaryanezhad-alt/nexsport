@@ -50,6 +50,11 @@ export function AdminTicketsModal() {
   const [replyBody, setReplyBody] = useState("");
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastBody, setBroadcastBody] = useState("");
+  const [broadcastLink, setBroadcastLink] = useState("");
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [broadcastNotice, setBroadcastNotice] = useState<string | null>(null);
 
   async function loadList() {
     setLoading(true);
@@ -133,6 +138,44 @@ export function AdminTicketsModal() {
     }
   }
 
+  async function handleBroadcast(e: React.FormEvent) {
+    e.preventDefault();
+    if (
+      !window.confirm(
+        "این پیام برای همه کاربران ثبت‌نام‌شده ارسال می‌شود و در اعلان‌هایشان می‌آید. ادامه می‌دهید؟"
+      )
+    ) {
+      return;
+    }
+    setBroadcasting(true);
+    setBroadcastNotice(null);
+    try {
+      const res = await fetch("/api/admin/broadcast/", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: broadcastTitle,
+          body: broadcastBody,
+          link: broadcastLink.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        setBroadcastNotice(data.error || "ارسال پیام عمومی ناموفق بود.");
+        return;
+      }
+      setBroadcastTitle("");
+      setBroadcastBody("");
+      setBroadcastLink("");
+      setBroadcastNotice(`پیام برای ${toPersianDigits(Number(data.sent || 0))} کاربر ارسال شد.`);
+    } catch {
+      setBroadcastNotice("خطا در ارتباط با سرور.");
+    } finally {
+      setBroadcasting(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-ink/50 backdrop-blur-xs animate-in fade-in duration-200">
       <div
@@ -144,7 +187,7 @@ export function AdminTicketsModal() {
             <NexSportIcon size={26} />
             <div>
               <h2 className="font-bold text-base text-pitch">پنل تیکت‌های پشتیبانی</h2>
-              <p className="text-[11px] text-ink/60 mt-0.5">گفتگوها به‌ترتیب زمان، با تفکیک پاسخ‌داده و پاسخ‌نداده</p>
+              <p className="text-[11px] text-ink/60 mt-0.5">گفتگوها و ارسال پیام عمومی به همه کاربران</p>
             </div>
           </div>
           <button
@@ -191,6 +234,45 @@ export function AdminTicketsModal() {
 
         <div className="flex-1 overflow-hidden grid grid-cols-1 sm:grid-cols-[280px_1fr]">
           <div className="border-l border-line overflow-y-auto p-3 space-y-2 bg-chalk/15">
+            <form onSubmit={handleBroadcast} className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 space-y-2">
+              <p className="text-[11px] font-black text-indigo-950">پیام عمومی به همه کاربران</p>
+              <p className="text-[10px] text-indigo-800 leading-relaxed">
+                مثلاً کد تخفیف یا اطلاع‌رسانی سایت. همه در زنگوله اعلان می‌بینند.
+              </p>
+              <input
+                required
+                value={broadcastTitle}
+                onChange={(e) => setBroadcastTitle(e.target.value)}
+                placeholder="عنوان"
+                maxLength={120}
+                className="w-full rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-bold"
+              />
+              <textarea
+                required
+                value={broadcastBody}
+                onChange={(e) => setBroadcastBody(e.target.value)}
+                placeholder="متن پیام — مثلاً کد NOWROZ20"
+                rows={3}
+                maxLength={800}
+                className="w-full rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs leading-relaxed"
+              />
+              <input
+                value={broadcastLink}
+                onChange={(e) => setBroadcastLink(e.target.value)}
+                placeholder="لینک اختیاری مثل /planner"
+                className="w-full rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-[11px] font-mono dir-ltr text-right"
+              />
+              {broadcastNotice && (
+                <p className="text-[10px] font-bold text-indigo-900">{broadcastNotice}</p>
+              )}
+              <button
+                type="submit"
+                disabled={broadcasting}
+                className="w-full rounded-lg bg-indigo-700 px-3 py-1.5 text-[11px] font-black text-white cursor-pointer disabled:opacity-50"
+              >
+                {broadcasting ? "در حال ارسال…" : "ارسال به همه"}
+              </button>
+            </form>
             {loading && tickets.length === 0 ? (
               <p className="text-[11px] text-ink/50 py-10 text-center">در حال بارگذاری...</p>
             ) : error ? (

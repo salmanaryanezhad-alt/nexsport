@@ -1525,6 +1525,25 @@ async function run() {
     const marked = await db.markTicketReadByUser(created.ticket.id, member.id);
     assertEqual(marked?.user_has_unread, false, "با باز کردن تیکت، نوتیف کاربر پاک شود.");
 
+    const other = await db.createUser({
+      name: "گیرنده پیام عمومی",
+      email: "broadcast.user@nexsport.ir",
+      mobile: "09123334401",
+      passwordHash: hashPassword("TicketPass1"),
+      isVerified: true,
+    });
+    const sent = await db.broadcastNotification({
+      title: "کد تخفیف بهاری",
+      body: "با کد BAHAR20 بیست درصد تخفیف بگیرید.",
+      link: "/planner",
+    });
+    assert(sent >= 2, "پیام عمومی حداقل برای دو کاربر برود.");
+    const inbox = await db.listNotifications(other.id, 10);
+    const got = inbox.find((n) => n.type === "broadcast" && n.title === "کد تخفیف بهاری");
+    assert(Boolean(got), "کاربر پیام عمومی را در اعلان ببیند.");
+    assertEqual(got?.body.includes("BAHAR20"), true, "متن کد تخفیف در اعلان باشد.");
+    assertEqual(await db.countUnreadNotifications(other.id) >= 1, true, "نوتیف خوانده‌نشده ثبت شود.");
+
     const userFollowUp = await db.addTicketMessage({
       ticketId: created.ticket.id,
       sender: "user",
