@@ -3522,15 +3522,6 @@ function PlannerWizard() {
               </button>
 
               <button
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-violet-300 bg-violet-50 px-3.5 py-2 text-xs font-black text-violet-900 hover:bg-violet-100 hover:shadow-xs transition-all cursor-pointer"
-                onClick={handleOpenRegistrationModal}
-                title="لینک ثبت‌نام آنلاین تیم‌ها"
-              >
-                <span>📝</span>
-                <span>لینک ثبت‌نام</span>
-              </button>
-
-              <button
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-black text-amber-900 hover:bg-amber-100 hover:shadow-xs transition-all cursor-pointer"
                 onClick={handleOpenSaveCloud}
                 title="ذخیره این مسابقه و نتایج آن در فضای ابری حساب کاربری"
