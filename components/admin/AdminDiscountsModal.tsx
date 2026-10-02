@@ -267,7 +267,7 @@ export function AdminDiscountsModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-ink/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl max-h-[90vh] rounded-2xl bg-white shadow-2xl border border-line flex flex-col overflow-hidden text-right" dir="rtl">
+      <div className="relative w-full max-w-4xl h-[92dvh] max-h-[92dvh] rounded-2xl bg-white shadow-2xl border border-line flex flex-col overflow-hidden text-right" dir="rtl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-line/70 bg-chalk/70 px-5 py-4 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -294,8 +294,9 @@ export function AdminDiscountsModal() {
           </button>
         </div>
 
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
         {/* Top Summary Stats Strip */}
-        <div className="border-b border-line bg-chalk/30 px-5 py-3 shrink-0">
+        <div className="border-b border-line bg-chalk/30 px-5 py-3">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-center">
             {/* Total Codes */}
             <div className="rounded-xl border border-line/80 bg-white p-3 shadow-2xs flex items-center justify-between">
@@ -422,7 +423,7 @@ export function AdminDiscountsModal() {
         {showAddForm && (
           <form
             onSubmit={handleCreateCode}
-            className="m-5 rounded-2xl border border-emerald-300 bg-emerald-50/40 p-4 space-y-3 shadow-xs shrink-0"
+            className="m-5 rounded-2xl border border-emerald-300 bg-emerald-50/40 p-4 space-y-3 shadow-xs"
           >
             <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
               <h3 className="font-bold text-xs sm:text-sm text-emerald-950 flex items-center gap-2">
@@ -568,7 +569,7 @@ export function AdminDiscountsModal() {
         )}
 
         {/* List of Discounts */}
-        <div className="p-5 flex-1 overflow-y-auto space-y-3">
+        <div className="p-5 space-y-3">
           {loading && discounts.length === 0 ? (
             <div className="py-12 flex flex-col items-center justify-center space-y-3">
               <div className="w-8 h-8 rounded-full border-3 border-emerald-600 border-t-transparent animate-spin" />
@@ -716,6 +717,7 @@ export function AdminDiscountsModal() {
               })}
             </div>
           )}
+        </div>
         </div>
 
         {/* Footer */}

@@ -52,7 +52,6 @@ export function AdminTicketsModal() {
   const [notice, setNotice] = useState<string | null>(null);
   const [broadcastTitle, setBroadcastTitle] = useState("");
   const [broadcastBody, setBroadcastBody] = useState("");
-  const [broadcastLink, setBroadcastLink] = useState("");
   const [broadcasting, setBroadcasting] = useState(false);
   const [broadcastNotice, setBroadcastNotice] = useState<string | null>(null);
 
@@ -157,7 +156,6 @@ export function AdminTicketsModal() {
         body: JSON.stringify({
           title: broadcastTitle,
           body: broadcastBody,
-          link: broadcastLink.trim() || undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -167,7 +165,6 @@ export function AdminTicketsModal() {
       }
       setBroadcastTitle("");
       setBroadcastBody("");
-      setBroadcastLink("");
       setBroadcastNotice(`پیام برای ${toPersianDigits(Number(data.sent || 0))} کاربر ارسال شد.`);
     } catch {
       setBroadcastNotice("خطا در ارتباط با سرور.");
@@ -237,7 +234,7 @@ export function AdminTicketsModal() {
             <form onSubmit={handleBroadcast} className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 space-y-2">
               <p className="text-[11px] font-black text-indigo-950">پیام عمومی به همه کاربران</p>
               <p className="text-[10px] text-indigo-800 leading-relaxed">
-                مثلاً کد تخفیف یا اطلاع‌رسانی سایت. همه در زنگوله اعلان می‌بینند.
+                متن اطلاع‌رسانی یا کد تخفیف. همه در زنگوله اعلان می‌بینند.
               </p>
               <input
                 required
@@ -251,16 +248,10 @@ export function AdminTicketsModal() {
                 required
                 value={broadcastBody}
                 onChange={(e) => setBroadcastBody(e.target.value)}
-                placeholder="متن پیام — مثلاً کد NOWROZ20"
-                rows={3}
+                placeholder="متن پیام — مثلاً با کد BAHAR20 بیست درصد تخفیف"
+                rows={4}
                 maxLength={800}
                 className="w-full rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs leading-relaxed"
-              />
-              <input
-                value={broadcastLink}
-                onChange={(e) => setBroadcastLink(e.target.value)}
-                placeholder="لینک اختیاری مثل /planner"
-                className="w-full rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-[11px] font-mono dir-ltr text-right"
               />
               {broadcastNotice && (
                 <p className="text-[10px] font-bold text-indigo-900">{broadcastNotice}</p>
