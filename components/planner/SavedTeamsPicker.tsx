@@ -53,6 +53,13 @@ export function SavedTeamsPicker({
     return teams.filter((t) => `${t.name} ${t.city} ${t.sport}`.includes(q));
   }, [teams, query]);
 
+  function isFillableSlot(name: string, index: number) {
+    const t = String(name || "").trim();
+    if (!t) return true;
+    if (t === `تیم ${toPersianDigits(index + 1)}`) return true;
+    return /^تیم\s*[0-9۰-۹٠-٩]+$/.test(t);
+  }
+
   function toggle(id: string) {
     setSelected((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
@@ -67,29 +74,36 @@ export function SavedTeamsPicker({
       .filter((t): t is TeamItem => Boolean(t));
     const nextNames = Array.from({ length: teamCount }, (_, i) => currentNames[i] || "");
     const nextIds: (string | null)[] = Array.from({ length: teamCount }, (_, i) => currentIds[i] ?? null);
-    const emptyIdx: number[] = [];
+    const fillableIdx: number[] = [];
     nextNames.forEach((n, i) => {
-      if (!n.trim()) emptyIdx.push(i);
+      if (isFillableSlot(n, i)) fillableIdx.push(i);
     });
-    let si = 0;
-    for (const idx of emptyIdx) {
-      if (si >= chosen.length) break;
-      nextNames[idx] = chosen[si].name;
-      nextIds[idx] = chosen[si].id;
-      si++;
+
+    if (fillableIdx.length === 0) {
+      setError("همه خانه‌ها از قبل نام دارند. خانه‌ای را خالی کنید یا ظرفیت مسابقه را افزایش دهید؛ اسم‌های تایپ‌شده جایگزین نمی‌شوند.");
+      return;
     }
-    if (si < chosen.length) {
-      const used = new Set(emptyIdx.slice(0, si));
-      for (let i = 0; i < teamCount && si < chosen.length; i++) {
-        if (used.has(i)) continue;
-        nextNames[i] = chosen[si].name;
-        nextIds[i] = chosen[si].id;
-        si++;
-      }
+
+    let placed = 0;
+    for (const team of chosen) {
+      if (nextIds.includes(team.id)) continue;
+      if (nextNames.some((n) => n.trim() === team.name.trim())) continue;
+      const idx = fillableIdx.find((i) => isFillableSlot(nextNames[i], i));
+      if (idx === undefined) break;
+      nextNames[idx] = team.name;
+      nextIds[idx] = team.id;
+      placed++;
     }
+
+    if (placed === 0) {
+      setError("تیم انتخاب‌شده از قبل در فهرست است یا خانه خالی باقی نمانده.");
+      return;
+    }
+
     onApply(nextNames, nextIds);
     setOpen(false);
     setSelected([]);
+    setError(null);
   }
 
   return (
@@ -116,7 +130,7 @@ export function SavedTeamsPicker({
               <div>
                 <h3 className="font-black text-slate-900">انتخاب از تیم‌های ذخیره‌شده</h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  خانه‌های خالی اول پر می‌شوند. ظرفیت این مسابقه {toPersianDigits(teamCount)} تیم است.
+                  فقط خانه‌های خالی یا نام پیش‌فرض (مثل تیم ۱) پر می‌شوند. اسم‌هایی که خودتان تایپ کرده‌اید جایگزین نمی‌شوند. ظرفیت: {toPersianDigits(teamCount)} تیم.
                 </p>
               </div>
               <button type="button" onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-700">
