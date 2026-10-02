@@ -77,8 +77,11 @@ export default function ExplorePage() {
             <h2 className="font-black">مسابقات</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {data.tournaments.map((t: any) => (
-                <Link key={t.id} href={`/t/${t.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 hover:border-emerald-300">
-                  <div className="font-black">{t.title}</div>
+                <Link key={t.id} href={`/t/${t.id}`} className={`rounded-2xl border bg-white p-4 hover:border-emerald-300 ${t.featuredUntil ? "border-amber-300 ring-1 ring-amber-200" : "border-slate-200"}`}>
+                  <div className="flex items-center gap-2">
+                    <div className="font-black">{t.title}</div>
+                    {t.featuredUntil && <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-black">ویژه</span>}
+                  </div>
                   <p className="text-[11px] text-slate-500 mt-1">
                     {tournamentFormatLabel(t.format)} • {toPersianDigits(t.team_count)} تیم
                     {t.sport ? ` • ${t.sport}` : ""}
@@ -109,9 +112,12 @@ export default function ExplorePage() {
             <h2 className="font-black">تیم‌ها</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {data.teams.map((t: any) => (
-                <Link key={t.id} href={`/tm/${t.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 hover:border-emerald-300">
+                <Link key={t.id} href={`/tm/${t.id}`} className={`rounded-2xl border bg-white p-4 hover:border-emerald-300 ${t.featuredUntil ? "border-amber-300 ring-1 ring-amber-200" : "border-slate-200"}`}>
                   <p className="text-[11px] font-black text-emerald-700">{t.sport}</p>
-                  <div className="font-black">{t.name}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-black">{t.name}</div>
+                    {t.featuredUntil && <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-black">ویژه</span>}
+                  </div>
                   <p className="text-[11px] text-slate-500 mt-1">
                     {t.city || "—"} • {toPersianDigits(t.player_count || 0)} بازیکن
                   </p>
@@ -142,8 +148,11 @@ export default function ExplorePage() {
             <h2 className="font-black">خدمات</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {data.services.map((s: any) => (
-                <Link key={s.id} href={`/services/${s.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 hover:border-amber-300">
-                  <p className="text-[11px] font-black text-amber-700">{serviceCategoryLabel(s.category)}</p>
+                <Link key={s.id} href={`/services/${s.id}`} className={`rounded-2xl border bg-white p-4 hover:border-amber-300 ${s.featuredUntil ? "border-amber-400 ring-1 ring-amber-200" : "border-slate-200"}`}>
+                  <p className="text-[11px] font-black text-amber-700">
+                    {serviceCategoryLabel(s.category)}
+                    {s.featuredUntil ? " • ویژه" : ""}
+                  </p>
                   <div className="font-black">{s.title}</div>
                   <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{s.body}</p>
                 </Link>

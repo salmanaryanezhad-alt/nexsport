@@ -59,7 +59,11 @@ export default function NewServicePage() {
         setError(data.error || "ثبت ناموفق بود.");
         return;
       }
-      router.push(`/services/${data.listing.id}`);
+      router.push(
+        data.needsSlotPayment
+          ? `/services/${data.listing.id}?slot=1`
+          : `/services/${data.listing.id}`
+      );
     } catch {
       setError("خطا در ارتباط با سرور.");
     } finally {
@@ -73,6 +77,7 @@ export default function NewServicePage() {
     <CommunityChrome subtitle="ثبت آگهی خدمت">
       <form onSubmit={submit} className="max-w-xl rounded-3xl border border-slate-200 bg-white p-6 space-y-3 shadow-card">
         <h1 className="text-xl font-black">ثبت آگهی در خدمات NexSport</h1>
+        <p className="text-xs text-slate-600 leading-relaxed">اولین آگهی فعال هر حساب رایگان است. آگهی‌های هم‌زمان اضافه بعد از ثبت با پرداخت فعال می‌شوند.</p>
         {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">{error}</div>}
         <label className="block text-xs font-bold">
           دسته

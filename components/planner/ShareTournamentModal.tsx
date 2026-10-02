@@ -5,6 +5,7 @@ import { useAuth } from "@/components/auth/AuthContext";
 import { toPersianDigits } from "@/lib/digits";
 import { DEDICATED_LINK_PRICE_TOMANS, LINK_ACTIVATION_CREDIT_COST } from "@/lib/payment/types";
 import { encodeTournamentPayload } from "@/lib/tournamentCodec";
+import { CommunityPayBox } from "@/components/community/CommunityPayBox";
 
 interface ShareTournamentModalProps {
   isOpen: boolean;
@@ -848,6 +849,17 @@ export function ShareTournamentModal({
                   <span>فعال و پرداخت‌شده (۱۵۰,۰۰۰ تومان)</span>
                 </span>
               </div>
+
+              {activeId && (
+                <CommunityPayBox
+                  itemType="tournament_boost"
+                  targetId={activeId}
+                  title="تبلیغ مسابقه در صدر جست‌وجو"
+                  hint="لینک تماشاگر همین حالا در جامعه دیده می‌شود. با تبلیغ ویژه چند روز بالای /explore می‌آید. VIP هر ماه یک تبلیغ رایگان دارد."
+                  priceKey="tournamentBoostPriceTomans"
+                  creditKey="tournamentBoostCreditCost"
+                />
+              )}
 
               {/* Short Link Display Box */}
               <div>

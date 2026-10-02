@@ -67,6 +67,15 @@ export async function GET(req: NextRequest) {
       if (itemType === "club_pro") {
         return NextResponse.redirect(`${baseUrl}/panel?tab=clubs&${params.toString()}`);
       }
+      if (itemType === "team_pin" && tid) {
+        return NextResponse.redirect(`${baseUrl}/teams/${tid}?${params.toString()}`);
+      }
+      if ((itemType === "listing_pin" || itemType === "extra_listing") && tid) {
+        return NextResponse.redirect(`${baseUrl}/services/${tid}?${params.toString()}`);
+      }
+      if (itemType === "tournament_boost") {
+        return NextResponse.redirect(`${baseUrl}/explore?${params.toString()}`);
+      }
       return NextResponse.redirect(`${baseUrl}/planner?${params.toString()}`);
     } else {
       return NextResponse.redirect(

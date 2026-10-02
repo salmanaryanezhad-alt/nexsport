@@ -6,21 +6,29 @@ import { sanitizeServiceListingInput } from "@/lib/community/validate";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
     const { id } = await Promise.resolve(params);
     const listing = await db.getServiceListing(id);
-    if (!listing || !listing.is_active) {
+    if (!listing) {
       return NextResponse.json({ error: "این آگهی یافت نشد." }, { status: 404 });
     }
+    const auth = await verifySessionRequest(req);
+    const isOwner = !("error" in auth) && (auth.user.id === listing.user_id || auth.isAdmin);
+    if (!listing.is_active && !isOwner) {
+      return NextResponse.json({ error: "این آگهی یافت نشد." }, { status: 404 });
+    }
+    const pin = await db.getActiveCommunityPromo("listing_pin", id);
     return NextResponse.json({
       listing: {
         ...listing,
         created_at: listing.created_at.toISOString(),
         updated_at: listing.updated_at.toISOString(),
       },
+      featuredUntil: pin?.expires_at?.toISOString() || null,
+      isOwner: Boolean(isOwner),
     });
   } catch (err) {
     console.error("[Service GET]", err);

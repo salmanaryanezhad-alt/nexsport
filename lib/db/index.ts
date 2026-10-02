@@ -376,6 +376,14 @@ const memoryStore = {
     created_at: Date;
     updated_at: Date;
   }>(),
+  communityPromos: new Map<string, {
+    id: string;
+    kind: string;
+    target_id: string;
+    user_id: string;
+    expires_at: Date;
+    created_at: Date;
+  }>(),
 };
 
 function normalizeDiscountRow(row: any): DiscountCodeRecord {
@@ -808,6 +816,19 @@ async function initTablesIfRealDb() {
           KEY \`idx_services_user\` (\`user_id\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
+      await mysqlPool.query(`
+        CREATE TABLE IF NOT EXISTS \`community_promos\` (
+          \`id\` VARCHAR(36) NOT NULL,
+          \`kind\` VARCHAR(40) NOT NULL,
+          \`target_id\` VARCHAR(36) NOT NULL,
+          \`user_id\` VARCHAR(36) NOT NULL,
+          \`expires_at\` TIMESTAMP NOT NULL,
+          \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_promos_kind\` (\`kind\`, \`expires_at\`),
+          KEY \`idx_promos_target\` (\`kind\`, \`target_id\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
 
       tablesInitialized = true;
     } catch (err) {
@@ -1097,6 +1118,17 @@ async function initTablesIfRealDb() {
         );
         CREATE INDEX IF NOT EXISTS idx_services_cat ON service_listings(category, is_active);
         CREATE INDEX IF NOT EXISTS idx_services_user ON service_listings(user_id);
+
+        CREATE TABLE IF NOT EXISTS community_promos (
+          id VARCHAR(36) PRIMARY KEY,
+          kind VARCHAR(40) NOT NULL,
+          target_id VARCHAR(36) NOT NULL,
+          user_id VARCHAR(36) NOT NULL,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_promos_kind ON community_promos(kind, expires_at);
+        CREATE INDEX IF NOT EXISTS idx_promos_target ON community_promos(kind, target_id);
       `);
       tablesInitialized = true;
     } catch (err) {
@@ -4849,6 +4881,7 @@ export const db = {
     sport: string;
     contact_name: string;
     mobile: string;
+    is_active?: boolean;
   }) {
     const id = crypto.randomUUID();
     const now = new Date();
@@ -4862,7 +4895,7 @@ export const db = {
       sport: data.sport || "",
       contact_name: data.contact_name || "",
       mobile: data.mobile || "",
-      is_active: true,
+      is_active: data.is_active !== false,
       created_at: now,
       updated_at: now,
     };
@@ -4870,15 +4903,15 @@ export const db = {
       await initTablesIfRealDb();
       await mysqlPool.execute(
         `INSERT INTO \`service_listings\` (id, user_id, category, title, body, city, sport, contact_name, mobile, is_active, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,1,?,?)`,
-        [id, userId, rec.category, rec.title, rec.body, rec.city, rec.sport, rec.contact_name, rec.mobile, now, now]
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [id, userId, rec.category, rec.title, rec.body, rec.city, rec.sport, rec.contact_name, rec.mobile, rec.is_active ? 1 : 0, now, now]
       );
     } else if (pgPool) {
       await initTablesIfRealDb();
       await pgPool.query(
         `INSERT INTO service_listings (id, user_id, category, title, body, city, sport, contact_name, mobile, is_active, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,$10,$11)`,
-        [id, userId, rec.category, rec.title, rec.body, rec.city, rec.sport, rec.contact_name, rec.mobile, now, now]
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [id, userId, rec.category, rec.title, rec.body, rec.city, rec.sport, rec.contact_name, rec.mobile, rec.is_active, now, now]
       );
     }
     memoryStore.serviceListings.set(id, rec);
@@ -4998,6 +5031,136 @@ export const db = {
       .slice(0, cap);
   },
 
+  async countActiveServiceListings(userId: string): Promise<number> {
+    const rows = await this.listServiceListings({ userId, includeInactive: false, limit: 80 });
+    return rows.length;
+  },
+
+  async activateServiceListing(id: string) {
+    const existing = await this.getServiceListing(id);
+    if (!existing) return null;
+    return this.updateServiceListing(id, existing.user_id, { is_active: true }, true);
+  },
+
+  async grantCommunityPromo(kind: string, targetId: string, userId: string, days: number) {
+    await initTablesIfRealDb();
+    const now = Date.now();
+    const current = await this.getActiveCommunityPromo(kind, targetId);
+    const base = current && current.expires_at.getTime() > now ? current.expires_at.getTime() : now;
+    const expires = new Date(base + Math.max(1, days) * 24 * 60 * 60 * 1000);
+    if (current) {
+      if (mysqlPool) {
+        await mysqlPool.execute("UPDATE `community_promos` SET expires_at = ? WHERE id = ?", [expires, current.id]);
+      } else if (pgPool) {
+        await pgPool.query("UPDATE community_promos SET expires_at = $1 WHERE id = $2", [expires, current.id]);
+      }
+      const updated = { ...current, expires_at: expires };
+      memoryStore.communityPromos.set(current.id, updated);
+      return updated;
+    }
+    const rec = {
+      id: crypto.randomUUID(),
+      kind,
+      target_id: targetId,
+      user_id: userId,
+      expires_at: expires,
+      created_at: new Date(),
+    };
+    if (mysqlPool) {
+      await mysqlPool.execute(
+        "INSERT INTO `community_promos` (id, kind, target_id, user_id, expires_at, created_at) VALUES (?,?,?,?,?,?)",
+        [rec.id, rec.kind, rec.target_id, rec.user_id, rec.expires_at, rec.created_at]
+      );
+    } else if (pgPool) {
+      await pgPool.query(
+        "INSERT INTO community_promos (id, kind, target_id, user_id, expires_at, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
+        [rec.id, rec.kind, rec.target_id, rec.user_id, rec.expires_at, rec.created_at]
+      );
+    }
+    memoryStore.communityPromos.set(rec.id, rec);
+    return rec;
+  },
+
+  async getActiveCommunityPromo(kind: string, targetId: string) {
+    const now = new Date();
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT * FROM `community_promos` WHERE kind = ? AND target_id = ? AND expires_at > ? ORDER BY expires_at DESC LIMIT 1",
+        [kind, targetId, now]
+      );
+      return rows[0] ? normalizePromoRow(rows[0]) : null;
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT * FROM community_promos WHERE kind = $1 AND target_id = $2 AND expires_at > $3 ORDER BY expires_at DESC LIMIT 1",
+        [kind, targetId, now]
+      );
+      return res.rows[0] ? normalizePromoRow(res.rows[0]) : null;
+    }
+    return (
+      Array.from(memoryStore.communityPromos.values())
+        .filter((p) => p.kind === kind && p.target_id === targetId && p.expires_at.getTime() > now.getTime())
+        .sort((a, b) => b.expires_at.getTime() - a.expires_at.getTime())[0] || null
+    );
+  },
+
+  async listActiveCommunityPromos(kind?: string) {
+    const now = new Date();
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = kind
+        ? await mysqlPool.execute<RowDataPacket[]>(
+            "SELECT * FROM `community_promos` WHERE kind = ? AND expires_at > ? ORDER BY expires_at DESC",
+            [kind, now]
+          )
+        : await mysqlPool.execute<RowDataPacket[]>(
+            "SELECT * FROM `community_promos` WHERE expires_at > ? ORDER BY expires_at DESC",
+            [now]
+          );
+      return rows.map(normalizePromoRow);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = kind
+        ? await pgPool.query("SELECT * FROM community_promos WHERE kind = $1 AND expires_at > $2 ORDER BY expires_at DESC", [
+            kind,
+            now,
+          ])
+        : await pgPool.query("SELECT * FROM community_promos WHERE expires_at > $1 ORDER BY expires_at DESC", [now]);
+      return res.rows.map(normalizePromoRow);
+    }
+    return Array.from(memoryStore.communityPromos.values()).filter(
+      (p) => (!kind || p.kind === kind) && p.expires_at.getTime() > now.getTime()
+    );
+  },
+
+  async countCommunityPromosThisMonth(userId: string, kind: string): Promise<number> {
+    const start = new Date();
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT COUNT(*) AS c FROM `community_promos` WHERE user_id = ? AND kind = ? AND created_at >= ?",
+        [userId, kind, start]
+      );
+      return Number(rows[0]?.c || 0);
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT COUNT(*)::int AS c FROM community_promos WHERE user_id = $1 AND kind = $2 AND created_at >= $3",
+        [userId, kind, start]
+      );
+      return Number(res.rows[0]?.c || 0);
+    }
+    return Array.from(memoryStore.communityPromos.values()).filter(
+      (p) => p.user_id === userId && p.kind === kind && p.created_at.getTime() >= start.getTime()
+    ).length;
+  },
+
 };
 
 
@@ -5011,6 +5174,17 @@ function teamMatchesQuery(t: TeamRecord, q: string) {
   if (!q) return true;
   const hay = `${t.name} ${t.city} ${t.sport} ${t.coach} ${t.short_name}`.toLowerCase();
   return hay.includes(q.toLowerCase());
+}
+
+function normalizePromoRow(row: any) {
+  return {
+    id: row.id,
+    kind: String(row.kind || ""),
+    target_id: String(row.target_id || ""),
+    user_id: String(row.user_id || ""),
+    expires_at: row.expires_at instanceof Date ? row.expires_at : new Date(row.expires_at),
+    created_at: row.created_at instanceof Date ? row.created_at : new Date(row.created_at),
+  };
 }
 
 function normalizeNotificationRow(row: any) {

@@ -517,8 +517,76 @@ export function AdminPricingModal() {
                   </label>
                 </div>
                 <p className="text-[11px] text-indigo-900">
-                  طرح رایگان فعلی: {formatFreeClubCaps(form)}. Club Pro این سقف‌ها را برمی‌دارد. لینک ثبت‌نام مسابقه همیشه رایگان است.
+                  طرح رایگان فعلی: {formatFreeClubCaps(form)}. Club Pro این سقف‌ها را برمی‌دارد و ماهی {toPersianDigits(form.clubProFreeListingPinsPerMonth)} پین آگهی رایگان می‌دهد. لینک ثبت‌نام مسابقه همیشه رایگان است.
                 </p>
+              </section>
+
+              <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
+                <h3 className="font-black text-sm text-amber-950 flex items-center gap-2">
+                  <span>📣</span>
+                  <span>جامعه و خدمات (دیده‌شدن ویژه)</span>
+                </h3>
+                <p className="text-[11px] text-amber-900">
+                  جست‌وجو، دنبال‌کردن، اعلان و انتشار صفحه تیم رایگان است. درآمد از پین/تبلیغ و آگهی اضافه است.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    پین تیم (تومان)
+                    <input type="number" min={0} required value={form.teamPinPriceTomans} onChange={(e) => update("teamPinPriceTomans", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    معادل سهمیه پین تیم
+                    <input type="number" min={1} required value={form.teamPinCreditCost} onChange={(e) => update("teamPinCreditCost", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    مدت پین تیم (روز)
+                    <input type="number" min={1} required value={form.teamPinDays} onChange={(e) => update("teamPinDays", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    آگهی رایگان هر کاربر
+                    <input type="number" min={0} required value={form.freeServiceListings} onChange={(e) => update("freeServiceListings", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    آگهی اضافه (تومان)
+                    <input type="number" min={0} required value={form.extraListingPriceTomans} onChange={(e) => update("extraListingPriceTomans", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    معادل سهمیه آگهی اضافه
+                    <input type="number" min={1} required value={form.extraListingCreditCost} onChange={(e) => update("extraListingCreditCost", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    پین آگهی (تومان)
+                    <input type="number" min={0} required value={form.listingPinPriceTomans} onChange={(e) => update("listingPinPriceTomans", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    معادل سهمیه پین آگهی
+                    <input type="number" min={1} required value={form.listingPinCreditCost} onChange={(e) => update("listingPinCreditCost", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    مدت پین آگهی (روز)
+                    <input type="number" min={1} required value={form.listingPinDays} onChange={(e) => update("listingPinDays", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    تبلیغ مسابقه (تومان)
+                    <input type="number" min={0} required value={form.tournamentBoostPriceTomans} onChange={(e) => update("tournamentBoostPriceTomans", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    معادل سهمیه تبلیغ مسابقه
+                    <input type="number" min={1} required value={form.tournamentBoostCreditCost} onChange={(e) => update("tournamentBoostCreditCost", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    مدت تبلیغ مسابقه (روز)
+                    <input type="number" min={1} required value={form.tournamentBoostDays} onChange={(e) => update("tournamentBoostDays", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    پین رایگان VIP در ماه
+                    <input type="number" min={0} required value={form.vipFreeTournamentBoostsPerMonth} onChange={(e) => update("vipFreeTournamentBoostsPerMonth", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    پین رایگان Club Pro در ماه
+                    <input type="number" min={0} required value={form.clubProFreeListingPinsPerMonth} onChange={(e) => update("clubProFreeListingPinsPerMonth", e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:outline-none" />
+                  </label>
+                </div>
               </section>
             </>
           )}

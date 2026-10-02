@@ -29,12 +29,45 @@ export const FREE_CLUB_COACHES = 2;
 export const GUEST_MAX_TOURNAMENTS = 2;
 export const USER_FREE_PLANNINGS = 5;
 export const USER_FREE_LINKS = 1;
+export const TEAM_PIN_PRICE_TOMANS = 50_000;
+export const TEAM_PIN_CREDIT_COST = 1;
+export const TEAM_PIN_DAYS = 7;
+export const EXTRA_LISTING_PRICE_TOMANS = 50_000;
+export const EXTRA_LISTING_CREDIT_COST = 1;
+export const FREE_SERVICE_LISTINGS = 1;
+export const LISTING_PIN_PRICE_TOMANS = 80_000;
+export const LISTING_PIN_CREDIT_COST = 2;
+export const LISTING_PIN_DAYS = 7;
+export const TOURNAMENT_BOOST_PRICE_TOMANS = 100_000;
+export const TOURNAMENT_BOOST_CREDIT_COST = 2;
+export const TOURNAMENT_BOOST_DAYS = 7;
+export const VIP_FREE_TOURNAMENT_BOOSTS_PER_MONTH = 1;
+export const CLUB_PRO_FREE_LISTING_PINS_PER_MONTH = 1;
 
-export type DiscountItemType = "credits" | "vip" | "link" | "club_page" | "club_pro";
+export type DiscountItemType =
+  | "credits"
+  | "vip"
+  | "link"
+  | "club_page"
+  | "club_pro"
+  | "team_pin"
+  | "extra_listing"
+  | "listing_pin"
+  | "tournament_boost";
 /** Stored as "all" or a comma-separated list of DiscountItemType. Legacy: planning. */
 export type DiscountAppliesTo = string;
 
-export const DISCOUNT_ITEM_TYPES: DiscountItemType[] = ["credits", "vip", "link", "club_page", "club_pro"];
+export const DISCOUNT_ITEM_TYPES: DiscountItemType[] = [
+  "credits",
+  "vip",
+  "link",
+  "club_page",
+  "club_pro",
+  "team_pin",
+  "extra_listing",
+  "listing_pin",
+  "tournament_boost",
+];
 
 export const DISCOUNT_ITEM_OPTIONS: { value: DiscountItemType; label: string }[] = [
   { value: "credits", label: "بسته‌های اعتباری مسابقه" },
@@ -42,6 +75,10 @@ export const DISCOUNT_ITEM_OPTIONS: { value: DiscountItemType; label: string }[]
   { value: "link", label: "لینک اختصاصی تماشاگران" },
   { value: "club_page", label: "صفحه عمومی باشگاه" },
   { value: "club_pro", label: "اشتراک Club Pro" },
+  { value: "team_pin", label: "پین تیم در جست‌وجو" },
+  { value: "extra_listing", label: "آگهی خدمت اضافه" },
+  { value: "listing_pin", label: "پین آگهی خدمت" },
+  { value: "tournament_boost", label: "تبلیغ ویژه مسابقه" },
 ];
 
 export const DISCOUNT_ITEM_LABELS: Record<DiscountItemType, string> = {
@@ -50,6 +87,10 @@ export const DISCOUNT_ITEM_LABELS: Record<DiscountItemType, string> = {
   link: "لینک اختصاصی تماشاگران",
   club_page: "صفحه عمومی باشگاه",
   club_pro: "اشتراک Club Pro",
+  team_pin: "پین تیم در جست‌وجو",
+  extra_listing: "آگهی خدمت اضافه",
+  listing_pin: "پین آگهی خدمت",
+  tournament_boost: "تبلیغ ویژه مسابقه",
 };
 
 export const DISCOUNT_APPLIES_OPTIONS: { value: DiscountItemType | "all"; label: string }[] = [
@@ -132,6 +173,20 @@ export interface PricingSettings {
   freeClubTeams: number;
   freeClubPlayers: number;
   freeClubCoaches: number;
+  teamPinPriceTomans: number;
+  teamPinCreditCost: number;
+  teamPinDays: number;
+  extraListingPriceTomans: number;
+  extraListingCreditCost: number;
+  freeServiceListings: number;
+  listingPinPriceTomans: number;
+  listingPinCreditCost: number;
+  listingPinDays: number;
+  tournamentBoostPriceTomans: number;
+  tournamentBoostCreditCost: number;
+  tournamentBoostDays: number;
+  vipFreeTournamentBoostsPerMonth: number;
+  clubProFreeListingPinsPerMonth: number;
 }
 
 export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
@@ -159,6 +214,20 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   freeClubTeams: FREE_CLUB_TEAMS,
   freeClubPlayers: FREE_CLUB_PLAYERS,
   freeClubCoaches: FREE_CLUB_COACHES,
+  teamPinPriceTomans: TEAM_PIN_PRICE_TOMANS,
+  teamPinCreditCost: TEAM_PIN_CREDIT_COST,
+  teamPinDays: TEAM_PIN_DAYS,
+  extraListingPriceTomans: EXTRA_LISTING_PRICE_TOMANS,
+  extraListingCreditCost: EXTRA_LISTING_CREDIT_COST,
+  freeServiceListings: FREE_SERVICE_LISTINGS,
+  listingPinPriceTomans: LISTING_PIN_PRICE_TOMANS,
+  listingPinCreditCost: LISTING_PIN_CREDIT_COST,
+  listingPinDays: LISTING_PIN_DAYS,
+  tournamentBoostPriceTomans: TOURNAMENT_BOOST_PRICE_TOMANS,
+  tournamentBoostCreditCost: TOURNAMENT_BOOST_CREDIT_COST,
+  tournamentBoostDays: TOURNAMENT_BOOST_DAYS,
+  vipFreeTournamentBoostsPerMonth: VIP_FREE_TOURNAMENT_BOOSTS_PER_MONTH,
+  clubProFreeListingPinsPerMonth: CLUB_PRO_FREE_LISTING_PINS_PER_MONTH,
 };
 
 export function sanitizePricingSettings(input: Partial<PricingSettings> | null | undefined): PricingSettings {
@@ -244,6 +313,60 @@ export function sanitizePricingSettings(input: Partial<PricingSettings> | null |
     freeClubTeams: clampInt(src.freeClubTeams, DEFAULT_PRICING_SETTINGS.freeClubTeams, 0, 100),
     freeClubPlayers: clampInt(src.freeClubPlayers, DEFAULT_PRICING_SETTINGS.freeClubPlayers, 0, 500),
     freeClubCoaches: clampInt(src.freeClubCoaches, DEFAULT_PRICING_SETTINGS.freeClubCoaches, 0, 50),
+    teamPinPriceTomans: clampInt(src.teamPinPriceTomans, DEFAULT_PRICING_SETTINGS.teamPinPriceTomans, 0, 50_000_000),
+    teamPinCreditCost: clampInt(src.teamPinCreditCost, DEFAULT_PRICING_SETTINGS.teamPinCreditCost, 1, 100),
+    teamPinDays: clampInt(src.teamPinDays, DEFAULT_PRICING_SETTINGS.teamPinDays, 1, 90),
+    extraListingPriceTomans: clampInt(
+      src.extraListingPriceTomans,
+      DEFAULT_PRICING_SETTINGS.extraListingPriceTomans,
+      0,
+      50_000_000
+    ),
+    extraListingCreditCost: clampInt(
+      src.extraListingCreditCost,
+      DEFAULT_PRICING_SETTINGS.extraListingCreditCost,
+      1,
+      100
+    ),
+    freeServiceListings: clampInt(
+      src.freeServiceListings,
+      DEFAULT_PRICING_SETTINGS.freeServiceListings,
+      0,
+      50
+    ),
+    listingPinPriceTomans: clampInt(
+      src.listingPinPriceTomans,
+      DEFAULT_PRICING_SETTINGS.listingPinPriceTomans,
+      0,
+      50_000_000
+    ),
+    listingPinCreditCost: clampInt(src.listingPinCreditCost, DEFAULT_PRICING_SETTINGS.listingPinCreditCost, 1, 100),
+    listingPinDays: clampInt(src.listingPinDays, DEFAULT_PRICING_SETTINGS.listingPinDays, 1, 90),
+    tournamentBoostPriceTomans: clampInt(
+      src.tournamentBoostPriceTomans,
+      DEFAULT_PRICING_SETTINGS.tournamentBoostPriceTomans,
+      0,
+      50_000_000
+    ),
+    tournamentBoostCreditCost: clampInt(
+      src.tournamentBoostCreditCost,
+      DEFAULT_PRICING_SETTINGS.tournamentBoostCreditCost,
+      1,
+      100
+    ),
+    tournamentBoostDays: clampInt(src.tournamentBoostDays, DEFAULT_PRICING_SETTINGS.tournamentBoostDays, 1, 90),
+    vipFreeTournamentBoostsPerMonth: clampInt(
+      src.vipFreeTournamentBoostsPerMonth,
+      DEFAULT_PRICING_SETTINGS.vipFreeTournamentBoostsPerMonth,
+      0,
+      20
+    ),
+    clubProFreeListingPinsPerMonth: clampInt(
+      src.clubProFreeListingPinsPerMonth,
+      DEFAULT_PRICING_SETTINGS.clubProFreeListingPinsPerMonth,
+      0,
+      20
+    ),
   };
 }
 

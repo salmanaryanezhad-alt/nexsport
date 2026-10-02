@@ -22,14 +22,18 @@ export async function GET(req: NextRequest) {
       category: category || undefined,
       userId,
       includeInactive: Boolean(userId),
-      limit: 40,
+      limit: 80,
     });
+    const pins = await db.listActiveCommunityPromos("listing_pin");
+    const feat = new Map(pins.map((p) => [p.target_id, p.expires_at.toISOString()]));
+    const sorted = [...listings].sort((a, b) => Number(feat.has(b.id)) - Number(feat.has(a.id)));
     return NextResponse.json({
       success: true,
-      listings: listings.map((s) => ({
+      listings: sorted.slice(0, 40).map((s) => ({
         ...s,
         created_at: s.created_at.toISOString(),
         updated_at: s.updated_at.toISOString(),
+        featuredUntil: feat.get(s.id) || null,
         mobile: userId && s.user_id === userId ? s.mobile : s.mobile,
       })),
     });
@@ -46,8 +50,22 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const parsed = sanitizeServiceListingInput(body || {});
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
-    const created = await db.createServiceListing(auth.user.id, parsed.data);
-    return NextResponse.json({ success: true, listing: created });
+    const pricing = await db.getPricingSettings();
+    const quota = await db.getUserQuota(auth.user.id);
+    const activeCount = await db.countActiveServiceListings(auth.user.id);
+    const clubIntroFree = Boolean(quota.isClubPro && parsed.data.category === "club_intro");
+    const withinFree = activeCount < pricing.freeServiceListings;
+    const isActive = Boolean(auth.isAdmin || clubIntroFree || withinFree);
+    const created = await db.createServiceListing(auth.user.id, { ...parsed.data, is_active: isActive });
+    return NextResponse.json({
+      success: true,
+      listing: created,
+      needsSlotPayment: !isActive,
+      quote: {
+        priceTomans: pricing.extraListingPriceTomans,
+        creditCost: pricing.extraListingCreditCost,
+      },
+    });
   } catch (err) {
     console.error("[Services POST]", err);
     return NextResponse.json({ error: "خطا در ثبت خدمت." }, { status: 500 });

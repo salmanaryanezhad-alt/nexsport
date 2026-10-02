@@ -32,8 +32,17 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { itemType, tournamentId, clubId, creditCount, vipPlanId, clubProPlanId, discountCode, payWithCredits } =
-      body || {};
+    const {
+      itemType,
+      tournamentId,
+      clubId,
+      creditCount,
+      vipPlanId,
+      clubProPlanId,
+      discountCode,
+      payWithCredits,
+      targetId,
+    } = body || {};
     const origin = req.nextUrl.origin;
     const discountCatalog = readDiscountCatalogCookie(req);
 
@@ -96,6 +105,34 @@ export async function POST(req: NextRequest) {
       if (!result.success) {
         return NextResponse.json(
           { error: ("error" in result && result.error) || "خطا در فعال‌سازی صفحه باشگاه." },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(result);
+    }
+
+    if (
+      itemType === "team_pin" ||
+      itemType === "listing_pin" ||
+      itemType === "tournament_boost" ||
+      itemType === "extra_listing"
+    ) {
+      const tid = String(targetId || tournamentId || clubId || "");
+      const result = await paymentService.initiateCommunityPayment({
+        kind: itemType,
+        targetId: tid,
+        userId: user.id,
+        userEmail: user.email,
+        userMobile: user.mobile || undefined,
+        origin,
+        adminBypass: hasUnlimitedPlanning(user),
+        payWithCredits: Boolean(payWithCredits),
+        discountCode: discountCode ? String(discountCode).trim() : undefined,
+        discountCatalog,
+      });
+      if (!result.success) {
+        return NextResponse.json(
+          { error: ("error" in result && result.error) || "خطا در پرداخت جامعه و خدمات." },
           { status: 400 }
         );
       }

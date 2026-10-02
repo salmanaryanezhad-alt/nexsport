@@ -19,7 +19,11 @@ export type PaymentItemType =
   | "planning_credits"
   | "vip_subscription"
   | "club_page"
-  | "club_pro";
+  | "club_pro"
+  | "team_pin"
+  | "extra_listing"
+  | "listing_pin"
+  | "tournament_boost";
 
 export interface PaymentOrder {
   id: string; // Order reference, e.g. "ord_..."

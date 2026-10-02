@@ -1882,6 +1882,211 @@ async function run() {
     assert(!after.some((s) => s.id === listing.id), "آگهی غیرفعال در فهرست عمومی نباشد.");
   });
 
+  await test("درآمد جامعه: پین تیم، آگهی اضافه، پین خدمت، تبلیغ مسابقه و سهمیه رایگان VIP/Club Pro", async () => {
+    const { DISCOUNT_ITEM_TYPES, DISCOUNT_ITEM_OPTIONS, DEFAULT_PRICING_SETTINGS, sanitizePricingSettings } = await import(
+      "../payment/pricing"
+    );
+    const { sanitizeTeamInput } = await import("../teams/validate");
+    const { sanitizeServiceListingInput } = await import("../community/validate");
+
+    assertEqual(DISCOUNT_ITEM_TYPES.includes("team_pin"), true, "کد تخفیف پین تیم دارد.");
+    assertEqual(DISCOUNT_ITEM_TYPES.includes("extra_listing"), true, "کد تخفیف آگهی اضافه دارد.");
+    assertEqual(DISCOUNT_ITEM_TYPES.includes("listing_pin"), true, "کد تخفیف پین آگهی دارد.");
+    assertEqual(DISCOUNT_ITEM_TYPES.includes("tournament_boost"), true, "کد تخفیف تبلیغ مسابقه دارد.");
+    assertEqual(DISCOUNT_ITEM_OPTIONS.length, DISCOUNT_ITEM_TYPES.length, "هر محصول پرداختی چک‌باکس تخفیف دارد.");
+    assertEqual(DEFAULT_PRICING_SETTINGS.teamPinPriceTomans, 50000, "پین تیم پیش‌فرض ۵۰ هزار.");
+    assertEqual(DEFAULT_PRICING_SETTINGS.extraListingPriceTomans, 50000, "آگهی اضافه پیش‌فرض ۵۰ هزار.");
+    assertEqual(DEFAULT_PRICING_SETTINGS.listingPinPriceTomans, 80000, "پین آگهی پیش‌فرض ۸۰ هزار.");
+    assertEqual(DEFAULT_PRICING_SETTINGS.tournamentBoostPriceTomans, 100000, "تبلیغ مسابقه پیش‌فرض ۱۰۰ هزار.");
+    assertEqual(DEFAULT_PRICING_SETTINGS.freeServiceListings, 1, "یک آگهی رایگان.");
+    assertEqual(DEFAULT_PRICING_SETTINGS.vipFreeTournamentBoostsPerMonth, 1, "VIP یک تبلیغ رایگان در ماه.");
+    assertEqual(DEFAULT_PRICING_SETTINGS.clubProFreeListingPinsPerMonth, 1, "Club Pro یک پین آگهی رایگان در ماه.");
+
+    const sanitized = sanitizePricingSettings({});
+    assertEqual(sanitized.teamPinDays, 7, "sanitize مدت پین تیم را پر کند.");
+    assertEqual(sanitized.listingPinCreditCost, 2, "sanitize معادل سهمیه پین آگهی را پر کند.");
+
+    const owner = await db.createUser({
+      name: "مالک درآمد جامعه",
+      email: "rev.community@nexsport.ir",
+      mobile: "09127770001",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: true,
+    });
+    const tIn = sanitizeTeamInput({ name: "پین پرسپولیس تست", city: "تهران", sport: "فوتبال" });
+    assert(tIn.ok, "تیم پین معتبر.");
+    if (!tIn.ok) return;
+    const team = await db.createTeam(owner.id, tIn.data);
+    await db.setTeamPublic(team.id, true);
+
+    const pin1 = await db.grantCommunityPromo("team_pin", team.id, owner.id, 7);
+    const firstExp = pin1.expires_at.getTime();
+    const pin2 = await db.grantCommunityPromo("team_pin", team.id, owner.id, 7);
+    assertEqual(pin2.id, pin1.id, "تمدید پین همان رکورد را دراز کند.");
+    assert(pin2.expires_at.getTime() > firstExp, "پین از تاریخ انقضای فعلی تمدید شود.");
+    const active = await db.getActiveCommunityPromo("team_pin", team.id);
+    assert(Boolean(active), "پین فعال خوانده شود.");
+
+    const listingBody = {
+      category: "coach" as const,
+      title: "مربی آمادگی جسمانی",
+      body: "برنامه بدنسازی اختصاصی برای بازیکنان فوتسال بزرگسالان.",
+      city: "تهران",
+      sport: "فوتسال",
+      contact_name: "نادر",
+      mobile: "09123334466",
+    };
+    const s1 = sanitizeServiceListingInput(listingBody);
+    assert(s1.ok, "آگهی اول معتبر.");
+    if (!s1.ok) return;
+    const firstListing = await db.createServiceListing(owner.id, { ...s1.data, is_active: true });
+    assertEqual(firstListing.is_active, true, "اولین آگهی فعال باشد.");
+    assertEqual(await db.countActiveServiceListings(owner.id), 1, "سهمیه رایگان پر شود.");
+
+    const s2 = sanitizeServiceListingInput({ ...listingBody, title: "مربی دروازه‌بان نوجوانان" });
+    assert(s2.ok, "آگهی دوم معتبر.");
+    if (!s2.ok) return;
+    const extra = await db.createServiceListing(owner.id, { ...s2.data, is_active: false });
+    assertEqual(extra.is_active, false, "آگهی اضافه غیرفعال ساخته شود.");
+
+    const payExtra = await paymentService.initiateCommunityPayment({
+      kind: "extra_listing",
+      targetId: extra.id,
+      userId: owner.id,
+      payWithCredits: true,
+    });
+    assertEqual(payExtra.success, true, "فعال‌سازی آگهی اضافه با اعتبار موفق باشد.");
+    const extraAfter = await db.getServiceListing(extra.id);
+    assertEqual(extraAfter?.is_active, true, "پس از پرداخت آگهی اضافه فعال شود.");
+    assertEqual(payExtra.creditsCharged, 1, "یک سهمیه برای آگهی اضافه کسر شود.");
+
+    const pinListing = await paymentService.initiateCommunityPayment({
+      kind: "listing_pin",
+      targetId: firstListing.id,
+      userId: owner.id,
+      payWithCredits: true,
+    });
+    assertEqual(pinListing.success, true, "پین آگهی با اعتبار موفق باشد.");
+    assertEqual(pinListing.creditsCharged, 2, "دو سهمیه برای پین آگهی کسر شود.");
+    assert(Boolean(await db.getActiveCommunityPromo("listing_pin", firstListing.id)), "پین آگهی فعال شود.");
+
+    const teamPinPay = await paymentService.initiateCommunityPayment({
+      kind: "team_pin",
+      targetId: team.id,
+      userId: owner.id,
+      payWithCredits: true,
+    });
+    assertEqual(teamPinPay.success, true, "پین تیم با اعتبار موفق باشد.");
+    assertEqual(teamPinPay.creditsCharged, 1, "یک سهمیه برای پین تیم کسر شود.");
+
+    const stranger = await db.createUser({
+      name: "غریبه",
+      email: "stranger.rev@nexsport.ir",
+      mobile: "09127770002",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: true,
+    });
+    const steal = await paymentService.initiateCommunityPayment({
+      kind: "team_pin",
+      targetId: team.id,
+      userId: stranger.id,
+      payWithCredits: true,
+    });
+    assertEqual(steal.success, false, "غریبه نتواند تیم دیگران را پین کند.");
+
+    const vip = await db.createUser({
+      name: "VIP جامعه",
+      email: "vip.rev@nexsport.ir",
+      mobile: "09127770003",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: true,
+    });
+    await db.activateVipSubscription(vip.id, 1);
+    const vt = await db.saveTournament({
+      userId: vip.id,
+      title: "جام ویژه جامعه",
+      format: "league",
+      teamCount: 4,
+      state: { step: 4 },
+    });
+    const vipLink = await paymentService.initiateTournamentPayment({ tournamentId: vt.id, userId: vip.id });
+    assertEqual(vipLink.success, true, "لینک VIP فعال شود.");
+    const boost1 = await paymentService.initiateCommunityPayment({
+      kind: "tournament_boost",
+      targetId: vt.id,
+      userId: vip.id,
+    });
+    assertEqual(boost1.success, true, "اولین تبلیغ VIP رایگان باشد.");
+    assertEqual(Boolean(boost1.isVipFree), true, "فلگ رایگان VIP.");
+    const vt2 = await db.saveTournament({
+      userId: vip.id,
+      title: "جام دوم جامعه",
+      format: "league",
+      teamCount: 4,
+      state: { payment: { isPaid: true }, step: 4 },
+    });
+    const boost2 = await paymentService.initiateCommunityPayment({
+      kind: "tournament_boost",
+      targetId: vt2.id,
+      userId: vip.id,
+      payWithCredits: true,
+    });
+    assertEqual(boost2.success, true, "تبلیغ دوم VIP با اعتبار باشد.");
+    assertEqual(Boolean(boost2.isVipFree), false, "سهمیه رایگان ماهانه تمام شده.");
+    assertEqual(boost2.creditsCharged, 2, "دو سهمیه برای تبلیغ دوم.");
+
+    const unpaidBoost = await paymentService.initiateCommunityPayment({
+      kind: "tournament_boost",
+      targetId: (
+        await db.saveTournament({
+          userId: owner.id,
+          title: "بدون لینک تماشاگر",
+          format: "league",
+          teamCount: 4,
+          state: { step: 4 },
+        })
+      ).id,
+      userId: owner.id,
+      payWithCredits: true,
+    });
+    assertEqual(unpaidBoost.success, false, "بدون لینک تماشاگر تبلیغ نشود.");
+
+    const pro = await db.createUser({
+      name: "کلاب پرو جامعه",
+      email: "pro.rev@nexsport.ir",
+      mobile: "09127770004",
+      passwordHash: hashPassword("Pass1234"),
+      isVerified: true,
+    });
+    await db.activateClubProSubscription(pro.id, 1);
+    const pIn = sanitizeServiceListingInput({
+      ...listingBody,
+      category: "club_intro",
+      title: "معرفی باشگاه قهرمانان",
+    });
+    assert(pIn.ok, "آگهی باشگاه معتبر.");
+    if (!pIn.ok) return;
+    const proListing = await db.createServiceListing(pro.id, { ...pIn.data, is_active: true });
+    const proPin = await paymentService.initiateCommunityPayment({
+      kind: "listing_pin",
+      targetId: proListing.id,
+      userId: pro.id,
+    });
+    assertEqual(proPin.success, true, "اولین پین Club Pro رایگان باشد.");
+    assertEqual(Boolean(proPin.isClubProFree), true, "فلگ رایگان Club Pro.");
+
+    const coupon = await db.createDiscountCode({
+      code: "PIN20",
+      discountPercent: 20,
+      appliesTo: "team_pin,listing_pin",
+    });
+    assert(Boolean(coupon), "کد تخفیف پین ساخته شود.");
+    const okPin = await db.validateDiscountCode("PIN20", "team_pin");
+    assertEqual(okPin.valid, true, "کد روی پین تیم اعمال شود.");
+    const noVip = await db.validateDiscountCode("PIN20", "vip");
+    assertEqual(noVip.valid, false, "کد پین روی VIP اعمال نشود.");
+  });
+
   console.log("\n======================================");
   console.log(`تست‌های موفق: ${passed}`);
   console.log(`تست‌های ناموفق: ${failed}`);

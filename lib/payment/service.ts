@@ -1055,6 +1055,185 @@ class PaymentService {
     };
   }
 
+  async initiateCommunityPayment(params: {
+    kind: "team_pin" | "listing_pin" | "tournament_boost" | "extra_listing";
+    targetId: string;
+    userId: string;
+    userEmail?: string;
+    userMobile?: string;
+    origin?: string;
+    adminBypass?: boolean;
+    payWithCredits?: boolean;
+    discountCode?: string;
+    discountCatalog?: any[];
+  }) {
+    const { kind, targetId, userId, userEmail, userMobile, origin, adminBypass, payWithCredits, discountCode, discountCatalog } =
+      params;
+    if (!targetId) return { success: false, error: "شناسه مورد نظر ارسال نشده است." };
+
+    const dbUser = await db.findUserById(userId);
+    const quota = await db.getUserQuota(userId);
+    const adminFree = Boolean(adminBypass) || hasUnlimitedPlanning(dbUser) || isSuperAdminEmail(userEmail);
+    const pricing = await db.getPricingSettings();
+
+    if (kind === "team_pin") {
+      const team = await db.getTeam(targetId);
+      if (!team) return { success: false, error: "تیم یافت نشد." };
+      if (team.user_id !== userId && !adminFree) return { success: false, error: "فقط مالک تیم می‌تواند پین کند." };
+    } else if (kind === "listing_pin" || kind === "extra_listing") {
+      const listing = await db.getServiceListing(targetId);
+      if (!listing) return { success: false, error: "آگهی یافت نشد." };
+      if (listing.user_id !== userId && !adminFree) return { success: false, error: "فقط ثبت‌کننده آگهی می‌تواند این کار را انجام دهد." };
+    } else if (kind === "tournament_boost") {
+      const t = await db.getPublicTournament(targetId);
+      if (!t) return { success: false, error: "مسابقه یافت نشد." };
+      if (t.user_id !== userId && !adminFree) return { success: false, error: "فقط برگزارکننده می‌تواند مسابقه را تبلیغ کند." };
+      if (!t.state?.payment?.isPaid && !adminFree) {
+        return { success: false, error: "ابتدا لینک تماشاگر مسابقه را فعال کنید." };
+      }
+    }
+
+    const priceMap = {
+      team_pin: { toman: pricing.teamPinPriceTomans, credits: pricing.teamPinCreditCost, days: pricing.teamPinDays, label: "پین تیم در جست‌وجو" },
+      listing_pin: { toman: pricing.listingPinPriceTomans, credits: pricing.listingPinCreditCost, days: pricing.listingPinDays, label: "پین آگهی خدمت" },
+      tournament_boost: {
+        toman: pricing.tournamentBoostPriceTomans,
+        credits: pricing.tournamentBoostCreditCost,
+        days: pricing.tournamentBoostDays,
+        label: "تبلیغ ویژه مسابقه",
+      },
+      extra_listing: {
+        toman: pricing.extraListingPriceTomans,
+        credits: pricing.extraListingCreditCost,
+        days: 0,
+        label: "فعال‌سازی آگهی خدمت اضافه",
+      },
+    } as const;
+    const spec = priceMap[kind];
+
+    const persist = async (extra: Record<string, any> = {}) => {
+      if (kind === "extra_listing") {
+        await db.activateServiceListing(targetId);
+      } else {
+        await db.grantCommunityPromo(kind, targetId, userId, spec.days);
+      }
+      return {
+        success: true,
+        isDirectSuccess: true,
+        isPaid: true,
+        kind,
+        targetId,
+        ...extra,
+      };
+    };
+
+    if (adminFree) {
+      return persist({ isAdminFree: true, orderId: `admin_cm_${Date.now()}` });
+    }
+
+    if (kind === "tournament_boost" && quota.isVip) {
+      const used = await db.countCommunityPromosThisMonth(userId, "tournament_boost");
+      if (used < pricing.vipFreeTournamentBoostsPerMonth) {
+        return persist({ isVipFree: true, orderId: `vip_boost_${Date.now()}` });
+      }
+    }
+    if (kind === "listing_pin" && quota.isClubPro) {
+      const used = await db.countCommunityPromosThisMonth(userId, "listing_pin");
+      if (used < pricing.clubProFreeListingPinsPerMonth) {
+        return persist({ isClubProFree: true, orderId: `cp_pin_${Date.now()}` });
+      }
+    }
+
+    if (payWithCredits) {
+      const debit = await db.consumePlanningCredits(userId, spec.credits);
+      if (!debit.success) {
+        return {
+          success: false,
+          error: debit.error || `حداقل ${spec.credits} سهمیه برنامه‌سازی لازم است.`,
+          remainingCredits: debit.remainingCredits,
+        };
+      }
+      return persist({
+        isCreditPayment: true,
+        creditsCharged: debit.charged,
+        remainingCredits: debit.remainingCredits,
+        orderId: `crd_cm_${Date.now()}`,
+      });
+    }
+
+    let finalAmount = spec.toman;
+    let appliedCode: string | undefined;
+    let discountPercentApplied = 0;
+    if (discountCode) {
+      const val = await db.validateDiscountCode(discountCode, kind, discountCatalog || []);
+      if (!val.valid) return { success: false, error: val.error || "کد تخفیف وارد شده معتبر نمی‌باشد." };
+      appliedCode = val.discount?.code;
+      discountPercentApplied = val.discountPercent || 0;
+      finalAmount = applyCouponOnFinal(finalAmount, discountPercentApplied).finalAmount;
+    }
+
+    if (finalAmount === 0) {
+      return persist({ orderId: `dsc_cm_${Date.now()}` });
+    }
+
+    const orderId = `ord_cm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const baseUrl = origin || process.env.NEXT_PUBLIC_BASE_URL || "https://nexsport.ir";
+    const callbackUrl = `${baseUrl}/api/payment/callback?orderId=${orderId}`;
+    const desc = appliedCode
+      ? `${spec.label} در NexSport (کد تخفیف: ${appliedCode} - ${discountPercentApplied}٪)`
+      : `${spec.label} در NexSport`;
+
+    await db.savePaymentOrder({
+      id: orderId,
+      itemType: kind,
+      userId,
+      tournamentId: targetId,
+      itemQuantity: spec.days || 1,
+      amountTomans: finalAmount,
+      gateway: this.activeDriver.gatewayName,
+      status: "pending",
+      description: desc,
+    });
+
+    const initResult = await this.activeDriver.initiatePayment({
+      orderId,
+      amountTomans: finalAmount,
+      description: desc,
+      callbackUrl,
+      email: userEmail,
+      mobile: userMobile,
+    });
+
+    if (!initResult.success) {
+      return { success: false, error: initResult.error || "خطا در اتصال به سرویس پرداخت." };
+    }
+
+    if (initResult.isDirectSuccess) {
+      const refId = initResult.refId || `TRX-${Math.floor(10000000 + Math.random() * 90000000)}`;
+      await db.savePaymentOrder({
+        id: orderId,
+        itemType: kind,
+        userId,
+        tournamentId: targetId,
+        itemQuantity: spec.days || 1,
+        amountTomans: finalAmount,
+        gateway: this.activeDriver.gatewayName,
+        status: "paid",
+        refId,
+        paidAt: new Date().toISOString(),
+      });
+      return persist({ orderId, refId, amountTomans: finalAmount });
+    }
+
+    return {
+      success: true,
+      isDirectSuccess: false,
+      paymentUrl: initResult.paymentUrl,
+      authority: initResult.authority,
+      orderId,
+    };
+  }
+
   /**
    * Verify callback from external gateway (when real gateway like ZarinPal is connected)
    */
@@ -1146,6 +1325,25 @@ class PaymentService {
       if (clubId) await db.markClubPagePaid(clubId);
     } else if (order.item_type === "club_pro") {
       await db.activateClubProSubscription(params.userId, order.item_duration_months || 1);
+    } else if (
+      order.item_type === "team_pin" ||
+      order.item_type === "listing_pin" ||
+      order.item_type === "tournament_boost" ||
+      order.item_type === "extra_listing"
+    ) {
+      const targetId = String(order.tournament_id || order.tournamentId || "");
+      const pricing = await db.getPricingSettings();
+      if (order.item_type === "extra_listing" && targetId) {
+        await db.activateServiceListing(targetId);
+      } else if (targetId) {
+        const days =
+          order.item_type === "team_pin"
+            ? pricing.teamPinDays
+            : order.item_type === "listing_pin"
+            ? pricing.listingPinDays
+            : pricing.tournamentBoostDays;
+        await db.grantCommunityPromo(order.item_type, targetId, params.userId, Number(order.item_quantity) || days);
+      }
     }
 
     await db.savePaymentOrder({

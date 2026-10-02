@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { applyCouponOnFinal, DiscountItemType } from "@/lib/payment/pricing";
+import { applyCouponOnFinal, DiscountItemType, DISCOUNT_ITEM_TYPES } from "@/lib/payment/pricing";
 import { readDiscountCatalogCookie } from "@/lib/auth/discountCatalog";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_TYPES: DiscountItemType[] = ["credits", "vip", "link", "club_page", "club_pro"];
+const ALLOWED_TYPES: DiscountItemType[] = [...DISCOUNT_ITEM_TYPES];
 
 export async function POST(req: NextRequest) {
   try {

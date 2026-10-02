@@ -84,8 +84,11 @@ export default function ServicesPage() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           {listings.map((s) => (
-            <Link key={s.id} href={`/services/${s.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 hover:border-amber-300 space-y-1">
-              <p className="text-[11px] font-black text-amber-700">{serviceCategoryLabel(s.category)}</p>
+            <Link key={s.id} href={`/services/${s.id}`} className={`rounded-2xl border bg-white p-4 hover:border-amber-300 space-y-1 ${s.featuredUntil ? "border-amber-400 ring-1 ring-amber-200" : "border-slate-200"}`}>
+              <p className="text-[11px] font-black text-amber-700">
+                {serviceCategoryLabel(s.category)}
+                {s.featuredUntil ? " • ویژه" : ""}
+              </p>
               <div className="font-black">{s.title}</div>
               <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">{s.body}</p>
               <p className="text-[11px] text-slate-400">

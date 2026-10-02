@@ -9,6 +9,7 @@ import { PlayerFields, TeamFields } from "@/components/teams/TeamFields";
 import { emptyPlayerForm, emptyTeamForm, PlayerItem, TeamItem } from "@/components/teams/teamTypes";
 import { playerStatusLabel } from "@/lib/teams/catalog";
 import { toPersianDigits } from "@/lib/digits";
+import { CommunityPayBox } from "@/components/community/CommunityPayBox";
 import { formatDateJalali, parseGregorianYmd } from "@/lib/jalali";
 
 type LinkedTournament = { id: string; title: string; format: string; updated_at: string };
@@ -227,6 +228,18 @@ export default function TeamDetailPage() {
         </div>
       </div>
 
+      {team?.is_public && (
+        <div className="mb-4">
+          <CommunityPayBox
+            itemType="team_pin"
+            targetId={id}
+            title="پین تیم در جست‌وجوی جامعه"
+            hint="صفحه تیم رایگان است. با پین، تیم چند روز بالای نتایج /explore دیده می‌شود."
+            priceKey="teamPinPriceTomans"
+            creditKey="teamPinCreditCost"
+          />
+        </div>
+      )}
       {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-800">{error}</div>}
       {message && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-800">{message}</div>}
 

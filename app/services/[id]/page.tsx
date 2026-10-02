@@ -6,12 +6,14 @@ import { CommunityChrome } from "@/components/community/CommunityChrome";
 import { serviceCategoryMeta } from "@/lib/community/catalog";
 import { toPersianDigits } from "@/lib/digits";
 import { useAuth } from "@/components/auth/AuthContext";
+import { CommunityPayBox } from "@/components/community/CommunityPayBox";
 
 export default function ServiceDetailPage() {
   const params = useParams();
   const id = String(params?.id || "");
   const { user } = useAuth();
   const [listing, setListing] = useState<any>(null);
+  const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -20,6 +22,7 @@ export default function ServiceDetailPage() {
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json.error || "آگهی یافت نشد.");
     setListing(json.listing);
+    setIsOwner(Boolean(json.isOwner));
   }
 
   useEffect(() => {
@@ -28,7 +31,7 @@ export default function ServiceDetailPage() {
   }, [id]);
 
   const meta = serviceCategoryMeta(listing?.category);
-  const isOwner = Boolean(user && listing && user.id === listing.user_id);
+  const owner = Boolean(isOwner || (user && listing && user.id === listing.user_id));
 
   async function deactivate() {
     setBusy(true);
@@ -67,7 +70,28 @@ export default function ServiceDetailPage() {
               </p>
             )}
           </div>
-          {isOwner && listing.is_active && (
+          {owner && !listing.is_active && (
+            <CommunityPayBox
+              itemType="extra_listing"
+              targetId={listing.id}
+              title="فعال‌سازی آگهی اضافه"
+              hint="اولین آگهی رایگان است. این آگهی سهمیه رایگان را پر کرده و بعد از پرداخت منتشر می‌شود. Club Pro آگهی معرفی باشگاه را بدون سقف اضافه می‌کند."
+              priceKey="extraListingPriceTomans"
+              creditKey="extraListingCreditCost"
+              onDone={() => load()}
+            />
+          )}
+          {owner && listing.is_active && (
+            <CommunityPayBox
+              itemType="listing_pin"
+              targetId={listing.id}
+              title="پین ویژه در دسته خدمات"
+              hint="آگهی معمولی در لیست می‌ماند. پین آن را چند روز بالای دسته می‌آورد. Club Pro هر ماه یک پین رایگان دارد."
+              priceKey="listingPinPriceTomans"
+              creditKey="listingPinCreditCost"
+            />
+          )}
+          {owner && listing.is_active && (
             <button
               type="button"
               disabled={busy}
