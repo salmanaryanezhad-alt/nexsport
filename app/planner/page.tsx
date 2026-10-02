@@ -2219,6 +2219,24 @@ function PlannerWizard() {
             </div>
           </div>
 
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                const ok = window.confirm(
+                  "همه نام‌های واردشده به «تیم ۱، تیم ۲، …» برمی‌گردد و اتصال تیم‌های ذخیره‌شده پاک می‌شود. این کار قابل بازگشت نیست. ادامه می‌دهید؟"
+                );
+                if (!ok) return;
+                setTeamNames(Array.from({ length: teamCount }).map((_, i) => `تیم ${toPersianDigits(i + 1)}`));
+                setLibraryTeamIds([]);
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-500 hover:border-slate-400 hover:text-slate-800 transition-colors cursor-pointer"
+              title="بازنشانی همه اسامی به نام پیش‌فرض تیم ۱، تیم ۲، …"
+            >
+              بازنشانی اسامی به تیم ۱ …
+            </button>
+          </div>
+
           {/* Modern Athletic Team Input Grid */}
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: teamCount }).map((_, i) => {
