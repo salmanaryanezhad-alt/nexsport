@@ -31,53 +31,80 @@ export const USER_FREE_PLANNINGS = 5;
 export const USER_FREE_LINKS = 1;
 
 export type DiscountItemType = "credits" | "vip" | "link" | "club_page" | "club_pro";
-export type DiscountAppliesTo = DiscountItemType | "planning" | "all";
+/** Stored as "all" or a comma-separated list of DiscountItemType. Legacy: planning. */
+export type DiscountAppliesTo = string;
 
-export const DISCOUNT_APPLIES_OPTIONS: { value: DiscountAppliesTo; label: string }[] = [
-  { value: "credits", label: "بسته‌های اعتباری" },
-  { value: "vip", label: "حساب VIP برگزارکننده" },
-  { value: "link", label: "ایجاد لینک تماشاگر" },
-  { value: "planning", label: "برنامه‌ریزی (اعتباری و VIP)" },
+export const DISCOUNT_ITEM_TYPES: DiscountItemType[] = ["credits", "vip", "link", "club_page", "club_pro"];
+
+export const DISCOUNT_ITEM_OPTIONS: { value: DiscountItemType; label: string }[] = [
+  { value: "credits", label: "بسته‌های اعتباری مسابقه" },
+  { value: "vip", label: "اشتراک VIP برگزارکننده" },
+  { value: "link", label: "لینک اختصاصی تماشاگران" },
   { value: "club_page", label: "صفحه عمومی باشگاه" },
   { value: "club_pro", label: "اشتراک Club Pro" },
-  { value: "all", label: "همه موارد" },
 ];
 
-export const DISCOUNT_APPLIES_LABELS: Record<DiscountAppliesTo, string> = {
-  credits: "فقط بسته‌های اعتباری",
-  vip: "فقط حساب VIP برگزارکننده",
-  link: "فقط ایجاد لینک اختصاصی تماشاگران",
-  planning: "برنامه‌ریزی (اعتباری و VIP)",
-  club_page: "فقط فعال‌سازی صفحه عمومی باشگاه",
-  club_pro: "فقط اشتراک Club Pro",
-  all: "همه موارد",
+export const DISCOUNT_ITEM_LABELS: Record<DiscountItemType, string> = {
+  credits: "بسته‌های اعتباری مسابقه",
+  vip: "اشتراک VIP برگزارکننده",
+  link: "لینک اختصاصی تماشاگران",
+  club_page: "صفحه عمومی باشگاه",
+  club_pro: "اشتراک Club Pro",
 };
 
-export function discountAppliesToItem(
-  appliesTo: string | null | undefined,
-  itemType: DiscountItemType | "planning"
-): boolean {
-  const scope = (appliesTo || "all") as DiscountAppliesTo;
-  if (scope === "all") return true;
-  if (scope === itemType) return true;
-  if (scope === "planning" && (itemType === "credits" || itemType === "vip" || itemType === "planning")) {
-    return true;
+export const DISCOUNT_APPLIES_OPTIONS: { value: DiscountItemType | "all"; label: string }[] = [
+  ...DISCOUNT_ITEM_OPTIONS,
+  { value: "all", label: "همه موارد پرداخت" },
+];
+
+export function parseAppliesTo(raw: string | string[] | null | undefined): DiscountItemType[] {
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) return [];
+    return parseAppliesTo(raw.join(","));
   }
-  if (itemType === "planning" && (scope === "credits" || scope === "vip" || scope === "planning")) {
-    return true;
+  if (raw == null) return [...DISCOUNT_ITEM_TYPES];
+  const s = String(raw).trim().toLowerCase();
+  if (!s || s === "all") return [...DISCOUNT_ITEM_TYPES];
+  const parts = s.split(/[,|;\s]+/).map((p) => p.trim()).filter(Boolean);
+  const set = new Set<DiscountItemType>();
+  for (const p of parts) {
+    if (p === "all") return [...DISCOUNT_ITEM_TYPES];
+    if (p === "planning") {
+      set.add("credits");
+      set.add("vip");
+      continue;
+    }
+    if ((DISCOUNT_ITEM_TYPES as string[]).includes(p)) set.add(p as DiscountItemType);
   }
-  return false;
+  return DISCOUNT_ITEM_TYPES.filter((t) => set.has(t));
 }
 
-export function mismatchDiscountMessage(appliesTo: string | null | undefined): string {
-  const scope = (appliesTo || "all") as DiscountAppliesTo;
-  if (scope === "credits") return "این کد تخفیف فقط برای بسته‌های اعتباری مسابقه قابل استفاده است.";
-  if (scope === "vip") return "این کد تخفیف فقط برای اشتراک ویژه VIP قابل استفاده است.";
-  if (scope === "link") return "این کد تخفیف فقط برای فعال‌سازی لینک اختصاصی تماشاگران قابل استفاده است.";
-  if (scope === "planning") return "این کد تخفیف فقط برای برنامه‌ریزی مسابقات (بسته‌های اعتباری و اشتراک VIP) قابل استفاده است.";
-  if (scope === "club_page") return "این کد تخفیف فقط برای فعال‌سازی صفحه عمومی باشگاه قابل استفاده است.";
-  if (scope === "club_pro") return "این کد تخفیف فقط برای اشتراک Club Pro باشگاه قابل استفاده است.";
-  return "این کد تخفیف برای این بخش قابل استفاده نیست.";
+export function serializeAppliesTo(raw: string | string[] | null | undefined): string {
+  if (Array.isArray(raw) && raw.length === 0) return "";
+  const items = parseAppliesTo(raw);
+  if (items.length === 0) return "";
+  if (items.length === DISCOUNT_ITEM_TYPES.length) return "all";
+  return items.join(",");
+}
+
+export function discountAppliesToItem(
+  appliesTo: string | string[] | null | undefined,
+  itemType: DiscountItemType | "planning"
+): boolean {
+  const items = parseAppliesTo(appliesTo);
+  if (itemType === "planning") return items.includes("credits") || items.includes("vip");
+  return items.includes(itemType);
+}
+
+export function formatAppliesToLabel(appliesTo: string | string[] | null | undefined): string {
+  const items = parseAppliesTo(appliesTo);
+  if (items.length === DISCOUNT_ITEM_TYPES.length) return "همه موارد پرداخت";
+  if (items.length === 0) return "هیچ موردی";
+  return items.map((i) => DISCOUNT_ITEM_LABELS[i]).join("، ");
+}
+
+export function mismatchDiscountMessage(appliesTo: string | string[] | null | undefined): string {
+  return `این کد تخفیف برای این بخش قابل استفاده نیست. محدوده کد: ${formatAppliesToLabel(appliesTo)}.`;
 }
 
 export interface PricingSettings {
@@ -90,12 +117,21 @@ export interface PricingSettings {
   vipDiscount6mPercent: number;
   vipDiscount12mPercent: number;
   linkPriceTomans: number;
+  linkCreditCost: number;
   registrationPriceTomans: number;
   clubPagePriceTomans: number;
+  clubPageCreditCost: number;
   clubProMonthlyTomans: number;
   clubProDiscount3mPercent: number;
   clubProDiscount6mPercent: number;
   clubProDiscount12mPercent: number;
+  guestMaxTournaments: number;
+  userFreePlannings: number;
+  userFreeLinks: number;
+  freeClubLimit: number;
+  freeClubTeams: number;
+  freeClubPlayers: number;
+  freeClubCoaches: number;
 }
 
 export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
@@ -108,12 +144,21 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   vipDiscount6mPercent: 25,
   vipDiscount12mPercent: 30,
   linkPriceTomans: 150_000,
+  linkCreditCost: LINK_ACTIVATION_CREDIT_COST,
   registrationPriceTomans: 100_000,
   clubPagePriceTomans: 100_000,
+  clubPageCreditCost: CLUB_PAGE_CREDIT_COST,
   clubProMonthlyTomans: 200_000,
   clubProDiscount3mPercent: 20,
   clubProDiscount6mPercent: 25,
   clubProDiscount12mPercent: 30,
+  guestMaxTournaments: GUEST_MAX_TOURNAMENTS,
+  userFreePlannings: USER_FREE_PLANNINGS,
+  userFreeLinks: USER_FREE_LINKS,
+  freeClubLimit: FREE_CLUB_LIMIT,
+  freeClubTeams: FREE_CLUB_TEAMS,
+  freeClubPlayers: FREE_CLUB_PLAYERS,
+  freeClubCoaches: FREE_CLUB_COACHES,
 };
 
 export function sanitizePricingSettings(input: Partial<PricingSettings> | null | undefined): PricingSettings {
@@ -139,6 +184,7 @@ export function sanitizePricingSettings(input: Partial<PricingSettings> | null |
     vipDiscount6mPercent: clampInt(src.vipDiscount6mPercent, DEFAULT_PRICING_SETTINGS.vipDiscount6mPercent, 0, 90),
     vipDiscount12mPercent: clampInt(src.vipDiscount12mPercent, DEFAULT_PRICING_SETTINGS.vipDiscount12mPercent, 0, 90),
     linkPriceTomans: clampInt(src.linkPriceTomans, DEFAULT_PRICING_SETTINGS.linkPriceTomans, 0, 50_000_000),
+    linkCreditCost: clampInt(src.linkCreditCost, DEFAULT_PRICING_SETTINGS.linkCreditCost, 1, 100),
     registrationPriceTomans: clampInt(
       src.registrationPriceTomans,
       DEFAULT_PRICING_SETTINGS.registrationPriceTomans,
@@ -150,6 +196,12 @@ export function sanitizePricingSettings(input: Partial<PricingSettings> | null |
       DEFAULT_PRICING_SETTINGS.clubPagePriceTomans,
       0,
       50_000_000
+    ),
+    clubPageCreditCost: clampInt(
+      src.clubPageCreditCost,
+      DEFAULT_PRICING_SETTINGS.clubPageCreditCost,
+      1,
+      100
     ),
     clubProMonthlyTomans: clampInt(
       src.clubProMonthlyTomans,
@@ -175,7 +227,35 @@ export function sanitizePricingSettings(input: Partial<PricingSettings> | null |
       0,
       90
     ),
+    guestMaxTournaments: clampInt(
+      src.guestMaxTournaments,
+      DEFAULT_PRICING_SETTINGS.guestMaxTournaments,
+      0,
+      50
+    ),
+    userFreePlannings: clampInt(
+      src.userFreePlannings,
+      DEFAULT_PRICING_SETTINGS.userFreePlannings,
+      0,
+      1000
+    ),
+    userFreeLinks: clampInt(src.userFreeLinks, DEFAULT_PRICING_SETTINGS.userFreeLinks, 0, 20),
+    freeClubLimit: clampInt(src.freeClubLimit, DEFAULT_PRICING_SETTINGS.freeClubLimit, 0, 50),
+    freeClubTeams: clampInt(src.freeClubTeams, DEFAULT_PRICING_SETTINGS.freeClubTeams, 0, 100),
+    freeClubPlayers: clampInt(src.freeClubPlayers, DEFAULT_PRICING_SETTINGS.freeClubPlayers, 0, 500),
+    freeClubCoaches: clampInt(src.freeClubCoaches, DEFAULT_PRICING_SETTINGS.freeClubCoaches, 0, 50),
   };
+}
+
+function faNum(n: number): string {
+  return Math.round(n)
+    .toLocaleString("en-US")
+    .replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)] || d);
+}
+
+export function formatFreeClubCaps(settings?: Partial<PricingSettings> | null): string {
+  const s = sanitizePricingSettings(settings);
+  return `${faNum(s.freeClubLimit)} باشگاه، ${faNum(s.freeClubTeams)} تیم، ${faNum(s.freeClubPlayers)} بازیکن، ${faNum(s.freeClubCoaches)} مربی`;
 }
 
 export interface CreditPackagePreset {

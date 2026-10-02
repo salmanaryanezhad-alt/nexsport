@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { GUEST_MAX_TOURNAMENTS } from "@/lib/payment/pricing";
+import { toPersianDigits } from "@/lib/digits";
 import { resolveSessionUser } from "@/lib/auth/sessionGuard";
 import { hasUnlimitedPlanning } from "@/lib/auth/utils";
 import { getRequestToken } from "@/lib/auth/sessionToken";
@@ -27,10 +27,11 @@ export async function GET(req: NextRequest) {
         const quota = await db.getUserQuota(session.user_id);
         const unlimited = quota.unlimitedPlanning || hasUnlimitedPlanning(user) || hasUnlimitedPlanning(session.user_snapshot);
         const hasDbUser = Boolean(user && quota.role !== "guest");
+        const pricing = await db.getPricingSettings();
         return NextResponse.json({
           isGuest: false,
-          planningCredits: unlimited ? 999999 : hasDbUser ? quota.planningCredits : 5,
-          freeLinkAvailable: hasDbUser ? quota.freeLinkAvailable : true,
+          planningCredits: unlimited ? 999999 : hasDbUser ? quota.planningCredits : pricing.userFreePlannings,
+          freeLinkAvailable: hasDbUser ? quota.freeLinkAvailable : pricing.userFreeLinks > 0,
           isVip: quota.isVip,
           isClubPro: quota.isClubPro || unlimited,
           unlimitedPlanning: unlimited,
@@ -46,12 +47,15 @@ export async function GET(req: NextRequest) {
     const ip = getClientIp(req);
     const guestUsage = await db.getGuestUsage(ip);
 
+    const pricing = await db.getPricingSettings();
     return NextResponse.json({
       isGuest: true,
       guestCount: guestUsage.count,
-      guestLimit: GUEST_MAX_TOURNAMENTS,
+      guestLimit: guestUsage.limit,
       remaining: guestUsage.remaining,
       ip: guestUsage.ip,
+      giftPlannings: pricing.userFreePlannings,
+      giftLinks: pricing.userFreeLinks,
     });
   } catch (err: any) {
     console.error("[Get Quota Error]", err);
@@ -109,7 +113,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "سقف ۲ برنامه‌ریزی مسابقه رایگان مهمان برای این دستگاه تکمیل شده است. لطفاً ثبت‌نام کنید یا وارد شوید.",
+          error: `سقف ${toPersianDigits(guestResult.limit)} برنامه‌ریزی مسابقه رایگان مهمان برای این دستگاه تکمیل شده است. لطفاً ثبت‌نام کنید یا وارد شوید.`,
           remaining: 0,
           needsAuth: true,
         },

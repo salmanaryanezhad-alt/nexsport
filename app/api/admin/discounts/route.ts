@@ -6,6 +6,7 @@ import {
   readDiscountCatalogCookie,
   writeDiscountCatalogCookie,
 } from "@/lib/auth/discountCatalog";
+import { parseAppliesTo, serializeAppliesTo } from "@/lib/payment/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -59,17 +60,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!["credits", "vip", "link", "planning", "club_page", "club_pro", "all"].includes(appliesTo)) {
+    const appliesItems = parseAppliesTo(appliesTo);
+    if (appliesItems.length === 0) {
       return NextResponse.json(
-        { error: "نوع اعمال نامعتبر است." },
+        { error: "حداقل یک بخش پرداخت را برای کد تخفیف انتخاب کنید." },
         { status: 400 }
       );
     }
+    const appliesSerialized = serializeAppliesTo(appliesItems);
 
     const created = await db.createDiscountCode({
       code: String(code).trim().toUpperCase(),
       discountPercent: percent,
-      appliesTo,
+      appliesTo: appliesSerialized,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
       isActive: Boolean(isActive),
       createdBy: auth.user.email,

@@ -246,17 +246,18 @@ class PaymentService {
       };
     }
 
-    // 2.5 Pay with planning credits: 3 quotas = dedicated link price (150,000 Tomans by default)
+    // 2.5 Pay with planning credits (cost is admin-priced; default 3 quotas)
     if (payWithCredits) {
       const pricing = await db.getPricingSettings();
       const linkPrice = pricing.linkPriceTomans || DEDICATED_LINK_PRICE_TOMANS;
-      const debit = await db.consumePlanningCredits(userId, LINK_ACTIVATION_CREDIT_COST);
+      const creditCost = pricing.linkCreditCost || LINK_ACTIVATION_CREDIT_COST;
+      const debit = await db.consumePlanningCredits(userId, creditCost);
       if (!debit.success) {
         return {
           success: false,
           error:
             debit.error ||
-            `برای پرداخت اعتباری لینک، حداقل ${LINK_ACTIVATION_CREDIT_COST} سهمیه برنامه‌سازی لازم است.`,
+            `برای پرداخت اعتباری لینک، حداقل ${creditCost} سهمیه برنامه‌سازی لازم است.`,
           remainingCredits: debit.remainingCredits,
         };
       }
@@ -270,7 +271,7 @@ class PaymentService {
         refId: `TRX-CRD-${Math.floor(10000000 + Math.random() * 90000000)}`,
         paidAt: new Date().toISOString(),
         creditsCharged: debit.charged,
-        note: `فعال‌سازی لینک با ${LINK_ACTIVATION_CREDIT_COST} سهمیه برنامه‌سازی (معادل ${linkPrice.toLocaleString("en-US")} تومان)`,
+        note: `فعال‌سازی لینک با ${creditCost} سهمیه برنامه‌سازی (معادل ${linkPrice.toLocaleString("en-US")} تومان)`,
       };
 
       const updatedState = {
@@ -804,6 +805,7 @@ class PaymentService {
     const adminFree = Boolean(adminBypass) || hasUnlimitedPlanning(dbUser) || isSuperAdminEmail(userEmail);
     const pricing = await db.getPricingSettings();
     const pagePrice = pricing.clubPagePriceTomans ?? CLUB_PAGE_PRICE_TOMANS;
+    const pageCreditCost = pricing.clubPageCreditCost || CLUB_PAGE_CREDIT_COST;
 
     const persist = async (extra: Record<string, any> = {}) => {
       await db.markClubPagePaid(clubId);
@@ -830,13 +832,13 @@ class PaymentService {
     }
 
     if (payWithCredits) {
-      const debit = await db.consumePlanningCredits(userId, CLUB_PAGE_CREDIT_COST);
+      const debit = await db.consumePlanningCredits(userId, pageCreditCost);
       if (!debit.success) {
         return {
           success: false,
           error:
             debit.error ||
-            `برای پرداخت اعتباری صفحه باشگاه، حداقل ${CLUB_PAGE_CREDIT_COST} سهمیه برنامه‌سازی لازم است.`,
+            `برای پرداخت اعتباری صفحه باشگاه، حداقل ${pageCreditCost} سهمیه برنامه‌سازی لازم است.`,
           remainingCredits: debit.remainingCredits,
         };
       }

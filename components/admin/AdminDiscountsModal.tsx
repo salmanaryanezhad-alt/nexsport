@@ -6,12 +6,19 @@ import { NexSportIcon } from "@/components/NexSportLogo";
 import { toPersianDigits } from "@/lib/digits";
 import { ShamsiDatePicker } from "@/components/ui/ShamsiDatePicker";
 import { dateToJalali, jalaliEndOfDayIso, parseGregorianYmd, formatDateJalali } from "@/lib/jalali";
+import {
+  DISCOUNT_ITEM_OPTIONS,
+  DISCOUNT_ITEM_TYPES,
+  DiscountItemType,
+  formatAppliesToLabel,
+  serializeAppliesTo,
+} from "@/lib/payment/pricing";
 
 interface DiscountCodeItem {
   id: string;
   code: string;
   discount_percent: number;
-  applies_to: "credits" | "vip" | "link" | "planning" | "club_page" | "club_pro" | "all";
+  applies_to: string;
   is_active: boolean;
   expires_at: string | null;
   created_at: string;
@@ -34,9 +41,7 @@ export function AdminDiscountsModal() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [newPercent, setNewPercent] = useState<string>("20");
-  const [newAppliesTo, setNewAppliesTo] = useState<
-    "credits" | "vip" | "link" | "planning" | "club_page" | "club_pro" | "all"
-  >("all");
+  const [newAppliesTo, setNewAppliesTo] = useState<DiscountItemType[]>([...DISCOUNT_ITEM_TYPES]);
   const [hasExpiry, setHasExpiry] = useState(false);
   const [newExpiryDate, setNewExpiryDate] = useState("");
   const [submittingNew, setSubmittingNew] = useState(false);
@@ -175,6 +180,10 @@ export function AdminDiscountsModal() {
       alert("درصد تخفیف باید بین ۱ تا ۱۰۰ باشد.");
       return;
     }
+    if (newAppliesTo.length === 0) {
+      alert("حداقل یک بخش پرداخت را برای کد تخفیف انتخاب کنید.");
+      return;
+    }
 
     setSubmittingNew(true);
     setActionMessage(null);
@@ -187,7 +196,7 @@ export function AdminDiscountsModal() {
         body: JSON.stringify({
           code: cleanCode,
           discountPercent: percent,
-          appliesTo: newAppliesTo,
+          appliesTo: serializeAppliesTo(newAppliesTo),
           expiresAt:
             hasExpiry && newExpiryDate
               ? (() => {
@@ -223,7 +232,7 @@ export function AdminDiscountsModal() {
       // Reset form
       setNewCode("");
       setNewPercent("20");
-      setNewAppliesTo("all");
+      setNewAppliesTo([...DISCOUNT_ITEM_TYPES]);
       setHasExpiry(false);
       setNewExpiryDate("");
       setShowAddForm(false);
@@ -460,24 +469,52 @@ export function AdminDiscountsModal() {
                 </div>
               </div>
 
-              {/* Applies to */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  اعمال روی کدام بخش:
-                </label>
-                <select
-                  value={newAppliesTo}
-                  onChange={(e) => setNewAppliesTo(e.target.value as any)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-600 focus:outline-none cursor-pointer"
-                >
-                  <option value="credits">بسته‌های اعتباری</option>
-                  <option value="vip">حساب VIP برگزارکننده</option>
-                  <option value="link">ایجاد لینک تماشاگر</option>
-                  <option value="planning">برنامه‌ریزی (اعتباری و VIP)</option>
-                  <option value="club_page">صفحه عمومی باشگاه</option>
-                  <option value="club_pro">اشتراک Club Pro</option>
-                  <option value="all">همه موارد</option>
-                </select>
+              {/* Applies to — checkbox list of every payment product */}
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    اعمال روی کدام بخش‌های پرداخت:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNewAppliesTo((prev) =>
+                        prev.length === DISCOUNT_ITEM_TYPES.length ? [] : [...DISCOUNT_ITEM_TYPES]
+                      )
+                    }
+                    className="text-[10px] font-bold text-emerald-700 hover:underline cursor-pointer"
+                  >
+                    {newAppliesTo.length === DISCOUNT_ITEM_TYPES.length ? "برداشتن همه" : "انتخاب همه"}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 rounded-xl border border-slate-200 bg-white p-2.5">
+                  {DISCOUNT_ITEM_OPTIONS.map((opt) => {
+                    const checked = newAppliesTo.includes(opt.value);
+                    return (
+                      <label
+                        key={opt.value}
+                        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setNewAppliesTo((prev) =>
+                              prev.includes(opt.value)
+                                ? prev.filter((v) => v !== opt.value)
+                                : [...prev, opt.value]
+                            )
+                          }
+                          className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 cursor-pointer"
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  تیک بخش‌هایی را بردارید که این کد نباید روی آن‌ها اعمال شود. لینک ثبت‌نام مسابقه رایگان است و در این فهرست نیست.
+                </p>
               </div>
             </div>
 
@@ -566,13 +603,7 @@ export function AdminDiscountsModal() {
                 );
                 const isLoading = actionLoadingId === item.id;
 
-                let appliesLabel = "هر سه مورد";
-                if (item.applies_to === "credits") appliesLabel = "بسته‌های اعتباری";
-                if (item.applies_to === "vip") appliesLabel = "حساب VIP برگزارکننده";
-                if (item.applies_to === "link") appliesLabel = "ایجاد لینک تماشاگر";
-                if (item.applies_to === "planning") appliesLabel = "برنامه‌ریزی (اعتباری و VIP)";
-                if (item.applies_to === "club_page") appliesLabel = "صفحه عمومی باشگاه";
-                if (item.applies_to === "club_pro") appliesLabel = "اشتراک Club Pro";
+                const appliesLabel = formatAppliesToLabel(item.applies_to);
 
                 return (
                   <div

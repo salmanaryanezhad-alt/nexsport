@@ -12,6 +12,7 @@ import { emptyTeamForm, TeamItem } from "@/components/teams/teamTypes";
 import { TEAM_SPORTS } from "@/lib/teams/catalog";
 import { clubRoleLabel } from "@/lib/clubs/roles";
 import { StoreModal } from "@/components/planner/StoreModal";
+import { DEFAULT_PRICING_SETTINGS, formatFreeClubCaps, PricingSettings } from "@/lib/payment/pricing";
 
 type TabId = "dashboard" | "tournaments" | "teams" | "clubs" | "registrations" | "reports" | "profile";
 
@@ -117,6 +118,7 @@ export function OrganizerPanel() {
   const [copied, setCopied] = useState<string | null>(null);
   const [storeOpen, setStoreOpen] = useState(false);
   const [payBanner, setPayBanner] = useState<string | null>(null);
+  const [pricing, setPricing] = useState<PricingSettings>({ ...DEFAULT_PRICING_SETTINGS });
 
   const [name, setName] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -174,6 +176,15 @@ export function OrganizerPanel() {
       setName(user.name);
     }
   }, [user, load, loadTeams, loadClubs]);
+
+  useEffect(() => {
+    fetch("/api/pricing/", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.settings) setPricing(d.settings);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const status = searchParams.get("payment_status");
@@ -517,7 +528,7 @@ export function OrganizerPanel() {
             </div>
           )}
           <p className="text-[11px] text-slate-500">
-            ایجاد باشگاه رایگان است. طرح رایگان: ۱ باشگاه، ۱ تیم، ۱۵ بازیکن، ۲ مربی. صفحه عمومی جداگانه فعال می‌شود (مثل لینک تماشاگر). لینک ثبت‌نام مسابقه رایگان است. VIP برگزارکننده شامل باشگاه نیست.
+            ایجاد باشگاه رایگان است. طرح رایگان: {formatFreeClubCaps(pricing)}. صفحه عمومی جداگانه فعال می‌شود (مثل لینک تماشاگر). لینک ثبت‌نام مسابقه رایگان است. VIP برگزارکننده شامل باشگاه نیست.
           </p>
           {clubs.length === 0 && <p className="text-sm text-slate-500">باشگاهی ندارید. یکی بسازید یا دعوت را بپذیرید.</p>}
           <div className="grid gap-3 sm:grid-cols-2">

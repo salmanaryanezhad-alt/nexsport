@@ -1360,6 +1360,18 @@ async function run() {
     assertEqual(portable.valid, true, "کد تخفیف باید از کاتالوگ کمکی هم اعمال شود.");
     assertEqual(portable.discountPercent, 25, "درصد کاتالوگ کمکی ۲۵ است.");
 
+    const combo = await db.createDiscountCode({
+      code: "CLUBCOMBO",
+      discountPercent: 10,
+      appliesTo: "club_page,club_pro",
+      isActive: true,
+    });
+    assertEqual(combo.applies_to, "club_page,club_pro", "محدوده ترکیبی باید ذخیره شود.");
+    assertEqual((await db.validateDiscountCode("CLUBCOMBO", "club_page")).valid, true, "کد ترکیبی روی صفحه باشگاه اعمال شود.");
+    assertEqual((await db.validateDiscountCode("CLUBCOMBO", "club_pro")).valid, true, "کد ترکیبی روی Club Pro اعمال شود.");
+    assertEqual((await db.validateDiscountCode("CLUBCOMBO", "link")).valid, false, "کد ترکیبی روی لینک تماشاگر اعمال نشود.");
+    assertEqual((await db.validateDiscountCode("CLUBCOMBO", "credits")).valid, false, "کد ترکیبی روی اعتبار اعمال نشود.");
+
     // ۱۱. کد تخفیف روی مبلغ نهایی قبلی اعمال می‌شود (تخفیف حجمی + کوپن)
     const creditBuyer = await db.createUser({
       name: "خریدار بسته با تخفیف دو لایه",
@@ -1391,7 +1403,16 @@ async function run() {
     assertEqual(defaults.vipDiscount6mPercent, 25, "تخفیف پیش‌فرض ۶ ماهه VIP ۲۵٪ است.");
     assertEqual(defaults.vipDiscount12mPercent, 30, "تخفیف پیش‌فرض سالانه VIP ۳۰٪ است.");
     assertEqual(defaults.linkPriceTomans, 150000, "تعرفه لینک پیش‌فرض ۱۵۰ هزار تومان است.");
+    assertEqual(defaults.linkCreditCost, 3, "معادل سهمیه لینک تماشاگر پیش‌فرض ۳ است.");
     assertEqual(defaults.registrationPriceTomans, 100000, "تعرفه لینک ثبت‌نام پیش‌فرض ۱۰۰ هزار تومان است.");
+    assertEqual(defaults.clubPageCreditCost, 2, "معادل سهمیه صفحه باشگاه پیش‌فرض ۲ است.");
+    assertEqual(defaults.guestMaxTournaments, 2, "سهمیه مهمان پیش‌فرض ۲ مسابقه است.");
+    assertEqual(defaults.userFreePlannings, 5, "اعتبار اولیه کاربر پیش‌فرض ۵ است.");
+    assertEqual(defaults.userFreeLinks, 1, "لینک رایگان اولیه پیش‌فرض ۱ است.");
+    assertEqual(defaults.freeClubLimit, 1, "سقف باشگاه رایگان پیش‌فرض ۱ است.");
+    assertEqual(defaults.freeClubTeams, 1, "سقف تیم رایگان پیش‌فرض ۱ است.");
+    assertEqual(defaults.freeClubPlayers, 15, "سقف بازیکن رایگان پیش‌فرض ۱۵ است.");
+    assertEqual(defaults.freeClubCoaches, 2, "سقف مربی رایگان پیش‌فرض ۲ است.");
 
     const saved = await db.savePricingSettings({
       creditPriceTomans: 40000,
@@ -1404,10 +1425,22 @@ async function run() {
       vipDiscount12mPercent: 35,
       linkPriceTomans: 180000,
       registrationPriceTomans: 120000,
+      linkCreditCost: 4,
+      clubPageCreditCost: 3,
+      guestMaxTournaments: 3,
+      userFreePlannings: 7,
+      userFreeLinks: 0,
+      freeClubLimit: 2,
+      freeClubTeams: 3,
+      freeClubPlayers: 20,
+      freeClubCoaches: 4,
     });
     assertEqual(saved.creditPriceTomans, 40000, "مبلغ هر مسابقه باید ۴۰ هزار ذخیره شود.");
     assertEqual(saved.linkPriceTomans, 180000, "تعرفه لینک باید ۱۸۰ هزار ذخیره شود.");
     assertEqual(saved.registrationPriceTomans, 120000, "تعرفه ثبت‌نام باید ۱۲۰ هزار ذخیره شود.");
+    assertEqual(saved.linkCreditCost, 4, "معادل سهمیه لینک باید ۴ ذخیره شود.");
+    assertEqual(saved.guestMaxTournaments, 3, "سهمیه مهمان باید ۳ ذخیره شود.");
+    assertEqual(saved.freeClubTeams, 3, "سقف تیم رایگان باید ۳ ذخیره شود.");
 
     const loaded = await db.getPricingSettings();
     assertEqual(loaded.vipDiscount12mPercent, 35, "تخفیف سالانه باید ۳۵٪ خوانده شود.");
@@ -1438,6 +1471,15 @@ async function run() {
       vipDiscount12mPercent: 30,
       linkPriceTomans: 150000,
       registrationPriceTomans: 100000,
+      linkCreditCost: 3,
+      clubPageCreditCost: 2,
+      guestMaxTournaments: 2,
+      userFreePlannings: 5,
+      userFreeLinks: 1,
+      freeClubLimit: 1,
+      freeClubTeams: 1,
+      freeClubPlayers: 15,
+      freeClubCoaches: 2,
     });
   });
 

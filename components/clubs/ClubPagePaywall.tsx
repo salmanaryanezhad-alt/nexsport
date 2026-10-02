@@ -25,6 +25,7 @@ export function ClubPagePaywall({
     unlimitedPlanning?: boolean;
   } | null>(null);
   const [price, setPrice] = useState(CLUB_PAGE_PRICE_TOMANS);
+  const [creditCost, setCreditCost] = useState(CLUB_PAGE_CREDIT_COST);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [discountCode, setDiscountCode] = useState("");
@@ -43,6 +44,7 @@ export function ClubPagePaywall({
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d?.settings?.clubPagePriceTomans != null) setPrice(d.settings.clubPagePriceTomans);
+        if (d?.settings?.clubPageCreditCost != null) setCreditCost(d.settings.clubPageCreditCost);
       })
       .catch(() => {});
   }, []);
@@ -58,7 +60,7 @@ export function ClubPagePaywall({
   const adminFree = Boolean(isAdmin || quota?.unlimitedPlanning);
   const clubProFree = Boolean(quota?.isClubPro);
   const credits = quota?.planningCredits ?? 0;
-  const canCredits = credits >= CLUB_PAGE_CREDIT_COST;
+  const canCredits = credits >= creditCost;
 
   async function pay(withCredits: boolean) {
     if (!user) {
@@ -118,7 +120,7 @@ export function ClubPagePaywall({
         <div className="space-y-2">
           <p className="text-xs font-black text-slate-800">
             تعرفه: {toPersianDigits((price || DEFAULT_PRICING_SETTINGS.clubPagePriceTomans).toLocaleString("en-US"))} تومان
-            {" "}یا {toPersianDigits(CLUB_PAGE_CREDIT_COST)} سهمیه برنامه‌سازی
+            {" "}یا {toPersianDigits(creditCost)} سهمیه برنامه‌سازی
           </p>
           <div className="flex flex-wrap gap-2">
             <input
@@ -142,7 +144,7 @@ export function ClubPagePaywall({
               className="rounded-xl border border-emerald-300 bg-white px-4 py-2 text-xs font-black text-emerald-800 disabled:opacity-40"
               title={!canCredits ? "سهمیه کافی نیست" : ""}
             >
-              پرداخت با {toPersianDigits(CLUB_PAGE_CREDIT_COST)} اعتبار
+              پرداخت با {toPersianDigits(creditCost)} اعتبار
             </button>
           </div>
           <p className="text-[11px] text-slate-500">

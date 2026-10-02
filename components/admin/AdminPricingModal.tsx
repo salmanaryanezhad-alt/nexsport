@@ -10,6 +10,7 @@ import {
   buildVipPlans,
   buildClubProPlans,
   calculateCreditPrice,
+  formatFreeClubCaps,
 } from "@/lib/payment/pricing";
 
 function toman(n: number) {
@@ -194,6 +195,51 @@ export function AdminPricingModal() {
                 </p>
               </section>
 
+              <section className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                  <span>🎁</span>
+                  <span>سهمیه‌های رایگان</span>
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    مسابقات رایگان مهمان
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={form.guestMaxTournaments}
+                      onChange={(e) => update("guestMaxTournaments", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-emerald-600 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    اعتبار اولیه کاربر ثبت‌نام‌شده
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={form.userFreePlannings}
+                      onChange={(e) => update("userFreePlannings", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-emerald-600 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    لینک تماشاگر رایگان اولیه
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={form.userFreeLinks}
+                      onChange={(e) => update("userFreeLinks", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-emerald-600 focus:outline-none"
+                    />
+                  </label>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  اعتبار اولیه فقط برای کاربران جدید اعمال می‌شود. لینک رایگان: ۰ یعنی بدون هدیه، ۱ یعنی اولین لینک تماشاگر رایگان.
+                </p>
+              </section>
+
               {/* 2. VIP */}
               <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
                 <h3 className="font-black text-sm text-amber-950 flex items-center gap-2">
@@ -281,19 +327,33 @@ export function AdminPricingModal() {
                   <span>🔗</span>
                   <span>ایجاد لینک اختصاصی</span>
                 </h3>
-                <label className="block text-[11px] font-bold text-slate-700 max-w-xs">
-                  مبلغ ایجاد لینک (تومان)
-                  <input
-                    type="number"
-                    min={0}
-                    required
-                    value={form.linkPriceTomans}
-                    onChange={(e) => update("linkPriceTomans", e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-sky-600 focus:outline-none"
-                  />
-                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    مبلغ ایجاد لینک (تومان)
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={form.linkPriceTomans}
+                      onChange={(e) => update("linkPriceTomans", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-sky-600 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    معادل سهمیه برنامه‌سازی
+                    <input
+                      type="number"
+                      min={1}
+                      required
+                      value={form.linkCreditCost}
+                      onChange={(e) => update("linkCreditCost", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-sky-600 focus:outline-none"
+                    />
+                  </label>
+                </div>
                 <p className="text-[11px] text-sky-900">
-                  تعرفه فعلی نمایش داده‌شده به کاربر: <strong>{toman(form.linkPriceTomans)} تومان</strong>
+                  تعرفه نقدی: <strong>{toman(form.linkPriceTomans)} تومان</strong>
+                  {" "}— یا کسر {toPersianDigits(form.linkCreditCost)} سهمیه برنامه‌سازی.
                 </p>
               </section>
 
@@ -302,20 +362,33 @@ export function AdminPricingModal() {
                   <span>🏟️</span>
                   <span>صفحه عمومی باشگاه</span>
                 </h3>
-                <label className="block text-[11px] font-bold text-slate-700 max-w-xs">
-                  مبلغ فعال‌سازی صفحه /c/ (تومان)
-                  <input
-                    type="number"
-                    min={0}
-                    required
-                    value={form.clubPagePriceTomans}
-                    onChange={(e) => update("clubPagePriceTomans", e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-teal-600 focus:outline-none"
-                  />
-                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    مبلغ فعال‌سازی صفحه /c/ (تومان)
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={form.clubPagePriceTomans}
+                      onChange={(e) => update("clubPagePriceTomans", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-teal-600 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    معادل سهمیه برنامه‌سازی
+                    <input
+                      type="number"
+                      min={1}
+                      required
+                      value={form.clubPageCreditCost}
+                      onChange={(e) => update("clubPageCreditCost", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-teal-600 focus:outline-none"
+                    />
+                  </label>
+                </div>
                 <p className="text-[11px] text-teal-900">
                   ایجاد باشگاه رایگان است. تعرفه صفحه عمومی: <strong>{toman(form.clubPagePriceTomans)} تومان</strong>
-                  {" "}یا ۲ سهمیه برنامه‌سازی. Club Pro این فعال‌سازی را رایگان می‌کند. VIP برگزارکننده شامل باشگاه نیست.
+                  {" "}یا {toPersianDigits(form.clubPageCreditCost)} سهمیه. Club Pro این فعال‌سازی را رایگان می‌کند.
                 </p>
               </section>
 
@@ -397,8 +470,54 @@ export function AdminPricingModal() {
                     </div>
                   ))}
                 </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    سقف باشگاه رایگان
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={form.freeClubLimit}
+                      onChange={(e) => update("freeClubLimit", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-indigo-500 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    سقف تیم رایگان
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={form.freeClubTeams}
+                      onChange={(e) => update("freeClubTeams", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-indigo-500 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    سقف بازیکن رایگان
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={form.freeClubPlayers}
+                      onChange={(e) => update("freeClubPlayers", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-indigo-500 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    سقف مربی رایگان
+                    <input
+                      type="number"
+                      min={0}
+                      required
+                      value={form.freeClubCoaches}
+                      onChange={(e) => update("freeClubCoaches", e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-black text-slate-900 focus:border-indigo-500 focus:outline-none"
+                    />
+                  </label>
+                </div>
                 <p className="text-[11px] text-indigo-900">
-                  طرح رایگان: ۱ باشگاه، ۱ تیم، ۱۵ بازیکن، ۲ مربی. Club Pro این سقف‌ها را برمی‌دارد و صفحه عمومی را رایگان فعال می‌کند. لینک ثبت‌نام مسابقه همیشه رایگان است.
+                  طرح رایگان فعلی: {formatFreeClubCaps(form)}. Club Pro این سقف‌ها را برمی‌دارد. لینک ثبت‌نام مسابقه همیشه رایگان است.
                 </p>
               </section>
             </>

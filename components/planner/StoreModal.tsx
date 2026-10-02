@@ -11,8 +11,8 @@ import {
   PricingSettings,
   calculateCreditPrice,
   VipPlan,
-  LINK_ACTIVATION_CREDIT_COST,
   buildClubProPlans,
+  formatFreeClubCaps,
 } from "@/lib/payment/pricing";
 
 interface StoreModalProps {
@@ -475,7 +475,7 @@ export function StoreModal({
                 برای ادامه وارد حساب کاربری شوید
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                کاربران مهمان می‌توانند تا ۲ مسابقه رایگان برنامه‌ریزی کنند. خرید اعتبار، اشتراک VIP و ایجاد لینک اختصاصی فقط پس از ورود به حساب کاربری در دسترس است.
+                کاربران مهمان می‌توانند تا {toPersianDigits(pricingSettings.guestMaxTournaments)} مسابقه رایگان برنامه‌ریزی کنند. خرید اعتبار، اشتراک VIP و ایجاد لینک اختصاصی فقط پس از ورود به حساب کاربری در دسترس است.
               </p>
               <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
                 <button
@@ -793,7 +793,7 @@ export function StoreModal({
               <div className="rounded-xl bg-amber-50/70 border border-amber-200/80 p-2.5 text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
                 <span>ℹ️</span>
                 <span>
-                  <strong>نکته:</strong> بسته‌های اعتباری مربوط به برنامه‌ریزی و تولید جداول مسابقات است. ایجاد لینک اختصاصی تماشاگران برای هر مسابقه همان {toPersianDigits(pricingSettings.linkPriceTomans.toLocaleString("en-US"))} تومان جداگانه است (به جز ۱ مسابقه اول که هدیه رایگان ثبت‌نام شماست)، یا می‌توانید با کسر {toPersianDigits(LINK_ACTIVATION_CREDIT_COST)} سهمیه اعتبار همان لینک را فعال کنید. در صورتی که مایلید تمام لینک‌ها رایگان باشند، به <strong>اشتراک ویژه VIP</strong> ارتقا دهید.
+                  <strong>نکته:</strong> بسته‌های اعتباری مربوط به برنامه‌ریزی و تولید جداول مسابقات است. ایجاد لینک اختصاصی تماشاگران برای هر مسابقه همان {toPersianDigits(pricingSettings.linkPriceTomans.toLocaleString("en-US"))} تومان جداگانه است{pricingSettings.userFreeLinks > 0 ? ` (به جز ${toPersianDigits(pricingSettings.userFreeLinks)} لینک اول که هدیه رایگان ثبت‌نام شماست)` : ""}، یا می‌توانید با کسر {toPersianDigits(pricingSettings.linkCreditCost)} سهمیه اعتبار همان لینک را فعال کنید. در صورتی که مایلید تمام لینک‌ها رایگان باشند، به <strong>اشتراک ویژه VIP</strong> ارتقا دهید.
                 </span>
               </div>
 
@@ -1015,7 +1015,7 @@ export function StoreModal({
                   <span>Club Pro جدا از اشتراک VIP برگزارکننده است</span>
                 </div>
                 <div className="text-[11px] text-indigo-900 leading-relaxed space-y-1">
-                  <div>✓ ایجاد باشگاه همیشه رایگان است (سقف رایگان: ۱ باشگاه، ۱ تیم، ۱۵ بازیکن، ۲ مربی).</div>
+                  <div>✓ ایجاد باشگاه همیشه رایگان است (سقف رایگان: {formatFreeClubCaps(pricingSettings)}).</div>
                   <div>✓ Club Pro سقف‌ها را برمی‌دارد و فعال‌سازی صفحه عمومی باشگاه را رایگان می‌کند.</div>
                   <div>✓ دعوت‌شوندگان هزینه‌ای نمی‌پردازند. VIP برگزارکننده روی باشگاه اعمال نمی‌شود.</div>
                 </div>

@@ -18,6 +18,7 @@ import {
   discountAppliesToItem,
   mismatchDiscountMessage,
   sanitizePricingSettings,
+  serializeAppliesTo,
 } from "../payment/pricing";
 
 export interface UserRecord {
@@ -555,7 +556,7 @@ async function initTablesIfRealDb() {
           \`id\` VARCHAR(36) NOT NULL,
           \`code\` VARCHAR(50) NOT NULL,
           \`discount_percent\` INT NOT NULL,
-          \`applies_to\` VARCHAR(20) DEFAULT 'all',
+          \`applies_to\` VARCHAR(200) DEFAULT 'all',
           \`expires_at\` TIMESTAMP NULL DEFAULT NULL,
           \`is_active\` TINYINT(1) DEFAULT 1,
           \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -692,6 +693,9 @@ async function initTablesIfRealDb() {
       } catch {}
       try {
         await mysqlPool.query("ALTER TABLE `payment_orders` ADD COLUMN `club_id` VARCHAR(36) DEFAULT NULL");
+      } catch {}
+      try {
+        await mysqlPool.query("ALTER TABLE `discount_codes` MODIFY `applies_to` VARCHAR(200) DEFAULT 'all'");
       } catch {}
       await mysqlPool.query(`
         CREATE TABLE IF NOT EXISTS \`club_members\` (
@@ -841,7 +845,7 @@ async function initTablesIfRealDb() {
           id VARCHAR(36) PRIMARY KEY,
           code VARCHAR(50) UNIQUE NOT NULL,
           discount_percent INT NOT NULL,
-          applies_to VARCHAR(20) DEFAULT 'all',
+          applies_to VARCHAR(200) DEFAULT 'all',
           expires_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
           is_active BOOLEAN DEFAULT TRUE,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -950,6 +954,7 @@ async function initTablesIfRealDb() {
         ALTER TABLE clubs ADD COLUMN IF NOT EXISTS page_paid BOOLEAN DEFAULT FALSE;
         ALTER TABLE clubs ADD COLUMN IF NOT EXISTS page_paid_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
         ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS club_id VARCHAR(36) DEFAULT NULL;
+        ALTER TABLE discount_codes ALTER COLUMN applies_to TYPE VARCHAR(200);
 
         CREATE TABLE IF NOT EXISTS club_members (
           id VARCHAR(36) PRIMARY KEY,
@@ -1244,13 +1249,14 @@ export const db = {
     const role = isSuperAdmin ? "admin" : (data.role ?? "user");
     const isVerified = Boolean(data.is_verified ?? data.isVerified);
     const passwordHash = data.password_hash || data.passwordHash || "";
+    const initialCredits = (await this.getPricingSettings()).userFreePlannings;
 
     if (mysqlPool) {
       await initTablesIfRealDb();
       await mysqlPool.execute(
-        `INSERT INTO \`users\` (id, name, email, mobile, password_hash, is_verified, role, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, data.name.trim(), cleanEmail, cleanMobile, passwordHash, isVerified ? 1 : 0, role, now, now]
+        `INSERT INTO \`users\` (id, name, email, mobile, password_hash, is_verified, role, planning_credits, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, data.name.trim(), cleanEmail, cleanMobile, passwordHash, isVerified ? 1 : 0, role, initialCredits, now, now]
       );
       return {
         id,
@@ -1260,6 +1266,7 @@ export const db = {
         password_hash: passwordHash,
         is_verified: isVerified,
         role,
+        planning_credits: initialCredits,
         created_at: now,
         updated_at: now,
       };
@@ -1268,8 +1275,8 @@ export const db = {
     if (pgPool) {
       await initTablesIfRealDb();
       const res = await pgPool.query(
-        `INSERT INTO users (id, name, email, mobile, password_hash, is_verified, role, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `INSERT INTO users (id, name, email, mobile, password_hash, is_verified, role, planning_credits, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [
           id,
@@ -1279,6 +1286,7 @@ export const db = {
           passwordHash,
           isVerified,
           role,
+          initialCredits,
           now,
           now,
         ]
@@ -1294,6 +1302,7 @@ export const db = {
       password_hash: passwordHash,
       is_verified: isVerified,
       role,
+      planning_credits: initialCredits,
       created_at: now,
       updated_at: now,
     };
@@ -2418,8 +2427,18 @@ export const db = {
 
   /* --- Guest IP & Quota Operations --- */
 
-  async getGuestUsage(ip: string): Promise<{ ip: string; count: number; remaining: number }> {
+  async guestTournamentLimit(): Promise<number> {
+    try {
+      const s = await this.getPricingSettings();
+      return Math.max(0, Number(s.guestMaxTournaments) || 0);
+    } catch {
+      return DEFAULT_PRICING_SETTINGS.guestMaxTournaments;
+    }
+  },
+
+  async getGuestUsage(ip: string): Promise<{ ip: string; count: number; remaining: number; limit: number }> {
     const cleanIp = (ip || "127.0.0.1").trim();
+    const limit = await this.guestTournamentLimit();
     if (mysqlPool) {
       await initTablesIfRealDb();
       const [rows] = await mysqlPool.execute<RowDataPacket[]>(
@@ -2427,7 +2446,7 @@ export const db = {
         [cleanIp]
       );
       const count = rows[0]?.count ? Number(rows[0].count) : 0;
-      return { ip: cleanIp, count, remaining: Math.max(0, 2 - count) };
+      return { ip: cleanIp, count, remaining: Math.max(0, limit - count), limit };
     }
     if (pgPool) {
       await initTablesIfRealDb();
@@ -2436,18 +2455,19 @@ export const db = {
         [cleanIp]
       );
       const count = res.rows[0]?.count ? Number(res.rows[0].count) : 0;
-      return { ip: cleanIp, count, remaining: Math.max(0, 2 - count) };
+      return { ip: cleanIp, count, remaining: Math.max(0, limit - count), limit };
     }
     const record = memoryStore.guestUsage.get(cleanIp);
     const count = record ? record.count : 0;
-    return { ip: cleanIp, count, remaining: Math.max(0, 2 - count) };
+    return { ip: cleanIp, count, remaining: Math.max(0, limit - count), limit };
   },
 
-  async recordGuestUsage(ip: string): Promise<{ success: boolean; count: number; remaining: number }> {
+  async recordGuestUsage(ip: string): Promise<{ success: boolean; count: number; remaining: number; limit: number }> {
     const cleanIp = (ip || "127.0.0.1").trim();
     const current = await this.getGuestUsage(cleanIp);
-    if (current.count >= 2) {
-      return { success: false, count: current.count, remaining: 0 };
+    const limit = current.limit;
+    if (current.count >= limit) {
+      return { success: false, count: current.count, remaining: 0, limit };
     }
     const newCount = current.count + 1;
     const now = new Date();
@@ -2460,7 +2480,7 @@ export const db = {
          ON DUPLICATE KEY UPDATE count = ?, last_used_at = ?`,
         [cleanIp, newCount, now, now, newCount, now]
       );
-      return { success: true, count: newCount, remaining: Math.max(0, 2 - newCount) };
+      return { success: true, count: newCount, remaining: Math.max(0, limit - newCount), limit };
     }
     if (pgPool) {
       await initTablesIfRealDb();
@@ -2470,10 +2490,10 @@ export const db = {
          ON CONFLICT (ip) DO UPDATE SET count = $2, last_used_at = $3`,
         [cleanIp, newCount, now, now]
       );
-      return { success: true, count: newCount, remaining: Math.max(0, 2 - newCount) };
+      return { success: true, count: newCount, remaining: Math.max(0, limit - newCount), limit };
     }
     memoryStore.guestUsage.set(cleanIp, { ip: cleanIp, count: newCount, last_used_at: now, created_at: now });
-    return { success: true, count: newCount, remaining: Math.max(0, 2 - newCount) };
+    return { success: true, count: newCount, remaining: Math.max(0, limit - newCount), limit };
   },
 
   async getUserQuota(userId: string): Promise<{
@@ -2507,6 +2527,7 @@ export const db = {
         (user.club_pro_expires_at && new Date(user.club_pro_expires_at).getTime() > Date.now())
     );
     const unlimitedPlanning = isVip || hasUnlimitedPlanning(user);
+    const pricing = await this.getPricingSettings();
     return {
       isVip,
       vipExpiresAt: user.vip_expires_at || null,
@@ -2516,8 +2537,8 @@ export const db = {
         ? 999999
         : user.planning_credits !== undefined
         ? Number(user.planning_credits)
-        : 5,
-      freeLinkAvailable: !user.free_link_used,
+        : pricing.userFreePlannings,
+      freeLinkAvailable: pricing.userFreeLinks > 0 && !user.free_link_used,
       unlimitedPlanning,
       role: user.role,
     };
@@ -2540,7 +2561,10 @@ export const db = {
     if (isVip || hasUnlimitedPlanning(user)) {
       return { success: true, isVip, remainingCredits: 999999, unlimitedPlanning: true };
     }
-    const currentCredits = user.planning_credits !== undefined ? Number(user.planning_credits) : 5;
+    const currentCredits =
+      user.planning_credits !== undefined
+        ? Number(user.planning_credits)
+        : (await this.getPricingSettings()).userFreePlannings;
     if (currentCredits <= 0) {
       return {
         success: false,
@@ -2586,7 +2610,10 @@ export const db = {
     if (hasUnlimitedPlanning(user)) {
       return { success: true, remainingCredits: 999999, charged: 0 };
     }
-    const currentCredits = user.planning_credits !== undefined ? Number(user.planning_credits) : 5;
+    const currentCredits =
+      user.planning_credits !== undefined
+        ? Number(user.planning_credits)
+        : (await this.getPricingSettings()).userFreePlannings;
     if (currentCredits < charge) {
       return {
         success: false,
@@ -2671,7 +2698,7 @@ export const db = {
     const currentCredits =
       user.planning_credits !== undefined && user.planning_credits !== null
         ? Number(user.planning_credits)
-        : 5;
+        : (await this.getPricingSettings()).userFreePlannings;
     const newCredits = currentCredits + add;
     user.planning_credits = newCredits;
     memoryStore.users.set(userId, user);
@@ -2904,7 +2931,7 @@ export const db = {
       100,
       Math.max(1, Math.round(Number(data.discountPercent) || 10))
     );
-    const appliesTo = data.appliesTo || "all";
+    const appliesTo = serializeAppliesTo(data.appliesTo || "all");
     const expiresAt = data.expiresAt || null;
     const isActive = data.isActive !== undefined ? Boolean(data.isActive) : true;
     const now = new Date();

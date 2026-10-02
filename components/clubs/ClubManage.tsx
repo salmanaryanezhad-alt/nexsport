@@ -10,6 +10,7 @@ import { CLUB_COACH_TITLES, clubRoleLabel } from "@/lib/clubs/roles";
 import { TeamItem } from "@/components/teams/teamTypes";
 import { ClubPagePaywall } from "@/components/clubs/ClubPagePaywall";
 import { StoreModal } from "@/components/planner/StoreModal";
+import { DEFAULT_PRICING_SETTINGS, formatFreeClubCaps, PricingSettings } from "@/lib/payment/pricing";
 
 type Section = "info" | "teams" | "players" | "coaches" | "tournaments" | "members";
 
@@ -41,6 +42,7 @@ export function ClubManage() {
   const [invite, setInvite] = useState({ identifier: "", role: "member" });
   const [saving, setSaving] = useState(false);
   const [storeOpen, setStoreOpen] = useState(false);
+  const [pricing, setPricing] = useState<PricingSettings>({ ...DEFAULT_PRICING_SETTINGS });
 
   const load = useCallback(async () => {
     setError(null);
@@ -73,6 +75,15 @@ export function ClubManage() {
   useEffect(() => {
     if (user && id) load().catch(() => setError("خطا در دریافت باشگاه."));
   }, [user, id, load]);
+
+  useEffect(() => {
+    fetch("/api/pricing/", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.settings) setPricing(d.settings);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -262,7 +273,7 @@ export function ClubManage() {
         />
       )}
       <p className="text-[11px] text-slate-500">
-        طرح رایگان: ۱ باشگاه، ۱ تیم، ۱۵ بازیکن، ۲ مربی. دعوت اعضا رایگان است. برای سقف نامحدود، Club Pro بخرید — جدا از VIP برگزارکننده.
+        طرح رایگان: {formatFreeClubCaps(pricing)}. دعوت اعضا رایگان است. برای سقف نامحدود، Club Pro بخرید — جدا از VIP برگزارکننده.
       </p>
 
       {section === "info" && (

@@ -346,6 +346,8 @@ function PlannerWizard() {
     remaining?: number;
     guestCount?: number;
     guestLimit?: number;
+    giftPlannings?: number;
+    giftLinks?: number;
   } | null>(null);
 
   const loadQuota = useCallback(async () => {
@@ -3733,18 +3735,23 @@ function PlannerWizard() {
                   سقف مسابقات رایگان مهمان تکمیل شد
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  حداکثر ۲ مسابقه برای هر دستگاه مهمان
+                  حداکثر {toPersianDigits(quota?.guestLimit || 2)} مسابقه برای هر دستگاه مهمان
                 </p>
               </div>
             </div>
 
             <div className="rounded-2xl bg-amber-50/80 border border-amber-200 p-3.5 text-xs text-amber-950 leading-relaxed space-y-2">
               <p>
-                شما از سقف ۲ برنامه‌ریزی مسابقه رایگان کاربر مهمان در این دستگاه استفاده نموده‌اید.
+                شما از سقف {toPersianDigits(quota?.guestLimit || 2)} برنامه‌ریزی مسابقه رایگان کاربر مهمان در این دستگاه استفاده نموده‌اید.
               </p>
               <div className="font-bold text-emerald-900 bg-white/80 p-2.5 rounded-xl border border-emerald-200">
                 🎁 <strong>هدیه ثبت‌نام رایگان:</strong> با ثبت‌نام در کمتر از ۳۰ ثانیه،{" "}
-                <strong>۵ برنامه‌ریزی مسابقه + ۱ ایجاد لینک اختصاصی تماشاگران رایگان</strong>{" "}
+                <strong>
+                  {toPersianDigits(quota?.giftPlannings ?? 5)} برنامه‌ریزی مسابقه
+                  {(quota?.giftLinks ?? 1) > 0
+                    ? ` + ${toPersianDigits(quota?.giftLinks ?? 1)} ایجاد لینک اختصاصی تماشاگران رایگان`
+                    : ""}
+                </strong>{" "}
                 دریافت کنید!
               </div>
             </div>

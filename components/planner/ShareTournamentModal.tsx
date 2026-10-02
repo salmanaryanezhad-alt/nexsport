@@ -54,6 +54,7 @@ export function ShareTournamentModal({
     finalAmount: number;
   } | null>(null);
   const [linkPrice, setLinkPrice] = useState(DEDICATED_LINK_PRICE_TOMANS);
+  const [linkCreditCost, setLinkCreditCost] = useState(LINK_ACTIVATION_CREDIT_COST);
 
   const loadUserQuota = useCallback(async () => {
     try {
@@ -129,6 +130,9 @@ export function ShareTournamentModal({
         .then((data) => {
           if (data?.settings?.linkPriceTomans != null) {
             setLinkPrice(Number(data.settings.linkPriceTomans) || DEDICATED_LINK_PRICE_TOMANS);
+          }
+          if (data?.settings?.linkCreditCost != null) {
+            setLinkCreditCost(Number(data.settings.linkCreditCost) || LINK_ACTIVATION_CREDIT_COST);
           }
         })
         .catch(() => {});
@@ -423,7 +427,7 @@ export function ShareTournamentModal({
   const adminFreeLink = Boolean(isAdmin || quota?.unlimitedLinks || quota?.unlimitedPlanning);
   const needsPaidActivation = !adminFreeLink && !quota?.isVip && !quota?.freeLinkAvailable;
   const creditBalance = quota?.planningCredits ?? 0;
-  const canPayWithCredits = creditBalance >= LINK_ACTIVATION_CREDIT_COST;
+  const canPayWithCredits = creditBalance >= linkCreditCost;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -789,7 +793,7 @@ export function ShareTournamentModal({
                     <div className="space-y-1">
                       <h4 className="font-black text-xs text-amber-950">پرداخت اعتباری از سهمیه برنامه‌سازی</h4>
                       <p className="text-[11px] font-bold text-amber-950 leading-relaxed">
-                        با این کار {toPersianDigits(LINK_ACTIVATION_CREDIT_COST)} تا از سهمیه‌های برنامه‌سازی شما معادل{" "}
+                        با این کار {toPersianDigits(linkCreditCost)} تا از سهمیه‌های برنامه‌سازی شما معادل{" "}
                         {toPersianDigits(linkPrice.toLocaleString("en-US"))} تومان کسر خواهد شد.
                       </p>
                       <p className="text-[11px] text-amber-900">
@@ -808,8 +812,8 @@ export function ShareTournamentModal({
                     {paymentLoading
                       ? "در حال کسر سهمیه و فعال‌سازی..."
                       : canPayWithCredits
-                      ? `فعال‌سازی لینک با ${toPersianDigits(LINK_ACTIVATION_CREDIT_COST)} سهمیه برنامه‌سازی`
-                      : `سهمیه کافی نیست (حداقل ${toPersianDigits(LINK_ACTIVATION_CREDIT_COST)} سهمیه لازم است)`}
+                      ? `فعال‌سازی لینک با ${toPersianDigits(linkCreditCost)} سهمیه برنامه‌سازی`
+                      : `سهمیه کافی نیست (حداقل ${toPersianDigits(linkCreditCost)} سهمیه لازم است)`}
                   </button>
                 </div>
               )}
