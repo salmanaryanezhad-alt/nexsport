@@ -24,8 +24,8 @@ export function NexSportIcon({
         width="480"
         height="480"
         rx="116"
-        fill="#081A12"
-        stroke="#1B4332"
+        fill="#06141F"
+        stroke="#1B4F8A"
         strokeWidth="4"
       />
       <rect
@@ -34,7 +34,7 @@ export function NexSportIcon({
         width="456"
         height="456"
         rx="104"
-        fill="#0D2419"
+        fill="#0B2438"
         stroke="#FFB703"
         strokeWidth="3"
         strokeOpacity="0.6"
@@ -45,7 +45,7 @@ export function NexSportIcon({
         cx="256"
         cy="256"
         r="168"
-        stroke="#2D6A4F"
+        stroke="#3B7AB8"
         strokeWidth="2"
         strokeOpacity="0.35"
         strokeDasharray="6 8"
@@ -54,7 +54,7 @@ export function NexSportIcon({
         cx="256"
         cy="256"
         r="64"
-        stroke="#2D6A4F"
+        stroke="#3B7AB8"
         strokeWidth="1.5"
         strokeOpacity="0.35"
       />
@@ -63,22 +63,22 @@ export function NexSportIcon({
         y1="84"
         x2="256"
         y2="428"
-        stroke="#2D6A4F"
+        stroke="#3B7AB8"
         strokeWidth="1.5"
         strokeOpacity="0.35"
       />
 
       {/* Left Pillar */}
-      <rect x="144" y="140" width="68" height="232" rx="14" fill="#133827" />
-      <rect x="147" y="143" width="62" height="226" rx="11" fill="#1B4332" />
-      <path d="M150 148 L178 148 L178 364 L150 364 Z" fill="#40916C" />
-      <path d="M150 148 L164 148 L164 364 L150 364 Z" fill="#52B788" />
+      <rect x="144" y="140" width="68" height="232" rx="14" fill="#123A5C" />
+      <rect x="147" y="143" width="62" height="226" rx="11" fill="#1B4F8A" />
+      <path d="M150 148 L178 148 L178 364 L150 364 Z" fill="#4A90D9" />
+      <path d="M150 148 L164 148 L164 364 L150 364 Z" fill="#60A5FA" />
 
       {/* Right Pillar */}
-      <rect x="300" y="140" width="68" height="232" rx="14" fill="#133827" />
-      <rect x="303" y="143" width="62" height="226" rx="11" fill="#1B4332" />
-      <path d="M334 148 L362 148 L362 364 L334 364 Z" fill="#40916C" />
-      <path d="M348 148 L362 148 L362 364 L348 364 Z" fill="#52B788" />
+      <rect x="300" y="140" width="68" height="232" rx="14" fill="#123A5C" />
+      <rect x="303" y="143" width="62" height="226" rx="11" fill="#1B4F8A" />
+      <path d="M334 148 L362 148 L362 364 L334 364 Z" fill="#4A90D9" />
+      <path d="M348 148 L362 148 L362 364 L348 364 Z" fill="#60A5FA" />
 
       {/* Central Dynamic Gold Diagonal Ribbon */}
       <polygon
@@ -113,9 +113,9 @@ export function NexSportIcon({
         strokeLinecap="round"
         strokeOpacity="0.9"
       />
-      <circle cx="164" cy="416" r="6" fill="#52B788" stroke="#0D2419" strokeWidth="2" />
-      <circle cx="256" cy="427" r="7.5" fill="#FFE885" stroke="#0D2419" strokeWidth="2" />
-      <circle cx="348" cy="416" r="6" fill="#52B788" stroke="#0D2419" strokeWidth="2" />
+      <circle cx="164" cy="416" r="6" fill="#60A5FA" stroke="#0B2438" strokeWidth="2" />
+      <circle cx="256" cy="427" r="7.5" fill="#FFE885" stroke="#0B2438" strokeWidth="2" />
+      <circle cx="348" cy="416" r="6" fill="#60A5FA" stroke="#0B2438" strokeWidth="2" />
     </svg>
   );
 }
