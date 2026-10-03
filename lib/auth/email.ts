@@ -40,11 +40,11 @@ export async function sendVerificationEmail(
           subject,
           html: `
             <div dir="rtl" style="font-family: Tahoma, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #DAD5C6; border-radius: 12px; background-color: #F7F5EE; color: #16211C;">
-              <h2 style="color: #1B4F8A; margin-bottom: 16px;">سامانه ورزشی NexSport</h2>
+              <h2 style="color: #1B4332; margin-bottom: 16px;">سامانه ورزشی NexSport</h2>
               <p style="font-size: 14px; line-height: 1.6;">سلام <strong>${userName}</strong> عزیز،</p>
               <p style="font-size: 14px; line-height: 1.6;">${description}</p>
               <div style="text-align: center; margin: 24px 0;">
-                <span style="display: inline-block; font-size: 28px; font-weight: bold; letter-spacing: 6px; padding: 12px 24px; background-color: #1B4F8A; color: #FFFFFF; border-radius: 8px;">
+                <span style="display: inline-block; font-size: 28px; font-weight: bold; letter-spacing: 6px; padding: 12px 24px; background-color: #1B4332; color: #FFFFFF; border-radius: 8px;">
                   ${code}
                 </span>
               </div>
