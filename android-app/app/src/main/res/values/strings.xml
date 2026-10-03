@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">نکس‌اسپورت</string>
+    <string name="splash_tagline">برنامه‌ریز مسابقات ورزشی</string>
+    <string name="menu_home">صفحه اصلی</string>
+    <string name="menu_planner">برنامه‌ریز مسابقات</string>
+    <string name="menu_refresh">تازه‌سازی</string>
+    <string name="download_open_browser">برای دریافت «%1$s» مرورگر باز می‌شود</string>
+</resources>

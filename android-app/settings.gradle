@@ -1,0 +1,2 @@
+rootProject.name = "NexSport"
+include ':app'

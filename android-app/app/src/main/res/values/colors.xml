@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pitch">#0F5132</color>
+    <color name="pitch_dark">#062E1E</color>
+    <color name="pitch_light">#166534</color>
+    <color name="gold">#D97706</color>
+    <color name="gold_light">#FBBF24</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+</resources>

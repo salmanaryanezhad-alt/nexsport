@@ -30,3 +30,16 @@ next-env.d.ts
 # environment
 .env
 .env*.local
+
+# android app (Phase 2 store shell)
+android-app/.gradle/
+android-app/build/
+android-app/app/build/
+android-app/local.properties
+android-app/*.jks
+android-app/*.keystore
+android-app/keystore.properties
+android-app/SIGNING-KEEP-PRIVATE.txt
+android-app/.idea/
+store-listing/*.apk
+.github/

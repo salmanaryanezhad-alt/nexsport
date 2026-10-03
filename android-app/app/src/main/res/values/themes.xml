@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.NexSport" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/pitch</item>
+        <item name="android:colorPrimaryDark">@color/pitch_dark</item>
+        <item name="android:colorAccent">@color/gold</item>
+        <item name="android:statusBarColor">@color/pitch_dark</item>
+        <item name="android:navigationBarColor">@color/pitch_dark</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="Theme.NexSport.Splash" parent="Theme.NexSport">
+        <item name="android:windowBackground">@color/pitch_dark</item>
+        <item name="android:statusBarColor">@color/pitch_dark</item>
+    </style>
+</resources>
