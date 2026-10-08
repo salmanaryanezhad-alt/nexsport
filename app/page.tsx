@@ -2,6 +2,7 @@ import Link from "next/link";
 import React from "react";
 import { NexSportIcon } from "@/components/NexSportLogo";
 import { AuthHeaderNav } from "@/components/auth/AuthHeaderNav";
+import { SeasonThemeBadge } from "@/components/theme/SeasonThemeBadge";
 
 function BracketSvgIcon({ className = "w-6 h-6" }: { className?: string }) {
   return (
@@ -341,11 +342,13 @@ export default function HomePage() {
         <section className="relative overflow-hidden bg-gradient-to-br from-[#06281C] via-[#0B3B24] to-[#041F16] text-white py-16 sm:py-24 lg:py-28">
           <div className="absolute inset-0 bg-pitch-lines pointer-events-none opacity-40" />
           <div className="absolute top-0 right-1/4 h-96 w-96 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-10 h-80 w-80 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-10 h-80 w-80 rounded-full ns-accent-blob blur-3xl pointer-events-none" />
 
           <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
               <div className="lg:col-span-7 space-y-6 text-right">
+                <div className="flex flex-wrap items-center gap-2">
+                <SeasonThemeBadge />
                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-950/60 px-4 py-1.5 text-xs font-bold text-emerald-200 shadow-inner backdrop-blur-md">
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -353,10 +356,11 @@ export default function HomePage() {
                   </span>
                   <span>از جدول مسابقه تا باشگاه و جامعه ورزشی — یک سامانه</span>
                 </div>
+                </div>
 
                 <h1 className="text-3xl sm:text-5xl lg:text-[3.1rem] font-black leading-[1.3] text-white tracking-tight">
                   مسابقه برگزار کنید، تیم بسازید،{" "}
-                  <span className="bg-gradient-to-r from-amber-300 via-emerald-300 to-amber-200 bg-clip-text text-transparent">
+                  <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, var(--ns-accent-light), #6EE7B7, var(--ns-accent))" }}>
                     در جامعه ورزشی دیده شوید
                   </span>
                 </h1>
@@ -369,7 +373,7 @@ export default function HomePage() {
                 <div className="flex flex-wrap items-center gap-3.5 pt-2">
                   <Link
                     href="/planner"
-                    className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-7 py-3.5 text-sm sm:text-base font-black text-slate-950 shadow-lg shadow-amber-500/25 hover:from-amber-300 hover:to-amber-400 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                    className="ns-cta inline-flex items-center gap-2.5 rounded-xl px-7 py-3.5 text-sm sm:text-base font-black shadow-lg transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                   >
                     <span>ساخت برنامه مسابقه</span>
                     <span className="text-lg">⚡</span>
@@ -636,7 +640,7 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <Link
                 href="/planner"
-                className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-8 py-3.5 text-sm font-black text-slate-950 shadow-xl hover:from-amber-300"
+                className="ns-cta inline-flex items-center gap-2.5 rounded-xl px-8 py-3.5 text-sm font-black shadow-xl transition-all hover:-translate-y-0.5 cursor-pointer"
               >
                 شروع برنامه‌ریزی
               </Link>

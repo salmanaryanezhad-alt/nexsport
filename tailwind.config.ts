@@ -21,10 +21,10 @@ const config: Config = {
           mint: "#34D399",
         },
         gold: {
-          DEFAULT: "#D97706",
-          dark: "#B45309",
-          light: "#FBBF24",
-          amber: "#F59E0B",
+          DEFAULT: "rgb(var(--ns-accent-rgb) / <alpha-value>)",
+          dark: "var(--ns-accent-dark)",
+          light: "var(--ns-accent-light)",
+          amber: "rgb(var(--ns-accent-rgb) / <alpha-value>)",
         },
         ink: {
           DEFAULT: "#0F172A",
@@ -47,7 +47,7 @@ const config: Config = {
         "card": "0 2px 10px -2px rgba(15, 23, 42, 0.06), 0 1px 4px -1px rgba(15, 23, 42, 0.04)",
         "card-hover": "0 14px 28px -6px rgba(15, 23, 42, 0.1), 0 4px 10px -2px rgba(15, 23, 42, 0.06)",
         "glow-pitch": "0 0 25px -4px rgba(16, 185, 129, 0.3)",
-        "glow-gold": "0 0 25px -4px rgba(245, 158, 11, 0.3)",
+        "glow-gold": "0 0 25px -4px rgb(var(--ns-accent-rgb) / 0.3)",
       },
       backgroundImage: {
         "pitch-lines": "repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.035) 39px, rgba(255,255,255,0.035) 40px)",

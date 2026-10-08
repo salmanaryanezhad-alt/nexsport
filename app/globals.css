@@ -55,6 +55,98 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =========================================================
+   NexSport Theme tokens
+   Identity (pitch / ink / chalk) is fixed.
+   Only Accent variables swap per season or event.
+   ========================================================= */
+:root {
+  --ns-primary: #0F5132;
+  --ns-primary-hover: #166534;
+  --ns-primary-dark: #062E1E;
+  --ns-accent: #F59E0B;
+  --ns-accent-hover: #D97706;
+  --ns-accent-light: #FBBF24;
+  --ns-accent-dark: #B45309;
+  --ns-accent-rgb: 245, 158, 11;
+  --ns-accent-ink: #0F172A;
+  --ns-accent-gradient: linear-gradient(90deg, #FBBF24, #F59E0B, #FBBF24);
+}
+
+[data-theme="spring"] {
+  --ns-accent: #34D399;
+  --ns-accent-hover: #10B981;
+  --ns-accent-light: #6EE7B7;
+  --ns-accent-dark: #059669;
+  --ns-accent-rgb: 52, 211, 153;
+  --ns-accent-ink: #062E1E;
+  --ns-accent-gradient: linear-gradient(90deg, #6EE7B7, #34D399, #10B981);
+}
+
+[data-theme="summer"] {
+  --ns-accent: #F97316;
+  --ns-accent-hover: #EA580C;
+  --ns-accent-light: #FDBA74;
+  --ns-accent-dark: #C2410C;
+  --ns-accent-rgb: 249, 115, 22;
+  --ns-accent-ink: #0F172A;
+  --ns-accent-gradient: linear-gradient(90deg, #FBBF24, #F97316, #F59E0B);
+}
+
+[data-theme="autumn"] {
+  --ns-accent: #C2410C;
+  --ns-accent-hover: #9A3412;
+  --ns-accent-light: #FB923C;
+  --ns-accent-dark: #7C2D12;
+  --ns-accent-rgb: 194, 65, 12;
+  --ns-accent-ink: #FFF7ED;
+  --ns-accent-gradient: linear-gradient(90deg, #FB923C, #C2410C, #E11D48);
+}
+
+[data-theme="winter"] {
+  --ns-accent: #38BDF8;
+  --ns-accent-hover: #0EA5E9;
+  --ns-accent-light: #7DD3FC;
+  --ns-accent-dark: #6366F1;
+  --ns-accent-rgb: 56, 189, 248;
+  --ns-accent-ink: #0F172A;
+  --ns-accent-gradient: linear-gradient(90deg, #7DD3FC, #38BDF8, #818CF8);
+}
+
+[data-theme="world-cup"] {
+  --ns-accent: #EAB308;
+  --ns-accent-hover: #CA8A04;
+  --ns-accent-light: #FDE047;
+  --ns-accent-dark: #7C3AED;
+  --ns-accent-rgb: 234, 179, 8;
+  --ns-accent-ink: #0F172A;
+  --ns-accent-gradient: linear-gradient(90deg, #FDE047, #EAB308, #A855F7);
+}
+
+[data-theme="olympics"] {
+  --ns-accent: #2563EB;
+  --ns-accent-hover: #1D4ED8;
+  --ns-accent-light: #FBBF24;
+  --ns-accent-dark: #DC2626;
+  --ns-accent-rgb: 37, 99, 235;
+  --ns-accent-ink: #FFFFFF;
+  --ns-accent-gradient: linear-gradient(90deg, #FBBF24, #2563EB, #DC2626);
+}
+
+.ns-cta {
+  background-image: var(--ns-accent-gradient);
+  color: var(--ns-accent-ink);
+  box-shadow: 0 10px 24px -8px rgb(var(--ns-accent-rgb) / 0.35);
+}
+
+.ns-cta:hover {
+  filter: brightness(1.06);
+}
+
+.ns-accent-blob {
+  background: rgb(var(--ns-accent-rgb) / 0.16);
+}
+
 html {
   direction: rtl;
 }
@@ -63,15 +155,15 @@ body {
   background-color: #F8FAFC;
   color: #0F172A;
   font-feature-settings: "ss01" on;
-  background-image: 
+  background-image:
     radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.06) 0px, transparent 45%),
-    radial-gradient(at 0% 100%, rgba(245, 158, 11, 0.05) 0px, transparent 45%);
+    radial-gradient(at 0% 100%, rgb(var(--ns-accent-rgb) / 0.07) 0px, transparent 45%);
   background-attachment: fixed;
 }
 
 ::selection {
-  background-color: #F59E0B;
-  color: #0F172A;
+  background-color: var(--ns-accent);
+  color: var(--ns-accent-ink);
 }
 
 /* Modern Sport Glassmorphism & UI helpers */
@@ -102,7 +194,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid #F59E0B;
+  outline: 2px solid var(--ns-accent);
   outline-offset: 2px;
 }
 

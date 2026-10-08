@@ -114,10 +114,12 @@ import { AdminPricingModal } from "@/components/admin/AdminPricingModal";
 import { AdminPasswordGate } from "@/components/admin/AdminPasswordGate";
 import { AdminTicketsModal } from "@/components/admin/AdminTicketsModal";
 import { TicketsModal } from "@/components/support/TicketsModal";
+import { resolveNexSportTheme } from "@/lib/theme/nexsportTheme";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const theme = resolveNexSportTheme();
   return (
-    <html lang="fa" dir="rtl">
+    <html lang="fa" dir="rtl" data-theme={theme.id}>
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
