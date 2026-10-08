@@ -4871,24 +4871,36 @@ export const db = {
       .slice(0, cap);
   },
 
-  async countUnreadNotifications(userId: string): Promise<number> {
+  async countUnreadNotifications(userId: string, type?: string): Promise<number> {
     if (mysqlPool) {
       await initTablesIfRealDb();
-      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
-        "SELECT COUNT(*) AS c FROM `notifications` WHERE user_id = ? AND is_read = 0",
-        [userId]
-      );
+      const [rows] = type
+        ? await mysqlPool.execute<RowDataPacket[]>(
+            "SELECT COUNT(*) AS c FROM `notifications` WHERE user_id = ? AND is_read = 0 AND type = ?",
+            [userId, type]
+          )
+        : await mysqlPool.execute<RowDataPacket[]>(
+            "SELECT COUNT(*) AS c FROM `notifications` WHERE user_id = ? AND is_read = 0",
+            [userId]
+          );
       return Number(rows[0]?.c || 0);
     }
     if (pgPool) {
       await initTablesIfRealDb();
-      const res = await pgPool.query(
-        "SELECT COUNT(*)::int AS c FROM notifications WHERE user_id = $1 AND is_read = FALSE",
-        [userId]
-      );
+      const res = type
+        ? await pgPool.query(
+            "SELECT COUNT(*)::int AS c FROM notifications WHERE user_id = $1 AND is_read = FALSE AND type = $2",
+            [userId, type]
+          )
+        : await pgPool.query(
+            "SELECT COUNT(*)::int AS c FROM notifications WHERE user_id = $1 AND is_read = FALSE",
+            [userId]
+          );
       return Number(res.rows[0]?.c || 0);
     }
-    return Array.from(memoryStore.notifications.values()).filter((n) => n.user_id === userId && !n.is_read).length;
+    return Array.from(memoryStore.notifications.values()).filter(
+      (n) => n.user_id === userId && !n.is_read && (!type || n.type === type)
+    ).length;
   },
 
   async markNotificationsRead(userId: string, ids?: string[]): Promise<void> {

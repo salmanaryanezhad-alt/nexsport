@@ -159,17 +159,17 @@ export function AuthHeaderNav() {
       >
         خدمات
       </Link>
-      <button
-        type="button"
-        onClick={() => setNotifOpen(true)}
-        className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm hover:border-emerald-400 cursor-pointer"
-        title="اعلان‌ها"
-      >
-        🔔
-        {notifCount > 0 && (
+      {notifCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setNotifOpen(true)}
+          className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-sm hover:border-rose-400 cursor-pointer"
+          title="پیام عمومی جدید"
+        >
+          🔔
           <span className="absolute -top-0.5 -left-0.5 h-2.5 w-2.5 rounded-full bg-rose-600 ring-2 ring-white" />
-        )}
-      </button>
+        </button>
+      )}
       <NotificationsModal
         open={notifOpen}
         onClose={() => setNotifOpen(false)}
@@ -266,6 +266,22 @@ export function AuthHeaderNav() {
                 )}
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setDropdownOpen(false);
+                setNotifOpen(true);
+              }}
+              className="w-full text-right rounded-lg px-2.5 py-2 text-xs font-semibold text-ink hover:bg-chalk transition-colors flex items-center justify-between cursor-pointer mb-1"
+            >
+              <span className="flex items-center gap-1.5">
+                <span>🔔</span>
+                <span>اعلان‌ها</span>
+              </span>
+              {notifCount > 0 && (
+                <span className="h-2 w-2 rounded-full bg-rose-600" />
+              )}
+            </button>
             {isAdmin && (
               <>
                 <button

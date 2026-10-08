@@ -766,6 +766,84 @@ function PlannerWizard() {
     };
   }, [scores, matchDetails, result, currentSavedId, step, isLoaded]);
 
+  const accountSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!isLoaded || !user || !currentSavedId || !format) return;
+    if (accountSaveTimeoutRef.current) clearTimeout(accountSaveTimeoutRef.current);
+    accountSaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await fetch("/api/tournaments", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: currentSavedId,
+            title:
+              metadata.title ||
+              FORMAT_OPTIONS.find((f) => f.key === format)?.title ||
+              "مسابقه ورزشی",
+            format,
+            sport: pointsRule?.sport,
+            teamCount,
+            state: {
+              step,
+              format,
+              teamCount,
+              teamNames,
+              libraryTeamIds,
+              numGroups,
+              qualifiersPerGroup,
+              seededTeams,
+              pot2Teams,
+              pot3Teams,
+              pot4Teams,
+              avoidPairs,
+              hasThirdPlace,
+              hasResetFinal,
+              independentSecondLeg,
+              advanceBestThirds,
+              pointsRule,
+              metadata,
+              result,
+              scores,
+              matchDetails,
+            },
+          }),
+        });
+      } catch {
+        // silent autosave
+      }
+    }, 900);
+    return () => {
+      if (accountSaveTimeoutRef.current) clearTimeout(accountSaveTimeoutRef.current);
+    };
+  }, [
+    isLoaded,
+    user,
+    currentSavedId,
+    step,
+    format,
+    teamCount,
+    teamNames,
+    libraryTeamIds,
+    numGroups,
+    qualifiersPerGroup,
+    seededTeams,
+    pot2Teams,
+    pot3Teams,
+    pot4Teams,
+    avoidPairs,
+    hasThirdPlace,
+    hasResetFinal,
+    independentSecondLeg,
+    advanceBestThirds,
+    pointsRule,
+    metadata,
+    result,
+    scores,
+    matchDetails,
+  ]);
+
   const needsGroupRules = format === "groups" || format === "groups-knockout";
   const needsSeedRules = format === "knockout" || format === "double-knockout" || needsGroupRules;
   const supportsThirdPlace = format === "knockout" || format === "groups-knockout";
@@ -1456,11 +1534,11 @@ function PlannerWizard() {
 
       setCurrentSavedId(t.id);
       setQuotaCharged(true);
-      setInfoMessage(`☁️ مسابقه «${t.title}» با موفقیت از فضای ابری بارگذاری شد.`);
+      setInfoMessage(`مسابقه «${t.title}» با موفقیت بارگذاری شد.`);
       setTimeout(() => setInfoMessage(null), 4000);
     } catch (err) {
       console.error("Error loading tournament:", err);
-      alert("خطا در بارگذاری مسابقه از فضای ابری.");
+      alert("خطا در بارگذاری مسابقه.");
     }
   }
 
@@ -1489,7 +1567,7 @@ function PlannerWizard() {
     if (!metadata.title) {
       setMetadata((prev) => ({ ...prev, title: t.title }));
     }
-    setInfoMessage(`☁️ مسابقه «${t.title}» با موفقیت در فضای ابری ذخیره شد.`);
+    setInfoMessage(`مسابقه «${t.title}» ذخیره شد. تغییرات بعدی به‌صورت خودکار ذخیره می‌شوند.`);
     setTimeout(() => setInfoMessage(null), 4000);
   }
 
@@ -1566,7 +1644,7 @@ function PlannerWizard() {
             type="button"
             onClick={handleOpenSavedList}
             className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50/60 px-3 py-1.5 text-xs font-black text-emerald-800 shadow-2xs hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
-            title="مشاهده و بارگذاری مسابقات ذخیره شده من در فضای ابری"
+            title="مشاهده و بارگذاری مسابقات ذخیره شده من"
           >
             <span>📂</span>
             <span className="hidden sm:inline">مسابقات من</span>
@@ -1577,10 +1655,10 @@ function PlannerWizard() {
               type="button"
               onClick={handleOpenSaveCloud}
               className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-900 hover:bg-amber-500 hover:text-white transition-all cursor-pointer"
-              title="ذخیره مسابقه جاری در حساب ابری"
+              title="ذخیره مسابقه جاری"
             >
-              <span>☁️</span>
-              <span className="hidden sm:inline">ذخیره ابری</span>
+              <span>💾</span>
+              <span className="hidden sm:inline">ذخیره</span>
             </button>
           )}
 
@@ -3524,10 +3602,10 @@ function PlannerWizard() {
               <button
                 className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-black text-amber-900 hover:bg-amber-100 hover:shadow-xs transition-all cursor-pointer"
                 onClick={handleOpenSaveCloud}
-                title="ذخیره این مسابقه و نتایج آن در فضای ابری حساب کاربری"
+                title="ذخیره این مسابقه و نتایج آن"
               >
-                <span>☁️</span>
-                <span>ذخیره ابری</span>
+                <span>💾</span>
+                <span>ذخیره</span>
               </button>
 
               <button

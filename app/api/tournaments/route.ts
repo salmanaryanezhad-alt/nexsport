@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   try {
     const token = getRequestToken(req);
     if (!token) {
-      return NextResponse.json({ error: "برای ذخیره ابری مسابقه، ابتدا وارد حساب کاربری خود شوید.", expired: true }, { status: 401 });
+      return NextResponse.json({ error: "برای ذخیره مسابقه، ابتدا وارد حساب کاربری خود شوید.", expired: true }, { status: 401 });
     }
 
     const session = await db.findSession(token);

@@ -144,7 +144,7 @@ export function SavedTournamentsModal({
           </div>
           <h3 className="text-base font-black text-pitch mb-2">ورود به حساب کاربری</h3>
           <p className="text-xs text-ink/70 leading-relaxed mb-6">
-            برای ذخیره ابری مسابقات و دسترسی به جداول و براکت‌های خود از هر دستگاهی، ابتدا وارد حساب کاربری خود شوید یا به‌صورت رایگان ثبت‌نام کنید.
+            برای ذخیره مسابقات و دسترسی به جداول و براکت‌های خود از هر دستگاهی، ابتدا وارد حساب کاربری خود شوید یا به‌صورت رایگان ثبت‌نام کنید.
           </p>
           <div className="flex gap-2.5">
             <button
@@ -202,7 +202,7 @@ export function SavedTournamentsModal({
         throw new Error(data.error || "خطا در ذخیره مسابقه.");
       }
 
-      setSuccessMsg("مسابقه با موفقیت در فضای ابری ذخیره شد!");
+      setSuccessMsg("مسابقه ذخیره شد. از این به بعد تغییرات به‌صورت خودکار ذخیره می‌شوند.");
       if (onSavedSuccess && data.tournament) {
         onSavedSuccess(data.tournament);
       }
@@ -294,9 +294,9 @@ export function SavedTournamentsModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-line/60 bg-chalk/60 px-5 py-3.5 shrink-0">
           <div className="flex items-center gap-2">
-            <span className="text-xl">{mode === "save" ? "☁️" : "📂"}</span>
+            <span className="text-xl">{mode === "save" ? "💾" : "📂"}</span>
             <span className="font-bold text-sm text-pitch">
-              {mode === "save" ? "ذخیره مسابقه در حساب ابری" : "مسابقات ذخیره شده من"}
+              {mode === "save" ? "ذخیره مسابقه" : "مسابقات ذخیره شده من"}
             </span>
           </div>
 
@@ -451,7 +451,7 @@ export function SavedTournamentsModal({
                   className="flex-1 rounded-xl bg-pitch py-2.5 text-xs font-bold text-white hover:bg-pitch-light shadow-sm transition-colors disabled:opacity-50 cursor-pointer inline-flex items-center justify-center gap-1.5"
                 >
                   <span>💾</span>
-                  <span>{actionLoading ? "در حال ذخیره..." : "ذخیره در فضای ابری"}</span>
+                  <span>{actionLoading ? "در حال ذخیره..." : "ذخیره"}</span>
                 </button>
               </div>
             </form>
@@ -480,7 +480,7 @@ export function SavedTournamentsModal({
                   <div className="text-4xl mb-2">📁</div>
                   <p className="font-bold text-sm text-ink mb-1">شما هنوز هیچ مسابقه‌ای ذخیره نکرده‌اید.</p>
                   <p className="text-xs text-ink/60 max-w-sm mx-auto leading-relaxed">
-                    با زدن دکمه «ذخیره ابری» در مرحله جدول مسابقات، می‌توانید برنامه‌ها و نتایج خود را ذخیره کنید تا همیشه همراه شما باشند.
+                    با زدن دکمه «ذخیره» در مرحله جدول مسابقات، می‌توانید برنامه‌ها و نتایج خود را ذخیره کنید تا همیشه همراه شما باشند.
                   </p>
                 </div>
               ) : filteredTournaments.length === 0 ? (

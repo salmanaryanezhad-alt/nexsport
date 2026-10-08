@@ -28,12 +28,36 @@ export function NotificationsModal({
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     setLoading(true);
     fetch("/api/notifications/", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setItems(Array.isArray(d?.notifications) ? d.notifications : []))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
+      .then(async (d) => {
+        const list = Array.isArray(d?.notifications) ? d.notifications : [];
+        if (cancelled) return;
+        setItems(list);
+        if (list.some((n: Item) => !n.is_read)) {
+          await fetch("/api/notifications/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          });
+          if (cancelled) return;
+          setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
+          onChanged?.();
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   async function markAll() {

@@ -25,18 +25,6 @@ export function CommunityChrome({
             </div>
           </Link>
           <div className="flex items-center gap-2">
-            <Link
-              href="/explore"
-              className="hidden sm:inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors"
-            >
-              جست‌وجو
-            </Link>
-            <Link
-              href="/services"
-              className="hidden sm:inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-800 transition-colors"
-            >
-              خدمات
-            </Link>
             <AuthHeaderNav />
           </div>
         </div>
