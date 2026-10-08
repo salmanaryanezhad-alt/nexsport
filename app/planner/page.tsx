@@ -1613,123 +1613,125 @@ function PlannerWizard() {
       : FORMAT_OPTIONS.filter((f) => f.category === formatCategory);
 
   return (
-    <main
-      className={`mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 transition-all ${
-        step === 4
-          ? "max-w-[1700px] w-full"
-          : step === 0
-          ? "max-w-[1580px] w-full"
-          : "max-w-5xl"
-      }`}
-    >
-      {/* Top Bar */}
-      <div className="no-print mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-colors shadow-2xs"
-          >
-            <span>←</span>
-            <span>صفحه اصلی</span>
+    <>
+      <header className="sticky top-0 z-50 no-print border-b border-slate-200/80 bg-white/85 backdrop-blur-md shadow-2xs">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 py-3.5">
+          <Link href="/" className="flex items-center gap-2.5 text-pitch hover:opacity-95 transition-opacity shrink-0">
+            <div className="relative flex items-center justify-center">
+              <NexSportIcon className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 drop-shadow-sm" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-lg sm:text-xl font-black tracking-tight text-slate-900 leading-tight">
+                Nex<span className="text-emerald-700">Sport</span>
+              </span>
+              <span className="text-[10px] text-slate-500 font-semibold tracking-wider">برنامه‌ریز مسابقات</span>
+            </div>
           </Link>
-          <div className="h-4 w-px bg-slate-200" />
-          <div className="flex items-center gap-2">
-            <NexSportIcon size={28} className="shrink-0 drop-shadow-2xs" />
-            <span className="text-sm font-black text-slate-900">برنامه‌ریز مسابقات NexSport</span>
-          </div>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={handleOpenSavedList}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50/60 px-3 py-1.5 text-xs font-black text-emerald-800 shadow-2xs hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
-            title="مشاهده و بارگذاری مسابقات ذخیره شده من"
-          >
-            <span>📂</span>
-            <span className="hidden sm:inline">مسابقات من</span>
-          </button>
-
-          {(step > 0 || result) && (
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             <button
               type="button"
-              onClick={handleOpenSaveCloud}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-900 hover:bg-amber-500 hover:text-white transition-all cursor-pointer"
-              title="ذخیره مسابقه جاری"
+              onClick={handleOpenSavedList}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50/60 px-3 py-1.5 text-xs font-black text-emerald-800 shadow-2xs hover:bg-emerald-600 hover:text-white transition-all cursor-pointer"
+              title="مشاهده و بارگذاری مسابقات ذخیره شده من"
             >
-              <span>💾</span>
-              <span className="hidden sm:inline">ذخیره</span>
+              <span>📂</span>
+              <span className="hidden sm:inline">مسابقات من</span>
             </button>
-          )}
 
-          {/* Quota / Store Button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (!user) {
-                openAuthModal("login");
-                return;
-              }
-              setStoreModalOpen(true);
-            }}
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-black shadow-2xs transition-all cursor-pointer ${
-              user && quota?.isVip
-                ? "border-amber-400 bg-amber-50 text-amber-950 hover:bg-amber-100"
-                : !user
-                ? (quota?.guestCount ?? 0) >= (quota?.guestLimit ?? 2)
-                  ? "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 animate-pulse"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-emerald-500"
-                : isAdmin || quota?.unlimitedPlanning || (quota?.planningCredits ?? 5) > 0
-                ? "border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100/70"
-                : "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 animate-pulse"
-            }`}
-            title={!user ? "ورود به حساب کاربری" : isAdmin || quota?.unlimitedPlanning ? "اعتبار نامحدود مدیر" : "افزایش اعتبار / اشتراک ویژه VIP"}
-          >
-            {user && quota?.isVip ? (
-              <>
-                <span>👑</span>
-                <span>عضو VIP</span>
-              </>
-            ) : user && (isAdmin || quota?.unlimitedPlanning) ? (
-              <>
-                <span>💎</span>
-                <span>اعتبار: نامحدود</span>
-              </>
-            ) : user ? (
-              <>
-                <span>💎</span>
-                <span>
-                  اعتبار: {toPersianDigits(quota?.planningCredits ?? 5)}
-                </span>
-              </>
-            ) : (
-              <>
-                <span>👤</span>
-                <span>
-                  مهمان: {toPersianDigits(quota?.guestCount || 0)}/{toPersianDigits(quota?.guestLimit || 2)}
-                </span>
-              </>
+            {(step > 0 || result) && (
+              <button
+                type="button"
+                onClick={handleOpenSaveCloud}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-900 hover:bg-amber-500 hover:text-white transition-all cursor-pointer"
+                title="ذخیره مسابقه جاری"
+              >
+                <span>💾</span>
+                <span className="hidden sm:inline">ذخیره</span>
+              </button>
             )}
-          </button>
 
-          <AuthHeaderNav />
-
-          {(step > 0 || result) && (
             <button
-              onClick={handleReset}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
-              title="شروع مسابقه جدید و بازگشت به صفحه اول برنامه‌ریزی"
+              type="button"
+              onClick={() => {
+                if (!user) {
+                  openAuthModal("login");
+                  return;
+                }
+                setStoreModalOpen(true);
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-black shadow-2xs transition-all cursor-pointer ${
+                user && quota?.isVip
+                  ? "border-amber-400 bg-amber-50 text-amber-950 hover:bg-amber-100"
+                  : !user
+                  ? (quota?.guestCount ?? 0) >= (quota?.guestLimit ?? 2)
+                    ? "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 animate-pulse"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-emerald-500"
+                  : isAdmin || quota?.unlimitedPlanning || (quota?.planningCredits ?? 5) > 0
+                  ? "border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100/70"
+                  : "border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100 animate-pulse"
+              }`}
+              title={!user ? "ورود به حساب کاربری" : isAdmin || quota?.unlimitedPlanning ? "اعتبار نامحدود مدیر" : "افزایش اعتبار / اشتراک ویژه VIP"}
             >
-              <span>🔄</span>
-              <span>مسابقه جدید</span>
+              {user && quota?.isVip ? (
+                <>
+                  <span>👑</span>
+                  <span>عضو VIP</span>
+                </>
+              ) : user && (isAdmin || quota?.unlimitedPlanning) ? (
+                <>
+                  <span>💎</span>
+                  <span>اعتبار: نامحدود</span>
+                </>
+              ) : user ? (
+                <>
+                  <span>💎</span>
+                  <span>
+                    اعتبار: {toPersianDigits(quota?.planningCredits ?? 5)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>👤</span>
+                  <span>
+                    مهمان: {toPersianDigits(quota?.guestCount || 0)}/{toPersianDigits(quota?.guestLimit || 2)}
+                  </span>
+                </>
+              )}
             </button>
-          )}
-        </div>
-      </div>
 
-      <div className="no-print mb-8 max-w-4xl mx-auto">
-        <Stepper labels={STEP_LABELS} current={step} />
-      </div>
+            {(step > 0 || result) && (
+              <button
+                onClick={handleReset}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
+                title="شروع مسابقه جدید و بازگشت به صفحه اول برنامه‌ریزی"
+              >
+                <span>🔄</span>
+                <span className="hidden sm:inline">مسابقه جدید</span>
+              </button>
+            )}
+
+            <AuthHeaderNav />
+          </div>
+        </div>
+      </header>
+
+      <main
+        className={`mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 transition-all ${
+          step === 4
+            ? "max-w-[1700px] w-full"
+            : step === 0
+            ? "max-w-7xl w-full"
+            : "max-w-5xl"
+        }`}
+      >
+
+      {step > 0 && (
+        <div className="no-print mb-8 max-w-4xl mx-auto">
+          <Stepper labels={STEP_LABELS} current={step} />
+        </div>
+      )}
 
       {/* Info notification */}
       {infoMessage && (
@@ -1742,16 +1744,22 @@ function PlannerWizard() {
       {/* STEP 0: FORMAT SELECTION */}
       {step === 0 && (
         <section className="animate-fade-in space-y-8">
-          {/* Section Hero */}
-          <div className="text-center max-w-3xl mx-auto space-y-2.5 pt-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-pitch/10 px-3.5 py-1 text-xs font-bold text-pitch border border-pitch/20">
-              <span className="h-2 w-2 rounded-full bg-pitch animate-pulse" />
-              <span>گام اول از ۵: تعیین شیوه رقابت</span>
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#06281C] via-[#0B3B24] to-[#041F16] text-white px-5 sm:px-8 py-10 sm:py-12 text-center">
+            <div className="absolute inset-0 bg-pitch-lines pointer-events-none opacity-40" />
+            <div className="absolute top-0 right-1/4 h-64 w-64 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-10 h-48 w-48 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+            <div className="relative space-y-3 max-w-3xl mx-auto">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-950/60 px-3.5 py-1.5 text-xs font-bold text-emerald-200 shadow-inner backdrop-blur-md">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span>گام اول: انتخاب فرمت برگزاری</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-ink tracking-tight">
-              فرمت برگزاری مسابقات خود را انتخاب کنید
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">
+              مسابقه‌تان را با فرمت حرفه‌ای شروع کنید
             </h1>
-            <p className="text-xs sm:text-sm text-ink/70 leading-relaxed">
+            <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
               هر فرمت از دقیق‌ترین الگوریتم‌های استاندارد بین‌المللی پیروی می‌کند و جدول بازی‌ها بدون هیچ خطایی ایجاد خواهد شد. روی گزینه مورد نظر کلیک کنید:
             </p>
 
@@ -1762,8 +1770,8 @@ function PlannerWizard() {
                 onClick={() => setFormatCategory("all")}
                 className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
                   formatCategory === "all"
-                    ? "bg-pitch text-chalk shadow-sm"
-                    : "bg-white border border-line text-ink/70 hover:border-pitch/40"
+                    ? "bg-amber-400 text-slate-950 shadow-sm"
+                    : "bg-white/10 border border-white/20 text-emerald-50 hover:bg-white/20"
                 }`}
               >
                 همه فرمت‌ها ({toPersianDigits(FORMAT_OPTIONS.length)})
@@ -1773,8 +1781,8 @@ function PlannerWizard() {
                 onClick={() => setFormatCategory("tournament")}
                 className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
                   formatCategory === "tournament"
-                    ? "bg-pitch text-chalk shadow-sm"
-                    : "bg-white border border-line text-ink/70 hover:border-pitch/40"
+                    ? "bg-amber-400 text-slate-950 shadow-sm"
+                    : "bg-white/10 border border-white/20 text-emerald-50 hover:bg-white/20"
                 }`}
               >
                 🏆 جام‌ها و مسابقات حذفی ({toPersianDigits(tournamentCount)})
@@ -1784,18 +1792,18 @@ function PlannerWizard() {
                 onClick={() => setFormatCategory("league")}
                 className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
                   formatCategory === "league"
-                    ? "bg-pitch text-chalk shadow-sm"
-                    : "bg-white border border-line text-ink/70 hover:border-pitch/40"
+                    ? "bg-amber-400 text-slate-950 shadow-sm"
+                    : "bg-white/10 border border-white/20 text-emerald-50 hover:bg-white/20"
                 }`}
               >
                 ⚽ لیگ و دوره‌ای ({toPersianDigits(leagueCount)})
               </button>
             </div>
-
+            </div>
           </div>
 
           {/* Cards Grid */}
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 grid-cols-1 md:grid-cols-3">
             {displayedFormats.map((opt) => {
               const isSelected = format === opt.key;
               const accentGradient =
@@ -3865,6 +3873,7 @@ function PlannerWizard() {
         }}
       />
     </main>
+    </>
   );
 }
 
