@@ -13,6 +13,7 @@ interface AdminUserItem {
   is_verified: boolean;
   role: string;
   created_at: string;
+  last_active_at?: string | null;
   isVip?: boolean;
   isClubPro?: boolean;
   unlimitedPlanning?: boolean;
@@ -157,7 +158,7 @@ export function UsersModal() {
     );
   }, [users, searchQuery]);
 
-  const formatPersianDate = (dateString?: string) => {
+  const formatPersianDate = (dateString?: string | null) => {
     if (!dateString) return "—";
     try {
       const date = new Date(dateString);
@@ -166,8 +167,6 @@ export function UsersModal() {
         year: "numeric",
         month: "long",
         day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
       }).format(date);
     } catch {
       return dateString;
@@ -394,6 +393,7 @@ export function UsersModal() {
                       <th className="py-3 px-4">آدرس ایمیل</th>
                       <th className="py-3 px-4">شماره تماس</th>
                       <th className="py-3 px-4">تاریخ عضویت</th>
+                      <th className="py-3 px-4">آخرین فعالیت</th>
                       <th className="py-3 px-4">پلن و سهمیه</th>
                       <th className="py-3 px-3 text-center w-36">وضعیت / عملیات</th>
                     </tr>
@@ -428,8 +428,11 @@ export function UsersModal() {
                           <td className="py-3 px-4 font-mono text-xs text-ink/80 dir-ltr text-right">
                             {u.mobile}
                           </td>
-                          <td className="py-3 px-4 text-[11px] text-ink/70">
+                          <td className="py-3 px-4 text-[11px] text-ink/70 whitespace-nowrap">
                             {formatPersianDate(u.created_at)}
+                          </td>
+                          <td className="py-3 px-4 text-[11px] text-ink/70 whitespace-nowrap">
+                            {formatPersianDate(u.last_active_at || u.created_at)}
                           </td>
                           <td className="py-3 px-4">
                             <p className="font-bold text-ink">{planLabel(u)}</p>
@@ -577,6 +580,10 @@ export function UsersModal() {
                         <div className="flex items-center justify-between text-[11px] pt-1 border-t border-line/40">
                           <span className="text-ink/60">تاریخ عضویت:</span>
                           <span className="text-ink/75">{formatPersianDate(u.created_at)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-ink/60">آخرین فعالیت:</span>
+                          <span className="text-ink/75">{formatPersianDate(u.last_active_at || u.created_at)}</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] pt-1 border-t border-line/40">
                           <span className="text-ink/60">پلن و سهمیه:</span>

@@ -1372,6 +1372,37 @@ export const db = {
       .sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
   },
 
+  async listLastActiveByUser(): Promise<Record<string, Date>> {
+    const map: Record<string, Date> = {};
+    if (mysqlPool) {
+      await initTablesIfRealDb();
+      const [rows] = await mysqlPool.execute<RowDataPacket[]>(
+        "SELECT user_id, MAX(last_active_at) AS last_active_at FROM `sessions` GROUP BY user_id"
+      );
+      for (const r of rows) {
+        if (r.user_id && r.last_active_at) map[String(r.user_id)] = new Date(r.last_active_at);
+      }
+      return map;
+    }
+    if (pgPool) {
+      await initTablesIfRealDb();
+      const res = await pgPool.query(
+        "SELECT user_id, MAX(last_active_at) AS last_active_at FROM sessions GROUP BY user_id"
+      );
+      for (const r of res.rows) {
+        if (r.user_id && r.last_active_at) map[String(r.user_id)] = new Date(r.last_active_at);
+      }
+      return map;
+    }
+    for (const s of memoryStore.sessions.values()) {
+      const at = s.last_active_at || s.created_at;
+      if (!at) continue;
+      const prev = map[s.user_id];
+      if (!prev || at.getTime() > prev.getTime()) map[s.user_id] = at;
+    }
+    return map;
+  },
+
   async createUser(data: {
     name: string;
     email: string;

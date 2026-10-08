@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
     }
 
     const users = await db.listAllUsers();
+    const lastActiveMap = await db.listLastActiveByUser();
     const tournaments = await db.listAdminUserTournaments();
     const tournamentCountByUser: Record<string, number> = {};
     for (const t of tournaments) {
@@ -76,6 +77,11 @@ export async function GET(req: NextRequest) {
         vipExpiresAt: u.vip_expires_at ? new Date(u.vip_expires_at).toISOString() : null,
         clubProExpiresAt: u.club_pro_expires_at ? new Date(u.club_pro_expires_at).toISOString() : null,
         tournamentCount: tournamentCountByUser[u.id] || 0,
+        last_active_at: (() => {
+          const last = lastActiveMap[u.id] || u.created_at;
+          if (!last) return null;
+          return last instanceof Date ? last.toISOString() : new Date(last).toISOString();
+        })(),
       };
     });
 
