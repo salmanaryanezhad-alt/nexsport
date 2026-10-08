@@ -6,6 +6,7 @@ import {
   ScheduleResult,
   GroupResult,
   BracketMatch,
+  BracketRound,
   Match,
 } from "@/lib/scheduling/types";
 import { NexSportIcon } from "@/components/NexSportLogo";
@@ -120,6 +121,156 @@ function playAudioTone(type: "shuffle" | "reveal" | "finish") {
   }
 }
 
+function isByeSlot(name: string | null | undefined) {
+  if (!name) return false;
+  const t = name.trim();
+  return t === "BYE" || t === "استراحت";
+}
+
+function isPathPlaceholder(name: string | null | undefined) {
+  if (!name) return true;
+  const t = name.trim();
+  if (!t || isByeSlot(t)) return true;
+  return (
+    t.startsWith("برنده ") ||
+    t.startsWith("بازنده ") ||
+    t.startsWith("قهرمان ") ||
+    t.startsWith("نایب‌قهرمان ") ||
+    t.startsWith("در انتظار") ||
+    t.startsWith("نامشخص") ||
+    t.startsWith("سید ")
+  );
+}
+
+function CompactTeamSlot({
+  name,
+  revealedTeams,
+  currentTeam,
+}: {
+  name: string | null | undefined;
+  revealedTeams: Set<string>;
+  currentTeam?: string;
+}) {
+  if (isByeSlot(name)) {
+    return <span className="text-slate-400 truncate">استراحت</span>;
+  }
+  if (!name || isPathPlaceholder(name)) {
+    return <span className="text-slate-500 italic truncate">{name && name.startsWith("برنده") ? name : "—"}</span>;
+  }
+  const revealed = revealedTeams.has(name);
+  const isCurrent = currentTeam === name;
+  if (!revealed) {
+    return <span className="text-slate-500 italic truncate">در انتظار قرعه</span>;
+  }
+  return (
+    <span className={`truncate font-black ${isCurrent ? "text-amber-300" : "text-white"}`}>
+      {isCurrent ? "✦ " : ""}
+      {name}
+    </span>
+  );
+}
+
+function CompactMatchCard({
+  match,
+  revealedTeams,
+  currentTeam,
+}: {
+  match: BracketMatch;
+  revealedTeams: Set<string>;
+  currentTeam?: string;
+}) {
+  const homeName = match.isBye ? match.autoAdvance || match.home || match.away : match.home;
+  const awayName = match.isBye ? "استراحت" : match.away;
+  const isActive =
+    !!currentTeam &&
+    (homeName === currentTeam || awayName === currentTeam || match.autoAdvance === currentTeam);
+
+  return (
+    <div
+      className={`rounded-md border px-1.5 py-0.5 min-h-0 ${
+        isActive
+          ? "border-amber-400 bg-amber-950/40 ring-1 ring-amber-400/40"
+          : "border-slate-700/80 bg-slate-900/75"
+      }`}
+    >
+      <div className="truncate leading-tight">
+        <CompactTeamSlot name={homeName} revealedTeams={revealedTeams} currentTeam={currentTeam} />
+      </div>
+      <div className="text-[8px] leading-none text-slate-500 text-center">×</div>
+      <div className="truncate leading-tight">
+        <CompactTeamSlot name={awayName} revealedTeams={revealedTeams} currentTeam={currentTeam} />
+      </div>
+    </div>
+  );
+}
+
+function CompactDrawBracket({
+  rounds,
+  revealedTeams,
+  currentTeam,
+  extras,
+}: {
+  rounds: BracketRound[];
+  revealedTeams: Set<string>;
+  currentTeam?: string;
+  extras?: { label: string; match: BracketMatch }[];
+}) {
+  if (!rounds.length) return null;
+  const r1Count = rounds[0]?.matches.length || 0;
+  const dense = r1Count >= 8;
+
+  return (
+    <div className="w-full space-y-1.5" dir="rtl">
+      <div className={`flex items-stretch ${dense ? "gap-1" : "gap-1.5 sm:gap-2"}`}>
+        {rounds.map((round, roundIdx) => {
+          const splitFirst = dense && roundIdx === 0;
+          return (
+            <div key={round.round} className="flex-1 min-w-0 flex flex-col">
+              <p className="text-[9px] sm:text-[10px] font-black text-amber-300 text-center truncate mb-1">
+                {round.label}
+              </p>
+              <div
+                className={`flex-1 min-h-0 grid ${splitFirst ? "grid-cols-2 gap-1" : "grid-cols-1"}`}
+                style={
+                  splitFirst
+                    ? undefined
+                    : {
+                        gridTemplateRows: `repeat(${Math.max(round.matches.length, 1)}, minmax(0, 1fr))`,
+                        gap: dense ? "4px" : "6px",
+                      }
+                }
+              >
+                {round.matches.map((m) => (
+                  <CompactMatchCard
+                    key={m.id}
+                    match={m}
+                    revealedTeams={revealedTeams}
+                    currentTeam={currentTeam}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {extras && extras.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-1.5 pt-0.5">
+          {extras.map((item) => (
+            <div key={item.match.id} className="w-[46%] sm:w-40">
+              <p className="text-[9px] font-black text-amber-300 text-center mb-0.5">{item.label}</p>
+              <CompactMatchCard
+                match={item.match}
+                revealedTeams={revealedTeams}
+                currentTeam={currentTeam}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DrawCeremonyModal({
   isOpen,
   initialMode = "full",
@@ -146,6 +297,7 @@ export function DrawCeremonyModal({
   const completedRef = useRef(false);
 
   const isGroupFormat = format === "groups" || format === "groups-knockout";
+  const isKnockoutDraw = format === "knockout" || format === "double-knockout";
 
   // Build the sequential draw items based on actual result
   const drawSequence: DrawStepItem[] = useMemo(() => {
@@ -435,13 +587,38 @@ export function DrawCeremonyModal({
       : [];
   }, [result]);
 
+  const knockoutRounds: BracketRound[] = useMemo(() => {
+    if (!result) return [];
+    if (result.format === "knockout") return result.knockout?.rounds || [];
+    if (result.format === "double-knockout") return result.doubleKnockout?.winnersBracket || [];
+    return [];
+  }, [result]);
+
+  const knockoutExtras = useMemo(() => {
+    const extras: { label: string; match: BracketMatch }[] = [];
+    if (!result) return extras;
+    if (result.format === "knockout" && result.knockout?.thirdPlaceMatch) {
+      extras.push({ label: "رده‌بندی", match: result.knockout.thirdPlaceMatch });
+    }
+    if (result.format === "double-knockout") {
+      if (result.doubleKnockout?.grandFinal) {
+        extras.push({ label: "فینال بزرگ", match: result.doubleKnockout.grandFinal });
+      }
+    }
+    return extras;
+  }, [result]);
+
   // Dynamic responsive max-width based on number of groups/teams
   const modalMaxWidthClass = useMemo(() => {
+    if (isKnockoutDraw) {
+      const r1 = knockoutRounds[0]?.matches.length || 0;
+      return r1 >= 8 ? "max-w-4xl" : "max-w-3xl";
+    }
     const count = groupsList.length;
     if (count > 6) return "max-w-5xl";
     if (count > 4) return "max-w-4xl";
     return "max-w-2xl";
-  }, [groupsList.length]);
+  }, [groupsList.length, isKnockoutDraw, knockoutRounds]);
 
   // Dynamic responsive grid columns for groups preview
   const groupGridColsClass = useMemo(() => {
@@ -514,13 +691,15 @@ export function DrawCeremonyModal({
   }, [stage, currentStepIndex, drawSequence.length, isPaused, speed, initialMode]);
 
   // Auto-advance to schedule page after completion celebration (~1.8s) ONLY during full ceremony
+  // Knockout stays open so the filled bracket can be seen (no auto-close).
   useEffect(() => {
     if (stage !== "completed" || !isOpen || initialMode === "summary") return;
+    if (isKnockoutDraw) return;
     const tAuto = setTimeout(() => {
       handleFinish();
     }, 1800);
     return () => clearTimeout(tAuto);
-  }, [stage, isOpen, initialMode, handleFinish]);
+  }, [stage, isOpen, initialMode, handleFinish, isKnockoutDraw]);
 
   if (!isOpen) return null;
 
@@ -529,6 +708,9 @@ export function DrawCeremonyModal({
     stage === "completed" || initialMode === "summary"
       ? drawSequence
       : drawSequence.slice(0, currentStepIndex + 1);
+  const revealedTeams = new Set(drawnItemsSoFar.map((item) => item.team));
+  const currentTeamName =
+    stage === "drawing" ? currentDrawnItem?.team : undefined;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
@@ -705,6 +887,20 @@ export function DrawCeremonyModal({
                       </div>
                     ))}
                   </div>
+                ) : isKnockoutDraw && knockoutRounds.length > 0 ? (
+                  <div className="max-h-[280px] sm:max-h-[320px] overflow-hidden">
+                    <CompactDrawBracket
+                      rounds={knockoutRounds}
+                      revealedTeams={revealedTeams}
+                      currentTeam={currentTeamName}
+                      extras={knockoutExtras}
+                    />
+                    {format === "double-knockout" && (
+                      <p className="text-[10px] text-slate-400 text-center mt-1.5">
+                        جدول شانس مجدد بعد از نتایج بازی‌ها پر می‌شود
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[180px] sm:max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
                     {drawnItemsSoFar.map((item) => (
@@ -737,7 +933,9 @@ export function DrawCeremonyModal({
                     : "قرعه‌کشی رسمی با موفقیت پایان یافت!"}
                 </h3>
                 <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
-                  {initialMode === "summary"
+                  {isKnockoutDraw
+                    ? "تیم‌ها طبق قرعه در جایگاه براکت قرار گرفتند:"
+                    : initialMode === "summary"
                     ? "چیدمان نهایی تیم‌ها در گروه‌ها و جایگاه‌های قانونی مسابقات به شرح زیر است:"
                     : "تمامی گوی‌ها در جایگاه‌های قانونی خود قرار گرفتند. می‌توانید جدول نهایی قرعه را بررسی فرمایید و سپس وارد برنامه مسابقات شوید:"}
                 </p>
@@ -775,8 +973,24 @@ export function DrawCeremonyModal({
                 </div>
               )}
 
-              {/* Non-Group Fixture Summary (Knockout / League) */}
-              {!isGroupFormat && drawnItemsSoFar.length > 0 && (
+              {/* Knockout bracket summary */}
+              {isKnockoutDraw && knockoutRounds.length > 0 && (
+                <div className="max-h-[300px] sm:max-h-[340px] overflow-hidden text-right">
+                  <CompactDrawBracket
+                    rounds={knockoutRounds}
+                    revealedTeams={revealedTeams}
+                    extras={knockoutExtras}
+                  />
+                  {format === "double-knockout" && (
+                    <p className="text-[10px] text-slate-400 text-center mt-1.5">
+                      جدول شانس مجدد بعد از نتایج بازی‌ها پر می‌شود
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* League fixture summary */}
+              {!isGroupFormat && !isKnockoutDraw && drawnItemsSoFar.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[260px] sm:max-h-[340px] overflow-y-auto text-right p-1 pr-2 custom-scrollbar">
                   {drawnItemsSoFar.map((item) => (
                     <div
